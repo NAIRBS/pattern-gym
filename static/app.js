@@ -104,7 +104,7 @@ function enhanceEditor(ta, { onSubmit, autoIndent = true } = {}) {
 let C = null;           // content from server
 let S = null;           // persisted state
 const DEFAULTS = {
-  settings: { interviewDate: addDays(today(), 14), minutes: 30, newPerDay: 4, sprintSeconds: 15,
+  settings: { interviewDate: addDays(today(), 14), minutes: 30, newPerDay: 4, sprintSeconds: 15, sprintNoLimit: false, edgeSeconds: 60, singleKeys: true,
               focus: { talk: true, clarify: true, complexity: true, noide: true } },
   items: {}, xp: 0, streak: { count: 0, last: null, best: 0 }, days: {}, mocks: [], plan: null,
   study: { lessons: {}, walks: {}, attempts: {} },
@@ -264,6 +264,7 @@ function planTick(game) {
 // ─────────────────────────── HUD + router ───────────────────────────
 function renderHud() {
   if (!S) return;
+  document.body.classList.toggle('keys-off', !singleKeysOn());
   const l = level(S.xp), u = urgency();
   const into = S.xp - levelFloor(l), span = levelFloor(l + 1) - levelFloor(l);
   $('#hud').innerHTML = `
@@ -282,6 +283,10 @@ function route() {
   $$('nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === parts[0] || (parts[0] === 'play' && a.dataset.nav === 'games')));
   const app = $('#app'); app.innerHTML = '';
   (ROUTES[parts[0]] || ROUTES.today)(app, parts.slice(1), params);
+  $$('nav a').forEach(a => a.classList.contains('active') ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  const h1 = $('#app h1');
+  document.title = (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() + ' · ' : '') + 'Pattern Gym';
+  if (h1 && !app.contains(document.activeElement)) { h1.tabIndex = -1; h1.focus({ preventScroll: true }); }
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -322,6 +327,7 @@ document.addEventListener('keydown', e => {
   if (e.defaultPrevented) return;
   if (isTyping(e.target)) { if (e.key === 'Escape' && !e.target.closest('dialog')) { e.target.blur(); setTimeout(paintEdBtn, 0); } return; }
   if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
+  if (!singleKeysOn() && e.key.length === 1) return;
   if (e.key === 'Escape' && inEditor()) { document.activeElement.blur(); paintEdBtn(); return; }  // Line Up lines
   if (gAt && Date.now() - gAt < 1500 && NAV_KEYS[e.key]) { gAt = 0; disarmG(); e.preventDefault(); location.hash = '#/' + NAV_KEYS[e.key][0]; return; }
   gAt = 0; disarmG();
@@ -384,7 +390,8 @@ const chipLabel = el => {
 let kbTargets = [];
 function paintKeybar() {
   const chips = []; kbTargets = [];
-  const add = (keys, label, act, cls = '') => { kbTargets.push(act); chips.push(`<button type="button" class="kchip ${cls}" data-k="${kbTargets.length - 1}" tabindex="-1">${keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')}<span>${esc(label)}</span></button>`); };
+  const off = !singleKeysOn();
+  const add = (keys, label, act, cls = '') => { if (off && keys[0].length === 1 && !'↑↓←→'.includes(keys[0])) return; kbTargets.push(act); chips.push(`<button type="button" class="kchip ${cls}" data-k="${kbTargets.length - 1}" tabindex="-1">${keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')}<span>${esc(label)}</span></button>`); };
   if (editorOnPage().length) {
     if (inEditor()) add(['Esc'], 'leave the editor', () => document.activeElement.blur(), 'on');
     else add(['E'], 'go to the editor', () => focusEditor());
@@ -421,6 +428,7 @@ function paintKeybar() {
     add(['/'], 'search problems', () => { location.hash = '#/problems'; });
   }
   add(['?'], 'all shortcuts', () => showKeys());
+  if (off) chips.push('<span class="kintro">Single-key shortcuts are off. Turn them on in Settings.</span>');
   keybar.innerHTML = (introSeen ? '' : `<span class="kintro">New here? Everything works from the keyboard. These are the keys for this screen.
       <button type="button" class="kintro-x" aria-label="Got it, hide this tip">Got it</button></span>`) + chips.join('');
 }
@@ -463,7 +471,7 @@ function gradeButtons(onGrade, suggested) {
   const go = q => { if (used) return; used = true; onGrade(q); };
   el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(+b.dataset.q); });
   const key = e => {
-    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !['1', '2', '3'].includes(e.key)) return;
+    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !singleKeysOn() || !['1', '2', '3'].includes(e.key)) return;
     if (!el.querySelector(`[data-q="${+e.key - 1}"]`).disabled) go(+e.key - 1);
   };
   document.addEventListener('keydown', key); onRound(() => document.removeEventListener('keydown', key));
@@ -475,6 +483,8 @@ function gradeButtons(onGrade, suggested) {
 let roundCleanup = [];
 function onRound(fn) { roundCleanup.push(fn); onLeave(fn); }
 function cleanupRound() { roundCleanup.forEach(f => { try { f(); } catch (e) {} }); roundCleanup = []; }
+const singleKeysOn = () => S?.settings?.singleKeys !== false;   // WCAG 2.1.4: single-key shortcuts can be turned off in Settings
+function announce(msg) { const r = document.getElementById('sr-status'); if (!r) return; r.textContent = ''; setTimeout(() => { r.textContent = msg; }, 60); }
 const isTyping = t => !!t?.matches?.('textarea, select, [contenteditable], input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=button])');
 
 // Show / hide the answer. Seeing it once marks the round as missed, whatever happens after
@@ -596,9 +606,10 @@ GAMES.sprint = {
       <div class="timebar"><i style="width:100%"></i></div>
       <div class="options">${opts.map((p, k) => `<button data-p="${p}"><kbd>${k + 1}</kbd> ${esc(PAT(p).name)}</button>`).join('')}</div>
       <div id="rev"></div></div>`;
-    const bar = $('.timebar > i', el);
+    const bar = $('.timebar > i', el), noLimit = !!S.settings.sprintNoLimit;
+    if (noLimit) bar.parentElement.hidden = true;
     const t0 = Date.now(); let answered = false;
-    const iv = setInterval(() => { const left = 1 - (Date.now() - t0) / 1000 / secs; bar.style.width = Math.max(0, left * 100) + '%';
+    const iv = setInterval(() => { if (noLimit) { clock.textContent = ((Date.now() - t0) / 1000).toFixed(1); return; } const left = 1 - (Date.now() - t0) / 1000 / secs; bar.style.width = Math.max(0, left * 100) + '%';
       clock.textContent = Math.max(0, secs - (Date.now() - t0) / 1000).toFixed(1); if (left <= 0) answer(null); }, 100);
     onRound(() => clearInterval(iv));
     const answer = p => {
@@ -618,7 +629,7 @@ GAMES.sprint = {
       $('#nx', el).onclick = go;
     };
     el.addEventListener('click', e => { const b = e.target.closest('.options button'); if (b) answer(b.dataset.p); });
-    const k = e => { if (!answered && ['1', '2', '3', '4'].includes(e.key)) answer(opts[+e.key - 1]); };
+    const k = e => { if (!answered && singleKeysOn() && !isTyping(e.target) && ['1', '2', '3', '4'].includes(e.key)) answer(opts[+e.key - 1]); };
     document.addEventListener('keydown', k); onRound(() => document.removeEventListener('keydown', k));
   },
 };
@@ -636,7 +647,7 @@ GAMES.lineup = {
     const timer = startTimer(clock, 0, null, { countUp: true });
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       <span class="spacer"></span><button class="ghost" id="hint" data-key="h">Show pattern <kbd>H</kbd></button></div>
-      <p>${esc(p.statement)}</p><div id="hintbox"></div>
+      <p>${esc(p.statement)}</p><div id="hintbox" aria-live="polite"></div>
       <p class="muted small kbd-tip">Drag lines, or use the keyboard: <kbd>↑</kbd><kbd>↓</kbd> move between lines, <kbd>←</kbd><kbd>→</kbd> switch column,
         <kbd>Enter</kbd> moves a line across, <kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> reorders.</p>
       <div class="parsons">
@@ -644,7 +655,7 @@ GAMES.lineup = {
         <div><div class="muted small" id="built-lbl">Your solution, top to bottom</div><div class="lines" id="built" role="listbox" aria-labelledby="built-lbl"></div></div></div>
       <div class="row" style="margin-top:12px"><button class="primary" id="check" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
       <button class="ghost" id="giveup"></button><span id="moveon"></span><span class="spacer"></span><span class="muted small" id="cnt"></span></div>
-      <div id="ans" hidden></div><div id="out"></div></div>`;
+      <div id="ans" hidden></div><div id="out" aria-live="polite"></div></div>`;
     const list = name => name === 'pool' ? pool : built;
     const draw = () => {
       const row = (l, k, name) => `<div class="ln" role="option" data-id="${l.i}" tabindex="${cur.list === name && cur.pos === k ? 0 : -1}">${name === 'built' ? `<span class="num">${k + 1}</span>` : ''}${esc(l.t)}</div>`;
@@ -735,7 +746,7 @@ GAMES.fill = {
     let gapNo = 0;
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       ${patternTag(p.pattern)}<span class="spacer"></span><button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button></div>
-      <p>${esc(p.statement)}</p><div id="hintbox"></div>
+      <p>${esc(p.statement)}</p><div id="hintbox" aria-live="polite"></div>
       <div class="fill">${lines.map((l, i) => {
         if (!key.has(i)) return `<div class="l">${esc(l) || ' '}</div>`;
         const ind = l.match(/^ */)[0]; gapNo++;
@@ -743,7 +754,7 @@ GAMES.fill = {
           <div class="l gap-ans" data-for="${i}" hidden style="padding-left:${ind.length}ch"></div>`;
       }).join('')}</div>
       <div class="row" style="margin-top:12px"><button class="primary" id="check" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
-      <button class="ghost" id="giveup"></button><span id="moveon"></span></div><div id="out"></div></div>`;
+      <button class="ghost" id="giveup"></button><span id="moveon"></span></div><div id="out" aria-live="polite"></div></div>`;
     const inputs = $$('input', el);
     inputs[0]?.focus();
     inputs.forEach((inp, k) => inp.addEventListener('keydown', e => {
@@ -806,9 +817,9 @@ GAMES.skeleton = {
         <p class="muted small">Used when: ${pt.triggers.map(esc).join(' · ')}</p>
         ${ex ? `<details><summary class="small">What does a skeleton look like? (example from a different pattern: ${esc(ex.name)})</summary><pre class="code">${esc(ex.skeleton)}</pre></details>` : ''}
       </div>
-      <div id="hintbox"></div>
+      <div id="hintbox" aria-live="polite"></div>
       <textarea class="code" id="ed" aria-label="Your skeleton" placeholder="# state you keep&#10;# loop&#10;#     condition that moves you on&#10;# return ..."></textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Compare <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Compare <kbd>Ctrl+Enter</kbd></button></div><div id="out" aria-live="polite"></div></div>`;
     const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => submit() }); ed.focus();
     $('#hint', el).onclick = () => {
       if (hintLevel >= hints.length) return;
@@ -868,7 +879,7 @@ GAMES.syntax = {
       ${s.setup ? `<div class="muted small" style="margin-top:8px">Already defined:</div><pre class="code">${esc(s.setup)}</pre>` : ''}
       <textarea class="code snap" id="ed" placeholder="your code"></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Check <kbd>Ctrl+Enter</kbd></button><button class="ghost" id="ans"></button><span id="moveon"></span></div>
-      <div id="ansbox" hidden></div><div id="out"></div></div>`;
+      <div id="ansbox" hidden></div><div id="out" aria-live="polite"></div></div>`;
     const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => check() }); ed.focus();
     const shown = answerToggle($('#ans', el), $('#ansbox', el), () => `<pre class="code">${esc(s.answer)}</pre>`,
       () => { if (!finished) $('#moveon', el).append(missedBar(done)); });
@@ -900,9 +911,9 @@ GAMES.bigo = {
       <p class="muted small">${esc(p.statement)}</p><pre class="code">${esc(p.solution)}</pre>
       <div class="side"><div><b>Time</b> <span class="muted small">keys 1-4</span><div class="options" id="t">${to.map((c, k) => `<button data-c="${esc(c)}"><kbd>${k + 1}</kbd> ${esc(c)}</button>`).join('')}</div></div>
       <div><b>Space</b> <span class="muted small">(extra, excluding output) · then 1-4</span><div class="options" id="s">${so.map((c, k) => `<button data-c="${esc(c)}"><kbd>${k + 1}</kbd> ${esc(c)}</button>`).join('')}</div></div></div>
-      <div id="out"></div></div>`;
+      <div id="out" aria-live="polite"></div></div>`;
     const keys = e => {
-      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !['1', '2', '3', '4'].includes(e.key)) return;
+      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !singleKeysOn() || !['1', '2', '3', '4'].includes(e.key)) return;
       if (pickT == null) $$('#t button', el)[+e.key - 1]?.click(); else if (pickS == null) $$('#s button', el)[+e.key - 1]?.click();
     };
     document.addEventListener('keydown', keys); onRound(() => document.removeEventListener('keydown', keys));
@@ -926,16 +937,17 @@ GAMES.bigo = {
 // 7. Edge Hunter — list clarifying questions & edge cases, then self-check.
 GAMES.edge = {
   name: 'Edge Hunter', icon: '🔍', layer: 'In-person', cost: 1.5, defaultN: 2, focus: 'clarify',
-  desc: '60 seconds to write the clarifying questions and edge cases you would raise, one per line. Scored automatically against the expected list; claiming one it didn’t match counts half.',
+  desc: 'A minute (change it in Settings) to write the clarifying questions and edge cases you would raise, one per line. Scored automatically against the expected list; claiming one it didn’t match counts half.',
   pool: () => C.problems,
   render(el, p, done, { clock }) {
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span></div>
       <p class="prompt" style="font-size:17px">${esc(p.statement)}</p>
       <p class="muted small">One question or edge case per line, specific to this problem (e.g. “what if n is 0?”, not just “edge cases”).</p>
       <textarea id="ed" style="min-height:150px" aria-label="Your questions and edge cases" placeholder="- What if the input is empty?&#10;- Can there be duplicates?&#10;- ..."></textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Score it <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Score it <kbd>Ctrl+Enter</kbd></button></div><div id="out" aria-live="polite"></div></div>`;
     const ed = $('#ed', el); ed.focus();
-    const timer = startTimer(clock, 60, () => reveal());
+    const lim = S.settings.edgeSeconds ?? 60;
+    const timer = lim ? startTimer(clock, lim, () => reveal()) : startTimer(clock, 0, null, { countUp: true });
     let shown = false;
     const reveal = () => {
       if (shown) return; shown = true; timer.stop(); ed.readOnly = true;
@@ -981,7 +993,7 @@ GAMES.oa = {
       <textarea class="code" id="ed" aria-label="Your solution"></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="run" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
       <button class="ghost" id="give"></button><span id="moveon"></span><span class="spacer"></span><span class="muted small" id="rc"></span></div>
-      <div id="sol" hidden></div><div id="out"></div></div>`;
+      <div id="sol" hidden></div><div id="out" aria-live="polite"></div></div>`;
     const ed = $('#ed', el); ed.value = p.starter; enhanceEditor(ed, { onSubmit: () => run() }); ed.focus();
     ed.selectionStart = ed.selectionEnd = ed.value.length - 1;
     const timer = startTimer(clock, mins * 60, () => toast('⏰ Time budget used: finish up or look at the solution'));
@@ -1277,7 +1289,16 @@ ROUTES.settings = app => {
         `<label><input type="checkbox" data-f="${k}" ${st.focus[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
     <div class="card"><h2 class="h3">New items per day, per game: <span id="nv">${st.newPerDay}</span></h2><input type="range" class="slider" id="new" aria-label="New items per day, per game" min="1" max="12" value="${st.newPerDay}">
       <p class="muted small">Pattern Sprint gets 3× this. Reviews always come first; new items fill the rest.</p></div>
-    <div class="card"><h2 class="h3">Sprint timer: <span id="sv">${st.sprintSeconds}</span>s</h2><input type="range" class="slider" id="sec" aria-label="Sprint timer in seconds" min="6" max="30" value="${st.sprintSeconds}"></div>
+    <div class="card"><h2 class="h3">Time limits</h2>
+      <p class="muted small">Timed games train speed. Lengthen or remove a limit whenever you need more time.</p>
+      <p class="setrow">Pattern Sprint: <b><span id="sv">${st.sprintSeconds}</span> s</b> per card</p>
+      <input type="range" class="slider" id="sec" aria-label="Pattern Sprint seconds per card" min="6" max="30" value="${st.sprintSeconds}" ${st.sprintNoLimit ? 'disabled' : ''}>
+      <label class="checkrow"><input type="checkbox" id="sprintnl" ${st.sprintNoLimit ? 'checked' : ''}> No time limit in Pattern Sprint</label>
+      <label class="setrow" for="edgesec">Edge Hunter</label>
+      <select id="edgesec">${[[60, '60 seconds'], [120, '2 minutes'], [180, '3 minutes'], [0, 'No time limit']].map(([v, l]) => `<option value="${v}" ${(st.edgeSeconds ?? 60) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+    <div class="card"><h2 class="h3">Keyboard</h2>
+      <label class="checkrow"><input type="checkbox" id="singlekeys" ${st.singleKeys !== false ? 'checked' : ''}> Single-key shortcuts (S, A, N, 1–9 and so on)</label>
+      <p class="muted small">Turn these off if you use speech input or tend to press keys by accident. Ctrl+Enter, Esc, Enter, Tab and the arrow keys keep working.</p></div>
     <div class="card" id="acct" hidden></div>
     <div class="card"><h2 class="h3">Data</h2><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py'
       : 'Progress is saved in this browser'}${Cloud.signedIn ? ' and synced to your account.' : SERVER ? '.'
@@ -1293,6 +1314,9 @@ ROUTES.settings = app => {
   $('#min').onchange = rebuild;
   $('#new').oninput = e => { st.newPerDay = +e.target.value; $('#nv').textContent = st.newPerDay; save(); };
   $('#sec').oninput = e => { st.sprintSeconds = +e.target.value; $('#sv').textContent = st.sprintSeconds; save(); };
+  $('#sprintnl').onchange = e => { st.sprintNoLimit = e.target.checked; $('#sec').disabled = e.target.checked; save(); toast(e.target.checked ? 'Pattern Sprint: no time limit' : 'Pattern Sprint: timed'); };
+  $('#edgesec').onchange = e => { st.edgeSeconds = +e.target.value; save(); toast('Edge Hunter: ' + e.target.selectedOptions[0].text); };
+  $('#singlekeys').onchange = e => { st.singleKeys = e.target.checked; save(); toast(e.target.checked ? 'Single-key shortcuts on' : 'Single-key shortcuts off'); };
   $$('[data-f]').forEach(c => c.onchange = () => { st.focus[c.dataset.f] = c.checked; rebuild(); });
   $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = `pattern-gym-${today()}.json`; a.click(); };
   $('#import').onclick = () => $('#importfile').click();
@@ -1648,7 +1672,7 @@ function studySolve(app, probId, params) {
         <details class="coach card" ${coachOpen ? 'open' : ''}><summary>Approach coach <span class="muted small">(optional notes, step by step)</span></summary>
           ${APPROACH.slice(0, 6).map((a, k) => `<label class="coach-step"><span><b>${k + 1}. ${esc(a.t)}</b><span class="muted small">${esc(a.d)}</span></span>
             <textarea rows="2" aria-label="${esc(a.t)}"></textarea></label>`).join('')}</details>
-        <div id="hintbox"></div>
+        <div id="hintbox" aria-live="polite"></div>
       </div>
       <div class="solve-right">
         <textarea class="code" id="ed" aria-label="Your solution"></textarea>
@@ -1656,7 +1680,7 @@ function studySolve(app, probId, params) {
           <button class="ghost" id="hint" data-key="h">Hint 1 of 3 <kbd>H</kbd></button>
           <button class="ghost" id="give" data-key="a">Show the walkthrough <kbd>A</kbd></button>
           <span class="spacer"></span><span class="muted small" id="rc"></span></div>
-        <div id="out"></div></div></div></div>`;
+        <div id="out" aria-live="polite"></div></div></div></div>`;
   const ed = $('#ed', app); ed.value = p.starter; enhanceEditor(ed, { onSubmit: () => run() });
   ed.focus(); ed.selectionStart = ed.selectionEnd = ed.value.length - 1;
   const timer = startTimer($('#clock', app), 0, null, { countUp: true });

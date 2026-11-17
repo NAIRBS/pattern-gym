@@ -11,6 +11,7 @@ const Cloud = (() => {
   const PUSH_DELAY = 5000;
 
   function set(s, err) {
+    if ((s === 'error' || s === 'offline') && s !== status && typeof announce === 'function') announce(s === 'error' ? 'Sync problem. Progress is still saved on this device.' : 'Offline. Progress will sync when you are back online.');
     status = s; lastError = err || null;
     try { renderHud(); } catch (e) { /* app not booted yet */ }
     const card = document.getElementById('acct');

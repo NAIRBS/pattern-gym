@@ -515,3 +515,14 @@ body.g-armed nav a .navk { opacity: 1; color: var(--accent-ink); background: var
 @media (max-width: 560px) { .card.block { flex-wrap: wrap; } .card.block .block-go { margin-left: auto; } }
 
 .hud .pill kbd { font-size: 10.5px; padding: 0 4px; min-width: 0; margin-left: 2px; }
+
+/* page headings receive focus on page change (for screen readers); no ring needed there */
+#app h1[tabindex="-1"]:focus { outline: none; }
+/* single-key shortcuts turned off: hide the printed letter/number keys */
+body.keys-off #app .btn kbd, body.keys-off #app button kbd, body.keys-off header .pill kbd, body.keys-off .navk, body.keys-off .cardk,
+body.keys-off .skbd-idle, body.keys-off .kbd-tip { display: none; }
+/* settings rows */
+.setrow { display: block; margin: 12px 0 4px; }
+.checkrow { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.checkrow input { width: 18px; height: 18px; accent-color: var(--accent); }
+#edgesec { min-height: 44px; }
