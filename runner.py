@@ -150,10 +150,8 @@ def get_callable(ns, name):
     raise NameError(f"Couldn't find function '{name}' (as a top-level def or a Solution method)")
 
 
-def main():
-    with open(sys.argv[1], encoding="utf-8") as f:
-        data = json.load(f)
-    code, spec = data["code"], data["spec"]
+def run(code, spec):
+    """Run code against spec and return the result dict. Also used in the browser (Pyodide worker)."""
     ns = {"__name__": "__solution__"}
     result = {"ok": False, "results": [], "error": None}
     try:
@@ -165,8 +163,7 @@ def main():
         exec(compile(code, "<your code>", "exec"), ns)
     except Exception:
         result["error"] = "".join(traceback.format_exc(limit=0)).strip()
-        print(json.dumps(result))
-        return
+        return result
 
     kind = spec.get("kind", "function")
     if kind == "snippet":
@@ -176,8 +173,7 @@ def main():
             result["results"] = [{"pass": ok, "input": spec["check"]}]
         except Exception as e:
             result["error"] = f"{type(e).__name__}: {e}"
-        print(json.dumps(result))
-        return
+        return result
 
     all_ok = True
     t0 = time.perf_counter()
@@ -231,7 +227,19 @@ def main():
         result["results"].append(r)
     result["ok"] = all_ok
     result["ms"] = round((time.perf_counter() - t0) * 1000, 1)
-    print(json.dumps(result))
+    return result
+
+
+def run_json(payload):
+    """Browser entry point: JSON {code, spec} in, JSON result out."""
+    data = json.loads(payload)
+    return json.dumps(run(data["code"], data["spec"]))
+
+
+def main():
+    with open(sys.argv[1], encoding="utf-8") as f:
+        data = json.load(f)
+    print(json.dumps(run(data["code"], data["spec"])))
 
 
 if __name__ == "__main__":

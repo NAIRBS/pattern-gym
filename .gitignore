@@ -1,6 +1,9 @@
 # personal progress stays on each machine
 progress.json
 progress.json.tmp
+# built by build_static.py for static hosting
+static/content.json
+static/runner.py
 __pycache__/
 *.pyc
 .claude/

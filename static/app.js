@@ -1,5 +1,5 @@
 /* Pattern Gym - daily LeetCode pattern drills.
-   Vanilla JS, no build step. Progress is saved to progress.json by server.py. */
+   Vanilla JS, no build step. Runs against server.py locally, or as static files (see loadContent). */
 'use strict';
 
 // ─────────────────────────── utilities ───────────────────────────
@@ -18,8 +18,61 @@ const fmtTime = s => `${Math.floor(Math.max(0, s) / 60)}:${pad(Math.floor(Math.m
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1600); }
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
   return r.json();
 }
+// Two modes, picked at boot:
+//  - server: `python server.py` is running. Content, code runs and progress go through /api/*.
+//  - static: hosted as plain files (GitHub Pages). Content from content.json (built by build_static.py),
+//    code runs in the browser (Pyodide worker), progress in this browser's localStorage.
+// URLs are relative so the static build works under a sub-path like /pattern-gym/.
+let SERVER = false;
+async function loadContent() {
+  try { const c = await api('/api/content'); SERVER = true; return c; }
+  catch (e) { SERVER = false; return api('content.json'); }
+}
+
+// ── progress storage ──
+const LS_KEY = 'pattern-gym-state';
+async function loadState() {
+  if (SERVER) return api('/api/state');
+  try { navigator.storage?.persist?.(); } catch (e) { /* best effort: asks the browser not to evict our data */ }
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) { return {}; }
+}
+function persist() {
+  if (SERVER) return api('/api/state', S).catch(() => toast('Couldn’t save progress (is server.py running?)'));
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) { toast('Couldn’t save progress in this browser'); }
+}
+
+// ── running code ──
+let pyWorker = null, pyReady = null, pyLoaded = false;
+function startPy() {
+  pyLoaded = false;
+  pyWorker = new Worker('py-worker.js');
+  pyReady = new Promise((resolve, reject) => {
+    pyWorker.onmessage = e => e.data.ready ? (pyLoaded = true, resolve()) : reject(new Error(e.data.error));
+    pyWorker.onerror = e => reject(new Error(e.message || 'worker failed to start'));
+  });
+  pyReady.catch(() => {});
+}
+async function runPy(code, spec, timeoutMs) {
+  if (!pyWorker) startPy();
+  if (!pyLoaded) toast('Loading Python in your browser (first run only)...');
+  try { await pyReady; }
+  catch (e) { pyWorker.terminate(); pyWorker = null; return { ok: false, results: [], error: `Couldn’t load Python in the browser (${e.message}). Check your connection and try again.` }; }
+  const w = pyWorker;
+  return new Promise(resolve => {
+    const t = setTimeout(() => {
+      w.terminate(); startPy();  // the only way to stop an infinite loop in a worker
+      resolve({ ok: false, results: [], error: `Time limit exceeded (${timeoutMs / 1000}s). Infinite loop or too slow?` });
+    }, timeoutMs);
+    w.onmessage = e => { clearTimeout(t); if (e.data.fatal) { w.terminate(); startPy(); } resolve(e.data.result); };
+    w.postMessage({ code, spec });
+  });
+}
+const runTests = (p, code) => SERVER ? api('/api/run', { id: p.id, code }) : runPy(code, p.tests, 6000);
+const runSyntax = (s, code) => SERVER ? api('/api/syntax', { id: s.id, code })
+  : runPy(code, { kind: 'snippet', setup: s.setup, check: s.check }, 4000);
 
 // Editor niceties: Tab = 4 spaces, Shift+Tab dedent, Enter keeps indent (+4 after ':'), Ctrl+Enter = submit
 function enhanceEditor(ta, { onSubmit, autoIndent = true } = {}) {
@@ -57,7 +110,16 @@ const DEFAULTS = {
   study: { lessons: {}, walks: {} },
 };
 let saveTimer = null;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => api('/api/state', S), 300); renderHud(); }
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveTimer = null; persist(); }, 300); renderHud(); }
+addEventListener('pagehide', () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; persist(); } });
+// Fill in anything missing (older saves, imported backups) from DEFAULTS.
+function normalizeState(raw) {
+  const s = Object.assign(structuredClone(DEFAULTS), raw && typeof raw === 'object' ? raw : {});
+  s.settings = Object.assign(structuredClone(DEFAULTS.settings), s.settings || {});
+  s.settings.focus = Object.assign({}, DEFAULTS.settings.focus, s.settings.focus || {});
+  s.study = Object.assign({ lessons: {}, walks: {} }, s.study || {});
+  return s;
+}
 function dayRec(d = today()) { return S.days[d] ||= { xp: 0, rounds: 0, newBy: {} }; }
 
 // urgency
@@ -378,7 +440,7 @@ GAMES.lineup = {
       if (finished) return;
       if (pool.length) { toast(`Place all lines first (${pool.length} left)`); return; }
       tries++;
-      const r = await api('/api/run', { id: p.id, code: built.map(l => l.t).join('\n') });
+      const r = await runTests(p, built.map(l => l.t).join('\n'));
       $('#out', el).innerHTML = resultsHtml(r);
       if (r.ok) { finished = true; finish(tries === 1 && !hint ? 2 : 1); }
       else {
@@ -426,7 +488,7 @@ GAMES.fill = {
     const check = async () => {
       if (finished) return; tries++;
       const code = lines.map((l, i) => key.has(i) ? l.match(/^ */)[0] + el.querySelector(`input[data-i="${i}"]`).value.trim() : l).join('\n');
-      const r = await api('/api/run', { id: p.id, code });
+      const r = await runTests(p, code);
       $('#out', el).innerHTML = resultsHtml(r);
       if (r.ok) { finished = true; finish(tries === 1 && !hint ? 2 : 1); }
     };
@@ -486,7 +548,7 @@ GAMES.syntax = {
     const finish = q => { finished = true; timer.stop(); $('#out', el).append(gradeButtons(done, q)); };
     const check = async () => {
       if (finished) return; tries++;
-      const r = await api('/api/syntax', { id: s.id, code: ed.value });
+      const r = await runSyntax(s, ed.value);
       $('#out', el).innerHTML = r.ok ? `<div class="res">✓ Correct</div><pre class="code">${esc(s.answer)}</pre>` : `<div class="res fail">✗ ${esc(r.error || 'Check failed: ' + s.check)}</div>`;
       if (r.ok) finish(tries === 1 ? 2 : 1);
     };
@@ -578,7 +640,7 @@ GAMES.oa = {
     const finish = q => { finished = true; const t = timer.stop(); $('#out', el).insertAdjacentHTML('beforeend', `<p class="muted small">Time: ${fmtTime(t)} · runs: ${runs}</p>`); $('#out', el).append(gradeButtons(done, q)); };
     const run = async () => {
       if (finished) return; runs++; $('#rc', el).textContent = `${runs} run${runs > 1 ? 's' : ''}`;
-      const r = await api('/api/run', { id: p.id, code: ed.value });
+      const r = await runTests(p, ed.value);
       $('#out', el).innerHTML = resultsHtml(r);
       if (r.ok) finish(timer.elapsed() <= mins * 60 && runs <= 3 ? 2 : 1);
     };
@@ -648,7 +710,7 @@ GAMES.mock = {
     };
     onLeave(() => rec && rec.stop());
     const scorePhase = async () => {
-      const r = await api('/api/run', { id: p.id, code: notes.code || '' });
+      const r = await runTests(p, notes.code || '');
       const okT = notes.ct === p.time, okS = notes.cs === p.space;
       $('#res', el).innerHTML = resultsHtml(r) + `<div class="reveal">You said time <b>${esc(notes.ct)}</b> ${okT ? '✓' : '✗'}, space <b>${esc(notes.cs)}</b> ${okS ? '✓' : '✗'}.
         Reference: ${esc(p.time)} / ${esc(p.space)}.<br>${patternTag(p.pattern)} ${esc(p.insight)}</div>
@@ -788,8 +850,10 @@ ROUTES.settings = app => {
     <div class="card"><h3>New items per day, per game: <span id="nv">${st.newPerDay}</span></h3><input type="range" class="slider" id="new" min="1" max="12" value="${st.newPerDay}">
       <p class="muted small">Pattern Sprint gets 3× this. Reviews always come first; new items fill the rest.</p></div>
     <div class="card"><h3>Sprint timer: <span id="sv">${st.sprintSeconds}</span>s</h3><input type="range" class="slider" id="sec" min="6" max="30" value="${st.sprintSeconds}"></div>
-    <div class="card"><h3>Data</h3><p class="muted small">Progress is saved in progress.json next to server.py.</p>
-      <div class="row"><button id="export">Download backup</button><button class="bad" id="reset">Reset all progress</button></div></div>
+    <div class="card"><h3>Data</h3><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py.'
+      : 'Progress is saved in this browser only. Download a backup now and then, and use Restore to move it to another browser or device.'}</p>
+      <div class="row"><button id="export">Download backup</button><button id="import">Restore from backup</button>
+      <input type="file" id="importfile" accept=".json,application/json" hidden><button class="bad" id="reset">Reset all progress</button></div></div>
     </div>`;
   const rebuild = () => { if (S.plan) S.plan.minutes = -1; save(); }; // forces rebuild, keeps today's progress
   $('#date').onchange = e => { st.interviewDate = e.target.value || null; rebuild(); toast('Urgency updated'); };
@@ -801,6 +865,16 @@ ROUTES.settings = app => {
   $('#sec').oninput = e => { st.sprintSeconds = +e.target.value; $('#sv').textContent = st.sprintSeconds; save(); };
   $$('[data-f]').forEach(c => c.onchange = () => { st.focus[c.dataset.f] = c.checked; rebuild(); });
   $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = `pattern-gym-${today()}.json`; a.click(); };
+  $('#import').onclick = () => $('#importfile').click();
+  $('#importfile').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    let data;
+    try { data = JSON.parse(await f.text()); } catch (err) { toast('That file isn’t valid JSON'); return; }
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !('items' in data || 'settings' in data)) { toast('That doesn’t look like a Pattern Gym backup'); return; }
+    if (!confirm('Replace your current progress with this backup? (Download a backup first if you want to keep it.)')) return;
+    S = normalizeState(data); save(); toast('Backup restored'); route();
+  };
   $('#reset').onclick = () => { if (confirm('Erase ALL progress, XP and streaks? This cannot be undone.')) { const s = S.settings; S = structuredClone(DEFAULTS); S.settings = s; save(); toast('Progress reset'); } };
 };
 
@@ -967,11 +1041,9 @@ function studyWalk(app, pid, probId) {
 // ─────────────────────────── boot ───────────────────────────
 (async () => {
   try {
-    [C, S] = await Promise.all([api('/api/content'), api('/api/state')]);
-  } catch (e) { $('#app').innerHTML = '<div class="card">Can’t reach the server. Is <code>python server.py</code> running?</div>'; return; }
-  S = Object.assign(structuredClone(DEFAULTS), S || {});
-  S.settings = Object.assign(structuredClone(DEFAULTS.settings), S.settings || {});
-  S.settings.focus = Object.assign({}, DEFAULTS.settings.focus, S.settings.focus || {});
-  S.study = Object.assign({ lessons: {}, walks: {} }, S.study || {});
+    C = await loadContent();
+    S = normalizeState(await loadState());
+  } catch (e) { $('#app').innerHTML = '<div class="card">Can’t load content. Locally, is <code>python server.py</code> running? For static hosting, run <code>python build_static.py</code> first.</div>'; return; }
   renderHud(); route();
+  if (!SERVER) setTimeout(() => { if (!pyWorker) startPy(); }, 1500);  // warm up Python so the first Run is quick
 })();

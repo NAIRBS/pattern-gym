@@ -19,6 +19,16 @@ Then open http://localhost:8787. Get updates later with `git pull`.
 Progress is saved in `progress.json`, which is **not** committed (it's per machine). To carry progress over, copy that file
 into the folder on the other computer. Different port: `PORT=9000 python3 server.py` (Windows: `set PORT=9000` first).
 
+## Hosted on GitHub Pages
+
+`.github/workflows/pages.yml` deploys on every push to `main`: it runs `validate.py`, then `build_static.py`, and
+publishes `static/`. One-time setup: repo **Settings → Pages → Source: GitHub Actions** (free Pages needs a public repo).
+
+The hosted version needs no server. Code runs in your browser with Pyodide; the first Run downloads Python (about 10 MB),
+then the browser caches it. Progress is saved in that browser's local storage. Use **Settings → Download backup /
+Restore from backup** to move it between devices. To try the static build locally:
+`python build_static.py` then `python -m http.server -d static 8000`.
+
 ## Study tab
 
 Learn before you drill: **The Method** (problem → pseudocode in 4 questions, input-size → complexity table), a **lesson per pattern** (why it exists, how to spot it, the skeleton built line by line with the reason for each line, bugs to avoid), and a **step-by-step walkthrough for all 150 problems** (clarify → brute force → pattern → pseudocode plan → code with problem-specific lines highlighted → catch → complexity). Each lesson links straight into drills filtered to that pattern.
@@ -46,6 +56,8 @@ Setting an interview date within 14 days switches to urgent mode, which caps int
 - `runner.py`: runs your code against tests in a separate process (6 s timeout)
 - `content/`: patterns (skeletons), sprint deck, syntax cards, and all 150 NeetCode problems with solutions + tests
   (`problems.py`, `problems_a.py`, `problems_b.py`, `problems_c.py`)
+- `build_static.py`: writes `static/content.json` and copies `runner.py` into `static/` for static hosting
+- `static/py-worker.js`: runs `runner.py` in the browser with Pyodide when there's no server
 - `validate.py`: checks every reference solution passes its tests. Run it after adding content.
 
 ## Adding a problem
