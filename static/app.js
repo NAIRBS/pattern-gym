@@ -1099,41 +1099,76 @@ function runFixed(app, game, o) {
 
 // Every problem in one searchable list: solve any of them against the real tests.
 ROUTES.problems = (app, _, params) => {
+  const st = { q: params.q || '', d: '', p: '' };
   app.innerHTML = `<h1>Problems</h1>
-    <p class="muted">All ${C.problems.length} problems. <b>Solve</b> any of them from a blank editor against the real tests, or drill it with Line Up 🧩 / Fill the Gap ✍️.
-      <span class="small">Keys: <kbd>/</kbd> search · <kbd>↓</kbd><kbd>↑</kbd> move · <kbd>Enter</kbd> solve.</span></p>
-    <div class="row filters">
-      <input type="search" id="q" placeholder="Search by name, number or pattern" aria-label="Search problems" value="${esc(params.q || '')}" style="flex:1;min-width:220px">
-      <select id="fd" aria-label="Difficulty"><option value="">All levels</option><option>Easy</option><option>Medium</option><option>Hard</option></select>
-      <select id="fp" aria-label="Pattern"><option value="">All patterns</option>${C.patterns.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
-      <span class="muted small" id="cnt" role="status"></span></div>
+    <p class="muted plede">All ${C.problems.length} problems. <b>Solve</b> any of them from a blank editor against the real tests, or drill one with Line Up 🧩 or Fill the Gap ✍️.</p>
+    <div class="psearch" role="search">
+      <div class="sfield">
+        <svg class="sicon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+        <input type="search" id="q" placeholder="Search by name, number or pattern" aria-label="Search problems" autocomplete="off" spellcheck="false" value="${esc(st.q)}">
+        <button type="button" class="sclear" id="clear" aria-label="Clear search" hidden>✕</button>
+        <kbd class="skbd" aria-hidden="true">/</kbd>
+      </div>
+      <div class="sfilters">
+        <div class="dseg" id="seg" role="radiogroup" aria-label="Difficulty"><span class="dseg-pill" aria-hidden="true"></span>
+          ${['', 'Easy', 'Medium', 'Hard'].map(d => `<button type="button" role="radio" data-d="${d}" aria-checked="${d === st.d}" tabindex="${d === st.d ? 0 : -1}">${d || 'All'} <span class="dsegn"></span></button>`).join('')}</div>
+        <label class="pselect"><span class="sr">Pattern</span>
+          <select id="fp"><option value="">Every pattern</option>${studyOrder().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>
+        <span class="scount" id="cnt" role="status" aria-live="polite"></span>
+      </div>
+    </div>
     <div class="plist" id="list"></div>`;
+  const q = $('#q'), seg = $('#seg'), pill = $('.dseg-pill', seg);
+  const norm = s => s.toLowerCase();
+  const matches = (p, text) => !text || norm(`${p.num} ${p.title} ${PAT(p.pattern).name}`).includes(text);
+  const mark = (s, text) => { if (!text) return esc(s); const i = norm(s).indexOf(text); return i < 0 ? esc(s) : esc(s.slice(0, i)) + `<mark>${esc(s.slice(i, i + text.length))}</mark>` + esc(s.slice(i + text.length)); };
+  const placePill = () => { const b = $(`[data-d="${st.d}"]`, seg); pill.style.width = b.offsetWidth + 'px'; pill.style.transform = `translateX(${b.offsetLeft - 4}px)`; };
   const draw = () => {
-    const q = $('#q').value.trim().toLowerCase(), fd = $('#fd').value, fp = $('#fp').value;
-    const rows = C.problems.filter(p => (!fd || p.diff === fd) && (!fp || p.pattern === fp)
-      && (!q || `${p.num} ${p.title} ${PAT(p.pattern).name}`.toLowerCase().includes(q)));
-    $('#cnt').textContent = `${rows.length} shown`;
+    const text = norm(st.q.trim());
+    const base = C.problems.filter(p => (!st.p || p.pattern === st.p) && matches(p, text));
+    const rows = base.filter(p => !st.d || p.diff === st.d);
+    for (const b of $$('button', seg)) $('.dsegn', b).textContent = base.filter(p => !b.dataset.d || p.diff === b.dataset.d).length;
+    $('#cnt').textContent = rows.length === C.problems.length ? `${rows.length} problems` : `${rows.length} of ${C.problems.length}`;
+    $('#clear').hidden = !st.q;
     $('#list').innerHTML = rows.map(p => `<div class="prow"><span class="muted pnum">${p.num}</span>
-      <a class="ptitle" href="#/play/oa?problem=${p.id}" title="Solve against the tests">${esc(p.title)}</a>
+      <a class="ptitle" href="#/play/oa?problem=${p.id}" title="Solve against the tests"><span>${mark(p.title, text)}</span></a>
       <span class="tag ${p.diff}">${p.diff}</span>${patternTag(p.pattern)}<span class="spacer"></span>
       <span title="How well you know it">${dots(problemLevel(p.id))}</span>
       <a class="btn ghost" href="#/play/lineup?problem=${p.id}" title="Line Up" aria-label="Line Up: ${esc(p.title)}">🧩</a>
       <a class="btn ghost" href="#/play/fill?problem=${p.id}" title="Fill the Gap" aria-label="Fill the Gap: ${esc(p.title)}">✍️</a>
-      <a class="btn primary" href="#/play/oa?problem=${p.id}" tabindex="-1">Solve</a></div>`).join('') || '<p class="muted">No problems match.</p>';
+      <a class="btn primary" href="#/play/oa?problem=${p.id}" tabindex="-1">Solve</a></div>`).join('')
+      || `<div class="pempty"><p>No problem matches${st.q ? ` “${esc(st.q.trim())}”` : ''}${st.d ? ` at ${st.d}` : ''}${st.p ? ` in ${esc(PAT(st.p).name)}` : ''}.</p>
+          <button type="button" id="reset">Clear the filters</button></div>`;
+    $('#reset') && ($('#reset').onclick = () => { st.q = ''; st.d = ''; st.p = ''; q.value = ''; $('#fp').value = ''; setD(''); q.focus(); });
+    placePill();
   };
-  $('#q').oninput = draw; $('#fd').onchange = draw; $('#fp').onchange = draw;
-  const titles = () => $$('#list .ptitle');
-  $('#q').addEventListener('keydown', e => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); titles()[0]?.focus(); }
-    if (e.key === 'Enter') { e.preventDefault(); titles()[0]?.click(); }
+  const setD = d => {
+    st.d = d;
+    for (const b of $$('button', seg)) { const on = b.dataset.d === d; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; }
+    draw();
+  };
+  q.addEventListener('input', () => { st.q = q.value; draw(); });
+  q.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; st.q = ''; draw(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); $$('#list .ptitle')[0]?.focus(); }
+    if (e.key === 'Enter') { e.preventDefault(); $$('#list .ptitle')[0]?.click(); }
   });
+  $('#clear').onclick = () => { q.value = ''; st.q = ''; draw(); q.focus(); };
+  seg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setD(b.dataset.d); });
+  seg.addEventListener('keydown', e => {   // radio group: arrows move the selection
+    const bs = $$('button', seg), k = bs.findIndex(b => b.dataset.d === st.d);
+    const j = e.key === 'ArrowRight' ? (k + 1) % bs.length : e.key === 'ArrowLeft' ? (k + bs.length - 1) % bs.length : -1;
+    if (j >= 0) { e.preventDefault(); setD(bs[j].dataset.d); bs[j].focus(); }
+  });
+  $('#fp').onchange = e => { st.p = e.target.value; draw(); };
   $('#list').addEventListener('keydown', e => {
-    const t = titles(), k = t.indexOf(document.activeElement); if (k < 0) return;
+    const t = $$('#list .ptitle'), k = t.indexOf(document.activeElement); if (k < 0) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); t[k + 1]?.focus(); }
-    if (e.key === 'ArrowUp') { e.preventDefault(); (k ? t[k - 1] : $('#q')).focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); (k ? t[k - 1] : q).focus(); }
   });
+  const ro = new ResizeObserver(placePill); ro.observe(seg); onLeave(() => ro.disconnect());
   draw();
-  if (params.focus !== '0') $('#q').focus();
+  if (params.focus !== '0') q.focus();
 };
 
 ROUTES.patterns = (app, [pid]) => {

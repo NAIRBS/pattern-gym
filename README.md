@@ -1,115 +1,196 @@
-# Pattern Gym
+<div align="center">
 
-Daily drills for LeetCode-style OAs and in-person interviews (Python). Use it in the browser, or run it locally.
+# `{}` Pattern Gym
 
-| | Online (GitHub Pages) | Local (`server.py`) |
+**Daily drills for coding interviews in Python: learn the approach, not 150 memorised answers.**
+
+[![Deploy](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml/badge.svg)](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab)
+![No dependencies](https://img.shields.io/badge/dependencies-none-4ade80)
+
+### [**Open the app →**](https://nairbs.github.io/pattern-gym/)
+
+Runs in your browser (your code runs there too) · or locally with `python server.py`
+
+<img src="docs/screenshots/study.jpg" alt="The Study tab: a continue card, mixed practice and the path of 23 patterns" width="760">
+
+</div>
+
+---
+
+## Contents
+
+- [What's inside](#whats-inside)
+- [The Study tab](#the-study-tab)
+- [The games](#the-games)
+- [Keyboard](#keyboard)
+- [Online or local](#online-or-local)
+- [Accounts and sync](#accounts-and-sync)
+- [Project layout](#project-layout)
+- [Adding a problem](#adding-a-problem)
+- [Deploying](#deploying)
+
+---
+
+## What's inside
+
+|  |  |
+|---|---|
+| 📚 **150 problems** | The NeetCode 150, each with a reference solution, real tests, a walkthrough and edge cases |
+| 🧭 **23 patterns** | A short course for each, from the idea to problems you solve cold |
+| 🎮 **9 games** | From spotting a pattern in seconds to a full mock interview |
+| 🔁 **Spaced repetition** | Nailed items come back after 1, 3, 7, 14, 30… days; blanked ones tomorrow |
+| ⏰ **Interview date** | Within 14 days, urgent mode packs reviews closer so everything gets reps |
+| ⌨️ **Keyboard-first** | The bar at the bottom always shows the keys for the screen you're on |
+| ☁️ **Optional sync** | Sign in with an email link; progress from every device is combined, never overwritten |
+
+## The Study tab
+
+Memorising solutions doesn't carry over to problems you haven't seen. Recognising a pattern from the problem's *features*,
+and having a method for when you don't recognise it, does. So each pattern is a short course:
+
+| Stage | What you do |
+|---|---|
+| **1 · The idea** | Why the pattern exists, the cues that point to it, when it's a *different* pattern, and its skeleton built line by line |
+| **2 · Worked example** | One problem taken from the **naive brute force** (real code that passes the tests) **to the final answer** |
+| **3 · Guided** | The same steps, but you write the plan and the code before the answer shows |
+| **4 · Solo, cold** | Solve from a blank editor first; the walkthrough unlocks only after a real attempt |
+
+Then **mixed practice** picks a problem from the patterns you've studied and **hides its name and pattern**: the closest
+thing to a question you've never seen.
+
+<details>
+<summary><b>The approach every walkthrough follows</b></summary>
+
+1. **Understand it:** what goes in, what comes out, what to ask
+2. **Solve a tiny example by hand:** your hands' steps are your first algorithm
+3. **Brute force:** the obvious correct way, and its cost
+4. **Find the repeated work:** what does the brute force redo?
+5. **Pick the tool that removes it:** the pattern, and the cue words that pointed to it
+6. **Plan in plain words**
+7. **Code it**
+8. **Test it:** the edge cases, then time and space
+
+You type a guess before each step is revealed. A meter shrinks from the brute-force cost to the final one as you go.
+
+</details>
+
+<p align="center"><img src="docs/screenshots/walkthrough.jpg" alt="A walkthrough: the complexity meter at O(n), the plan and the final code with problem-specific lines highlighted" width="680"></p>
+
+The cold-solve page has an **approach coach** (open for your first few attempts, then it steps back) and a
+**3-step hint ladder**: the brute force → the tool → the plan. Each hint lowers the best grade you can get.
+
+## The games
+
+| Layer | Game | What it trains |
 |---|---|---|
-| Open | https://nairbs.github.io/pattern-gym/ | http://localhost:8787 |
-| Needs | A browser | Python 3.10+ (standard library only) |
-| Your code runs | In your browser (Pyodide) | On your machine (`runner.py` subprocess) |
-| Progress saved in | That browser's local storage | `progress.json` next to `server.py` |
-| Moving progress by hand | Settings → Download backup, then Restore from backup | Copy `progress.json`, or the same buttons |
-| Sync across devices | Sign in (Settings → Account & sync) | Same, if the Supabase redirect URLs allow localhost |
+| Idea | ⚡ **Pattern Sprint** | Problem statement → pattern, under a timer |
+| Structure | 🧩 **Line Up** | Put a shuffled real solution back in order: drag, click or keyboard |
+| Structure | 🦴 **Skeleton Recall** | Write a pattern's template from memory; hints step up, feedback lists what's missing |
+| Structure → code | ✍️ **Fill the Gap** | Write the 2–4 key lines that make the skeleton solve *this* problem |
+| Syntax | 🐍 **Syntax Snap** | One-line Python idioms, executed and checked |
+| Full solve | 💻 **OA Mode** | Blank editor, timer, run button: online-assessment conditions |
+| In person | ⏱️ **Big-O Call** | Call the time and space complexity of a solution |
+| In person | 🔍 **Edge Hunter** | 60 s to list questions and edge cases, scored against the expected list |
+| In person | 🎤 **Mock Interview** | Clarify → plan aloud → code with no run button → dry-run → score yourself |
 
-## Accounts and sync (optional)
+- **Problems page:** search all 150 and solve any of them against the real tests.
+- **Answers:** "Show answer" toggles, so you can hide it and keep working, but seeing it once records the round as missed.
+- **← Previous** reopens the last question and undoes the grade you gave it.
 
-Sign in under **Settings → Account & sync**: enter your email, then open the link it sends **in the same browser**.
-Signed in, progress is still saved on the device first, then synced to Supabase (on load, a few seconds after each
-change, and when you come back online). Progress from different devices is **combined, never overwritten**: each
-drill keeps its most recent review, XP and daily totals take the higher value, lessons and mock interviews are
-combined, and the most recently changed settings win. Only **Restore from backup** and **Reset** replace the
-cloud copy, and they ask first. The "☁" pill in the header shows sync status.
+<p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and highlighted matches" width="680"></p>
 
-Without signing in everything works as before, and **Download backup / Restore from backup** still move progress by hand.
-The Supabase project URL and publishable key are in `static/config.js` (public by design; row-level security keeps
-each user to their own row). Empty them to turn sync off.
+## Keyboard
 
-## Online
+The bar at the bottom of every screen lists the keys that work right there, and every chip is clickable. Press <kbd>?</kbd> for the full list.
 
-Just open the link. The first time you press Run, the browser downloads Python (about 10 MB, a few seconds); after that it's
-cached. Clearing site data for the page erases progress, so download a backup now and then.
+| Anywhere | | In a game | |
+|---|---|---|---|
+| <kbd>?</kbd> | all shortcuts | <kbd>E</kbd> / <kbd>Esc</kbd> | into / out of the editor |
+| <kbd>/</kbd> | search problems | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | run / check |
+| <kbd>G</kbd> then <kbd>T</kbd> <kbd>S</kbd> <kbd>G</kbd> <kbd>P</kbd> <kbd>A</kbd> <kbd>X</kbd> <kbd>,</kbd> | go to a page | <kbd>H</kbd> · <kbd>A</kbd> | hint · show / hide answer |
+| <kbd>C</kbd> | continue studying | <kbd>N</kbd> · <kbd>[</kbd> | next · previous question |
+| <kbd>M</kbd> | mystery problem | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | grade: blanked / shaky / nailed |
+| <kbd>Space</kbd> | reveal the next step | <kbd>Q</kbd> | exit the game |
 
-## Local
+## Online or local
 
-Double-click `start.bat` (Windows), or:
+|  | 🌐 Online | 💻 Local |
+|---|---|---|
+| **Open** | [nairbs.github.io/pattern-gym](https://nairbs.github.io/pattern-gym/) | http://localhost:8787 |
+| **Needs** | A browser | Python 3.10+ (standard library only) |
+| **Your code runs** | In your browser ([Pyodide](https://pyodide.org)) | On your machine (`runner.py`) |
+| **Progress is saved in** | That browser | `progress.json` next to `server.py` |
+
+<details>
+<summary><b>Run it locally</b></summary>
 
 ```bash
 git clone https://github.com/NAIRBS/pattern-gym.git
 cd pattern-gym
-python server.py        # Mac/Linux: python3 server.py
+python server.py          # Mac/Linux: python3 server.py
 ```
 
-Then open http://localhost:8787. Get updates later with `git pull`. Different port: `PORT=9000 python3 server.py`
-(Windows: `set PORT=9000` first). `progress.json` is **not** committed; it's per machine.
+Then open http://localhost:8787. On Windows you can double-click `start.bat`. Update with `git pull`.
+Use another port with `PORT=9000 python3 server.py` (Windows: `set PORT=9000` first).
 
-## Deploying
+</details>
 
-`.github/workflows/pages.yml` deploys on every push to `main` (or a manual run from the Actions tab): it runs
-`validate.py`, then `build_static.py`, and publishes `static/`. If validation fails, nothing is deployed.
-One-time setup: the repo must be public (or GitHub Pro), and **Settings → Pages → Source** must be **GitHub Actions**.
+> [!TIP]
+> Online, the first **Run** downloads Python (about 10 MB, a few seconds); after that it's cached.
+> Clearing the site's data erases progress you haven't synced, so sign in or use **Settings → Download backup**.
 
-The app picks its mode by itself: if `/api/content` answers, it uses `server.py`; otherwise it loads `content.json`
-and runs code in the browser. To try the static build locally:
-`python build_static.py` then `python -m http.server -d static 8000` and open http://localhost:8000.
+## Accounts and sync
 
-## Study tab
+Optional. Sign in under **Settings → Account & sync**: enter your email, then open the link it sends **in the same browser**.
 
-Built to teach the approach, not to memorise 150 answers. Each pattern is a short course:
+- Progress is always saved on the device first, then synced: on load, a few seconds after each change, and when you're back online.
+- Devices are **combined, never overwritten**: each drill keeps its latest review, XP and daily totals take the higher value,
+  lessons, attempts and mock interviews are merged, and the most recently changed settings win.
+- Only **Restore from backup** and **Reset** replace the cloud copy, and both ask first.
+- The ☁ pill in the header shows the sync status.
 
-1. **The idea:** why the pattern exists, the cues that point to it, when it's a different pattern, and its skeleton built line by line.
-2. **Worked example:** one problem walked from the **naive brute force (real code, passes the tests) to the final answer**, a
-   decision at a time: understand it → solve a tiny example by hand → brute force → find the repeated work → pick the tool that
-   removes it → plan → code → test. You type a guess before each step is revealed, and a meter shows the cost shrinking (e.g. O(n²) → O(n)).
-3. **Guided:** the same steps, but you write the plan and code before the answer shows.
-4. **Solo, cold:** solve from a blank editor first. The walkthrough stays locked until you've made a real attempt, so these stay unseen.
+The Supabase URL and publishable key live in `static/config.js`. They're public by design, because row-level security limits
+each user to their own row. Empty them to turn sync off.
 
-**Mixed practice** picks a problem from the patterns you've studied and hides its name and pattern: the closest thing to a question
-you've never seen. The cold-solve page has an approach coach (fades after your first few) and a 3-step hint ladder
-(brute force → the tool → the plan); hints cap the grade.
+## Project layout
 
-## The ladder
-
-| Layer | Game | What it trains |
-|---|---|---|
-| Idea | ⚡ Pattern Sprint | Problem statement → pattern, under a timer (all 150 NeetCode problems) |
-| Structure | 🧩 Line Up | Put a shuffled real solution back in order: drag, click or keyboard (checked by running tests) |
-| Structure | 🦴 Skeleton Recall | Write a pattern's reusable template from memory, with a 3-step hint ladder and a part-by-part check |
-| Structure → Code | ✍️ Fill the Gap | Write the 2-4 key lines that make the skeleton solve *this* problem |
-| Syntax | 🐍 Syntax Snap | One-line Python idioms, executed and checked |
-| Full solve | 💻 OA Mode | Blank editor, timer, run button: OA conditions |
-| In-person | ⏱️ Big-O Call | Call time/space complexity of a solution |
-| In-person | 🔍 Edge Hunter | 60 s to list clarifying questions and edge cases, scored automatically against the expected list |
-| In-person | 🎤 Mock Interview | Clarify → plan aloud → code with no run button → dry-run → rubric self-score, optional voice recording |
-
-**Problems page:** search all 150 and solve any of them against the real tests, or open it in Line Up / Fill the Gap.
-
-**Answers and going back:** Show answer toggles (show, hide, keep working), but seeing it once records the round as missed. **← Previous** reopens the last question and undoes the grade you gave it.
-
-**Keyboard:** the bar at the bottom of the screen always shows the keys that work on the current screen (each is clickable). Press `?` for the full list. `g` then a letter changes page, `/` searches problems, `Esc` leaves a text box, `R` run, `H` hint, `A` answer, `N` next, `[` previous, `1 2 3` grade.
-
-Everything is spaced repetition: nailed items come back after 1, 3, 7, 14, 30... days; blanked ones come back tomorrow.
-Setting an interview date within 14 days switches to urgent mode, which caps intervals so everything gets reps before the day.
-
-## Files
-
-- `server.py`: local web server, code runner endpoint, progress saving (`progress.json`)
-- `runner.py`: runs your code against tests. Locally in a separate process (6 s timeout); online the same file runs in
-  the browser
-- `static/`: the whole frontend (`index.html`, `app.js`, `style.css`); this folder is what gets published
-- `.github/workflows/pages.yml`: the GitHub Pages deploy
-- `content/`: patterns (skeletons), sprint deck, syntax cards, and all 150 NeetCode problems with solutions + tests
-  (`problems.py`, `problems_a.py`, `problems_b.py`, `problems_c.py`)
-- `build_static.py`: writes `static/content.json` and copies `runner.py` into `static/` for static hosting
-- `static/py-worker.js`: runs `runner.py` in the browser with Pyodide when there's no server
-- `validate.py`: checks every reference solution (and every brute-force version in `content/study_brute.py`) passes its tests. Run it after adding content (the deploy runs it too).
-- `static/sync.js`, `static/merge.js`, `static/config.js`: sign-in, cloud sync, and the merge rules
-  (tested by `node tests/merge.test.js`)
-- `static/edge-match.js`: Edge Hunter's answer matching (tested by `node tests/edge-match.test.js`)
-- `docs/NEXT_STEPS.md`: architecture decisions, what's done, and the remaining setup
+```text
+pattern-gym/
+├── server.py              local server: content, code runner, progress.json
+├── runner.py              runs code against tests (subprocess locally, Pyodide online)
+├── build_static.py        builds static/content.json for hosting
+├── validate.py            every solution and brute-force version must pass its tests
+├── content/               150 problems, patterns, lessons, walkthroughs, brute-force versions
+├── static/                the whole app, which is what gets published
+│   ├── app.js             pages, games, Study, keyboard
+│   ├── py-worker.js       Python in the browser
+│   ├── sync.js · merge.js · config.js     sign-in and sync
+│   └── edge-match.js      Edge Hunter scoring
+├── tests/                 node tests for merge and edge matching
+└── docs/NEXT_STEPS.md     architecture decisions and what's next
+```
 
 ## Adding a problem
 
-Append a `P(...)` entry to any `content/problems*.py` file. Mark key lines with `  # <<` (those become Fill-the-Gap blanks), then run `python validate.py`.
+1. Append a `P(...)` entry to any `content/problems*.py` file.
+2. Mark the key lines with `  # <<` (they become Fill the Gap blanks).
+3. Run `python validate.py` and check that it prints `ALL OK`.
 
-Test specs support plain functions, design classes (`D(...)`), linked lists / trees (`arg_types`), in-place mutation (`inplace=`),
+Tests support plain functions, design classes (`D(...)`), linked lists and trees (`arg_types`), in-place mutation (`inplace=`),
 custom node classes (`prelude=`), and a `harness=` for round-trips or problems with several valid answers.
+
+## Deploying
+
+Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml):
+
+```text
+validate.py  →  node tests  →  build_static.py  →  publish static/ to GitHub Pages
+```
+
+If any check fails, nothing is published. One-time setup: the repo must be public (or on GitHub Pro), with
+**Settings → Pages → Source: GitHub Actions**. To try the static build locally:
+
+```bash
+python build_static.py && python -m http.server -d static 8000
+```

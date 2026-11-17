@@ -422,3 +422,59 @@ mark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: va
 .stepper li.done small { color: var(--text); }
 .status.done { color: color-mix(in srgb, var(--good) 72%, var(--text)); }
 .hl-chip { color: var(--text); }
+
+/* ── Problems: search header ── */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.plede { max-width: 70ch; }
+.psearch { position: sticky; top: 65px; z-index: 6; background: var(--bg); padding: 10px 0 12px; margin-bottom: 4px; display: grid; gap: 10px; }
+.sfield { position: relative; display: flex; align-items: center; }
+.sfield .sicon { position: absolute; left: 16px; width: 20px; height: 20px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round;
+  pointer-events: none; transition: stroke .15s; }
+.sfield input { width: 100%; height: 54px; padding: 0 92px 0 48px; font-size: 17px; border-radius: 14px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); transition: border-color .15s, box-shadow .15s, background .15s; }
+.sfield input::placeholder { color: var(--muted); }
+.sfield input::-webkit-search-cancel-button { display: none; }
+.sfield input:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.sfield input:focus { outline: none; border-color: var(--accent); background: var(--code-bg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.sfield:focus-within .sicon { stroke: var(--accent); }
+.skbd { position: absolute; right: 16px; font-size: 13px; padding: 2px 8px; color: var(--muted); transition: opacity .15s; }
+.sfield:focus-within .skbd { opacity: 0; }
+.sclear { position: absolute; right: 44px; min-height: 32px; width: 32px; padding: 0; justify-content: center; border-radius: 999px;
+  background: var(--panel2); border-color: transparent; color: var(--muted); font-size: 13px; }
+.sfield:focus-within .sclear { right: 12px; }
+.sclear:hover { color: var(--text); }
+.sfilters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* difficulty: a segmented switch with a sliding indicator */
+.dseg { position: relative; display: inline-flex; padding: 4px; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.dseg-pill { position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 9px; background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line); transition: transform .25s cubic-bezier(.2, .8, .2, 1), width .25s cubic-bezier(.2, .8, .2, 1); }
+.dseg button { position: relative; min-height: 36px; padding: 4px 14px; border: 0; background: transparent; color: var(--muted); font-weight: 600; gap: 6px; }
+.dseg button:hover { color: var(--text); filter: none; }
+.dseg button[aria-checked="true"] { color: var(--text); }
+.dseg button[data-d="Easy"][aria-checked="true"] .dsegn { color: var(--good); }
+.dseg button[data-d="Medium"][aria-checked="true"] .dsegn { color: var(--shaky-text); }
+.dseg button[data-d="Hard"][aria-checked="true"] .dsegn { color: var(--bad); }
+.dsegn { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* pattern: a native select dressed to match */
+.pselect { position: relative; display: inline-flex; }
+.pselect select { appearance: none; min-height: 46px; padding: 0 38px 0 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+  color: var(--text); font-weight: 600; cursor: pointer; max-width: 260px; }
+.pselect select:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.pselect::after { content: ""; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; margin-top: -6px;
+  border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(45deg); pointer-events: none; }
+.scount { margin-left: auto; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.prow .ptitle mark { padding: 0; border-radius: 3px; }
+.pempty { padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); }
+.pempty p { margin: 0 0 12px; font-size: 16px; }
+@media (max-width: 720px) {
+  .psearch { top: 0; }
+  .scount { margin-left: 0; width: 100%; }
+  .dseg { width: 100%; } .dseg button { flex: 1; justify-content: center; padding: 4px 6px; }
+  .pselect, .pselect select { width: 100%; max-width: none; }
+  .skbd { display: none; } .sfield input { padding-right: 52px; } .sclear { right: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .dseg-pill { transition: none; } }
+.sclear[hidden] { display: none; }
