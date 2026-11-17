@@ -291,3 +291,10 @@ table.keys td:first-child { white-space: nowrap; width: 1%; }
 @media (max-width: 820px) { .keys-btn { display: none; } }
 /* header fits one line: below 1150px the brand shows only its logo */
 @media (max-width: 1150px) { .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+
+/* editor toggle: floating, bottom right on game screens */
+#edtoggle { position: fixed; right: 18px; bottom: 18px; z-index: 40; border-radius: 999px; padding: 8px 16px;
+  background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); font-size: 14px; }
+#edtoggle.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+#edtoggle.on kbd { color: inherit; border-color: currentColor; }
+@media (max-width: 820px) { #edtoggle { display: none; } }

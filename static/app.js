@@ -295,7 +295,7 @@ const NAV_KEYS = { t: ['today', 'Today'], s: ['study', 'Study'], g: ['games', 'G
   a: ['patterns', 'Patterns'], x: ['stats', 'Stats'], ',': ['settings', 'Settings'] };
 const KEY_HELP = [
   ['Anywhere', [['?', 'This list'], ['/', 'Search problems'], ['g then t s g p a x ,', 'Go to Today, Study, Games, Problems, Patterns, Stats, Settings'],
-    ['Esc', 'Leave a text box (then single keys work)'], ['Tab', 'Next control']]],
+    ['E', 'Jump into the code editor / answer box'], ['Esc', 'Leave the editor (then single keys work)'], ['Q', 'Exit the game'], ['Tab', 'Next control']]],
   ['In a game', [['Ctrl+Enter', 'Run / check / score'], ['R', 'Run / check (when not typing)'], ['H', 'Hint'], ['A', 'Show / hide the answer'],
     ['N', 'Next question'], ['[', 'Previous question (undoes its grade)'], ['1 2 3', 'Grade: Blanked / Shaky / Nailed'], ['1-4', 'Pick an option (Sprint, Big-O)']]],
   ['Line Up', [['↑ ↓', 'Move between lines'], ['← →', 'Switch column'], ['Enter / Space', 'Move the line to the other column'], ['Alt+↑ ↓', 'Reorder a line in your solution']]],
@@ -315,17 +315,48 @@ function showKeys() {
 let gAt = 0;
 document.addEventListener('keydown', e => {
   if (e.defaultPrevented) return;
-  if (isTyping(e.target)) { if (e.key === 'Escape' && !e.target.closest('dialog')) e.target.blur(); return; }
+  if (isTyping(e.target)) { if (e.key === 'Escape' && !e.target.closest('dialog')) { e.target.blur(); setTimeout(paintEdBtn, 0); } return; }
   if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
+  if (e.key === 'Escape' && inEditor()) { document.activeElement.blur(); paintEdBtn(); return; }  // Line Up lines
   if (gAt && Date.now() - gAt < 1500 && NAV_KEYS[e.key]) { gAt = 0; e.preventDefault(); location.hash = '#/' + NAV_KEYS[e.key][0]; return; }
   gAt = 0;
   if (e.key === 'g') { gAt = Date.now(); return; }
   if (e.key === '?') { e.preventDefault(); showKeys(); return; }
   if (e.key === '/') { e.preventDefault(); if (location.hash.startsWith('#/problems')) $('#q')?.focus(); else location.hash = '#/problems'; return; }
+  if (e.key === 'e' && focusEditor()) { e.preventDefault(); setTimeout(paintEdBtn, 0); return; }
   const b = $$('#app [data-key]').find(b => b.dataset.key === e.key.toLowerCase() && b.offsetParent && !b.disabled);
   if (b) { e.preventDefault(); b.click(); }
 });
 document.querySelector('[data-help]')?.addEventListener('click', showKeys);
+
+// Editor toggle: E jumps into the page's main editor (code box, gap inputs, Line Up lines), Esc leaves it.
+// A floating button shows which mode you're in and switches on click.
+const EDITOR_SEL = '#app textarea:not([readonly]), #app .fill input:not([readonly]), #app .lines .ln[tabindex="0"], #app .lines[tabindex="0"]';
+let lastEditor = null;
+const editorOnPage = () => $$(EDITOR_SEL).filter(x => x.offsetParent);
+function focusEditor() {
+  const list = editorOnPage(); if (!list.length) return false;
+  const target = lastEditor && list.includes(lastEditor) ? lastEditor : list[0];
+  target.focus(); return true;
+}
+const inEditor = () => !!document.activeElement?.closest?.('#app') && document.activeElement.matches(EDITOR_SEL.replaceAll('#app ', ''));
+const edBtn = document.createElement('button');
+edBtn.type = 'button'; edBtn.id = 'edtoggle'; edBtn.hidden = true;
+document.body.append(edBtn);
+edBtn.addEventListener('mousedown', e => e.preventDefault());  // keep focus where it is until we decide
+edBtn.addEventListener('click', () => { if (inEditor()) document.activeElement.blur(); else focusEditor(); paintEdBtn(); });
+function paintEdBtn() {
+  const has = location.hash.startsWith('#/play') && editorOnPage().length > 0;
+  edBtn.hidden = !has; if (!has) return;
+  const on = inEditor();
+  edBtn.classList.toggle('on', on);
+  edBtn.innerHTML = on ? '✎ Editing · <kbd>Esc</kbd> to leave' : '✎ Edit · <kbd>E</kbd>';
+  edBtn.setAttribute('aria-label', on ? 'Leave the editor (Esc)' : 'Go to the editor (E)');
+}
+document.addEventListener('focusin', e => { if (e.target.matches?.(EDITOR_SEL.replaceAll('#app ', '')) && e.target.closest('#app')) lastEditor = e.target; paintEdBtn(); });
+document.addEventListener('focusout', () => setTimeout(paintEdBtn, 0));
+window.addEventListener('hashchange', () => { lastEditor = null; setTimeout(paintEdBtn, 50); });
+new MutationObserver(() => paintEdBtn()).observe(document.getElementById('app'), { childList: true, subtree: true });
 
 // ─────────────────────────── shared game pieces ───────────────────────────
 // Pattern colours are tuned for the dark theme; in light mode they are mixed toward the text colour so they stay readable.
@@ -427,7 +458,7 @@ function runSession(app, game, n, fromPlan, filter) {
     if (i >= queue.length) return summary();
     const head = document.createElement('div');
     head.className = 'gamehead';
-    head.innerHTML = `<a href="${exitHref}" class="btn ghost">← Exit</a>
+    head.innerHTML = `<a href="${exitHref}" class="btn ghost" data-key="q" title="Exit (Q)">← Exit <kbd>Q</kbd></a>
       <button class="ghost" id="prev" data-key="[" ${i ? '' : 'disabled'} title="Go back to the previous question (its grade is undone)">← Previous <kbd>[</kbd></button>
       <h1>${g.icon} ${g.name}</h1>${filter ? ` ${patternTag(filter)}` : ''}
       <div class="progress"><i style="width:${i / queue.length * 100}%"></i></div><span class="muted">${i + 1}/${queue.length}</span>
@@ -1025,7 +1056,7 @@ function PROBLEM_OR_ITEM(game, id) { return GAMES[game].pool().find(o => o.id ==
 function runFixed(app, game, o) {
   const g = GAMES[game]; const shell = document.createElement('div'); app.append(shell);
   const back = () => history.length > 1 ? history.back() : (location.hash = `#/patterns/${o.pattern}`);
-  shell.innerHTML = `<div class="gamehead"><button class="ghost" id="bk">← Back</button><h1>${g.icon} ${g.name}</h1><span class="spacer"></span><span class="timer" id="clock"></span></div><div id="b"></div>`;
+  shell.innerHTML = `<div class="gamehead"><button class="ghost" id="bk" data-key="q" title="Exit (Q)">← Exit <kbd>Q</kbd></button><h1>${g.icon} ${g.name}</h1><span class="spacer"></span><span class="timer" id="clock"></span></div><div id="b"></div>`;
   $('#bk', shell).onclick = back;
   g.render($('#b', shell), o, q => { const x = review(game, o.id, q); toast(`+${x} XP`); back(); }, { clock: $('#clock', shell) });
 }
