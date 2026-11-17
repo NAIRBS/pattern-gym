@@ -6,7 +6,7 @@
   --code-bg: #111318; --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   /* three corner sizes: small (tags, chips), medium (buttons, inputs, code), large (cards) + full round */
   --r-sm: 6px; --r-md: 10px; --radius: 12px;
-  --pc-mix: 100%;   /* pattern colours at full strength on dark */
+  --pc-mix: 72%;    /* pattern colours lightened slightly toward the text colour so they stay readable on dark panels */
   --shaky-text: var(--shaky);
 }
 @media (prefers-color-scheme: light) {
@@ -29,14 +29,14 @@ code, pre, textarea.code, .mono { font-family: var(--mono); font-size: 13.5px; }
 
 /* top bar */
 .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 18px;
-  padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; column-gap: 12px; }
 .brand { color: var(--text); font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; }
 .logo { background: var(--accent); color: var(--accent-ink); font-family: var(--mono); border-radius: var(--r-sm);
   padding: 1px 6px; font-size: 14px; }
 nav { display: flex; gap: 4px; }
-nav a { color: var(--muted); padding: 6px 10px; border-radius: var(--r-md); font-weight: 500; }
+nav a { color: var(--muted); padding: 6px 9px; border-radius: var(--r-md); font-weight: 500; }
 nav a.active, nav a:hover { color: var(--text); background: var(--panel2); }
-.hud { margin-left: auto; display: flex; gap: 14px; align-items: center; font-size: 14px; }
+.hud { margin-left: auto; display: flex; gap: 10px; align-items: center; font-size: 14px; }
 .hud .pill { background: var(--panel2); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
 .pill.urgent { background: var(--bad); color: var(--bad-ink); }
 a.pill.cloud { color: inherit; text-decoration: none; }
@@ -236,3 +236,58 @@ h2.h3 { font-size: 16px; margin: 0 0 6px; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
     transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ── code shows exactly what you type: no font ligatures (!= stays !=, -> stays ->) ── */
+code, pre, textarea, input, .mono, .ln, .fill, .plan, .ex, kbd { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+
+/* Line Up: drag and keyboard */
+.ln:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ln-ghost { opacity: .35; }
+.ln-chosen { border-color: var(--accent); box-shadow: 0 6px 18px rgba(0, 0, 0, .3); }
+.lines .empty { padding: 10px; }
+.lines { touch-action: pan-y; }
+.kbd-tip { margin: 4px 0 10px; }
+.kbd-tip kbd, .brief kbd { margin: 0 1px; }
+
+/* Fill the Gap: answer under each gap */
+.fill .gap-ans { color: var(--accent); min-height: 22px; }
+.fill .gap-ans.ok { color: var(--good); }
+.gap-tag { font-family: system-ui, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  border: 1px solid currentColor; border-radius: var(--r-sm); padding: 0 5px; margin-right: 6px; }
+
+/* Skeleton Recall brief + structural checks (also Edge Hunter) */
+.brief { background: var(--panel2); border-radius: var(--r-md); padding: 10px 14px; margin: 8px 0 12px; }
+.brief p { margin: 4px 0; }
+.checks { list-style: none; padding: 0; margin: 8px 0; }
+.checks li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.checks li.ok { color: var(--good); } .checks li.miss { color: var(--bad); } .checks li.claim { color: var(--shaky-text); }
+.checks.edge li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-content: space-between; }
+.checks.edge li > span:first-child { color: var(--text); }
+.checks.edge li.ok > span:first-child::first-letter, .checks.edge li.miss > span:first-child::first-letter { color: inherit; }
+.checks.edge label { color: var(--muted); display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
+.gradebar.missed { align-items: center; }
+
+/* Problems list */
+.filters { margin: 12px 0; }
+.filters select { min-height: 44px; }
+.plist { display: grid; gap: 6px; }
+.prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 12px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--r-md); }
+.prow .pnum { width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+.prow .ptitle { color: var(--text); font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+.prow .ptitle:hover { color: var(--accent); }
+.prow .btn { padding: 6px 12px; }
+
+/* shortcuts dialog + header button */
+.keys-btn { padding: 6px 12px; min-width: 44px; justify-content: center; }
+dialog.modal { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 22px 22px 16px; width: min(560px, calc(100% - 32px)); max-height: 85vh; overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+dialog.modal::backdrop { background: rgba(0, 0, 0, .55); }
+dialog.modal .dlg-x { position: absolute; top: 10px; right: 10px; margin: 0; }
+dialog.modal h3 { font-size: 18px; margin-right: 40px; }
+dialog.modal h4 { margin: 14px 0 4px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+table.keys td { padding: 4px 8px 4px 0; border: 0; vertical-align: top; }
+table.keys td:first-child { white-space: nowrap; width: 1%; }
+@media (max-width: 820px) { .keys-btn { display: none; } }
+/* header fits one line: below 1150px the brand shows only its logo */
+@media (max-width: 1150px) { .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }

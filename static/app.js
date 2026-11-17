@@ -288,6 +288,45 @@ window.addEventListener('hashchange', route);
 // Skip link: a button (a "#main" link would fight the hash router), moves focus into the page.
 document.getElementById('skip')?.addEventListener('click', () => $('#app').focus());
 
+// ─────────────────────────── keyboard ───────────────────────────
+// Single keys work whenever you're not typing; Esc leaves a text box so they work again.
+// "g" then a letter jumps to a page. Buttons opt in with data-key="x" (shown as <kbd>X</kbd>).
+const NAV_KEYS = { t: ['today', 'Today'], s: ['study', 'Study'], g: ['games', 'Games'], p: ['problems', 'Problems'],
+  a: ['patterns', 'Patterns'], x: ['stats', 'Stats'], ',': ['settings', 'Settings'] };
+const KEY_HELP = [
+  ['Anywhere', [['?', 'This list'], ['/', 'Search problems'], ['g then t s g p a x ,', 'Go to Today, Study, Games, Problems, Patterns, Stats, Settings'],
+    ['Esc', 'Leave a text box (then single keys work)'], ['Tab', 'Next control']]],
+  ['In a game', [['Ctrl+Enter', 'Run / check / score'], ['R', 'Run / check (when not typing)'], ['H', 'Hint'], ['A', 'Show / hide the answer'],
+    ['N', 'Next question'], ['[', 'Previous question (undoes its grade)'], ['1 2 3', 'Grade: Blanked / Shaky / Nailed'], ['1-4', 'Pick an option (Sprint, Big-O)']]],
+  ['Line Up', [['↑ ↓', 'Move between lines'], ['← →', 'Switch column'], ['Enter / Space', 'Move the line to the other column'], ['Alt+↑ ↓', 'Reorder a line in your solution']]],
+  ['Problems', [['↓ ↑', 'Move through the list'], ['Enter', 'Solve the selected problem']]],
+];
+function showKeys() {
+  let dlg = document.getElementById('keys-dialog');
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.id = 'keys-dialog'; dlg.className = 'modal'; dlg.setAttribute('aria-labelledby', 'keys-title');
+    dlg.innerHTML = `<form method="dialog" class="dlg-x"><button class="ghost" aria-label="Close">✕</button></form><h3 id="keys-title">Keyboard shortcuts</h3>
+      ${KEY_HELP.map(([h, rows]) => `<h4>${h}</h4><table class="keys">${rows.map(([k, d]) => `<tr><td>${k.split(' ').map(x => `<kbd>${esc(x)}</kbd>`).join(' ')}</td><td>${esc(d)}</td></tr>`).join('')}</table>`).join('')}`;
+    dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+    document.body.append(dlg);
+  }
+  dlg.showModal();
+}
+let gAt = 0;
+document.addEventListener('keydown', e => {
+  if (e.defaultPrevented) return;
+  if (isTyping(e.target)) { if (e.key === 'Escape' && !e.target.closest('dialog')) e.target.blur(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
+  if (gAt && Date.now() - gAt < 1500 && NAV_KEYS[e.key]) { gAt = 0; e.preventDefault(); location.hash = '#/' + NAV_KEYS[e.key][0]; return; }
+  gAt = 0;
+  if (e.key === 'g') { gAt = Date.now(); return; }
+  if (e.key === '?') { e.preventDefault(); showKeys(); return; }
+  if (e.key === '/') { e.preventDefault(); if (location.hash.startsWith('#/problems')) $('#q')?.focus(); else location.hash = '#/problems'; return; }
+  const b = $$('#app [data-key]').find(b => b.dataset.key === e.key.toLowerCase() && b.offsetParent && !b.disabled);
+  if (b) { e.preventDefault(); b.click(); }
+});
+document.querySelector('[data-help]')?.addEventListener('click', showKeys);
+
 // ─────────────────────────── shared game pieces ───────────────────────────
 // Pattern colours are tuned for the dark theme; in light mode they are mixed toward the text colour so they stay readable.
 const pc = c => `color-mix(in srgb, ${c} var(--pc-mix), var(--text))`;
@@ -315,9 +354,45 @@ function gradeButtons(onGrade, suggested) {
   let used = false;
   const go = q => { if (used) return; used = true; onGrade(q); };
   el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(+b.dataset.q); });
-  const key = e => { if (e.target.matches('input,textarea')) return; if (['1', '2', '3'].includes(e.key)) go(+e.key - 1); };
-  document.addEventListener('keydown', key); onLeave(() => document.removeEventListener('keydown', key));
-  el._cleanup = () => document.removeEventListener('keydown', key);
+  const key = e => {
+    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !['1', '2', '3'].includes(e.key)) return;
+    if (!el.querySelector(`[data-q="${+e.key - 1}"]`).disabled) go(+e.key - 1);
+  };
+  document.addEventListener('keydown', key); onRound(() => document.removeEventListener('keydown', key));
+  setTimeout(() => el.querySelector(`[data-q="${suggested ?? 2}"]`)?.focus({ preventScroll: true }), 0);
+  return el;
+}
+
+// Per-question cleanup (key listeners, timers), run when the next question renders or the page changes.
+let roundCleanup = [];
+function onRound(fn) { roundCleanup.push(fn); onLeave(fn); }
+function cleanupRound() { roundCleanup.forEach(f => { try { f(); } catch (e) {} }); roundCleanup = []; }
+const isTyping = t => !!t?.matches?.('textarea, select, [contenteditable], input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=button])');
+
+// Show / hide the answer. Seeing it once marks the round as missed, whatever happens after
+// (retrieval practice: looking it up is not recalling it). Returns { seen }.
+function answerToggle(btn, panel, render, onFirst, label = 'answer') {
+  let open = false, seen = false;
+  btn.dataset.key = 'a';
+  const paint = () => { btn.innerHTML = `${open ? 'Hide' : 'Show'} ${label} <kbd>A</kbd>`; btn.setAttribute('aria-expanded', open); };
+  paint();
+  btn.onclick = () => {
+    open = !open;
+    if (open && !seen) { seen = true; onFirst && onFirst(); }
+    if (panel) { panel.hidden = !open; if (open) panel.innerHTML = render(); }
+    else render(open);
+    paint();
+  };
+  return { get seen() { return seen; } };
+}
+// Shown once the answer has been seen: the only way on records a miss.
+function missedBar(done, solved) {
+  const el = document.createElement('div');
+  el.className = 'gradebar missed';
+  el.innerHTML = `<span class="muted small" style="align-self:center">${solved ? 'Solved, but after seeing the answer, so it' : 'You looked at the answer, so this'}
+    counts as missed and comes back tomorrow.</span><button class="primary" data-key="n">Next <kbd>N</kbd></button>`;
+  let used = false;
+  el.querySelector('button').onclick = () => { if (used) return; used = true; done(0); };
   return el;
 }
 function startTimer(el, seconds, onEnd, { countUp = false } = {}) {
@@ -332,7 +407,7 @@ function startTimer(el, seconds, onEnd, { countUp = false } = {}) {
   };
   tick();
   const stop = () => { stopped = true; return (Date.now() - t0) / 1000; };
-  onLeave(stop);
+  onRound(stop);
   return { stop, elapsed: () => (Date.now() - t0) / 1000 };
 }
 
@@ -343,22 +418,40 @@ function runSession(app, game, n, fromPlan, filter) {
   const exitHref = filter ? `#/study/${filter}` : fromPlan ? '#/today' : '#/games';
   if (!queue.length) { app.innerHTML = `<div class="card">Nothing to practise here yet.</div>`; return; }
   let i = 0; const tally = [0, 0, 0]; let xpGained = 0;
+  const hist = [];  // per question: everything review() changed, so "Previous" can undo it
   const shell = document.createElement('div');
   app.append(shell);
   const next = () => {
+    cleanupRound();
     shell.innerHTML = '';
     if (i >= queue.length) return summary();
     const head = document.createElement('div');
     head.className = 'gamehead';
-    head.innerHTML = `<a href="${exitHref}" class="btn ghost">← Exit</a><h1>${g.icon} ${g.name}</h1>${filter ? ` ${patternTag(filter)}` : ''}
+    head.innerHTML = `<a href="${exitHref}" class="btn ghost">← Exit</a>
+      <button class="ghost" id="prev" data-key="[" ${i ? '' : 'disabled'} title="Go back to the previous question (its grade is undone)">← Previous <kbd>[</kbd></button>
+      <h1>${g.icon} ${g.name}</h1>${filter ? ` ${patternTag(filter)}` : ''}
       <div class="progress"><i style="width:${i / queue.length * 100}%"></i></div><span class="muted">${i + 1}/${queue.length}</span>
       <span class="timer" id="clock"></span>`;
     const body = document.createElement('div');
     shell.append(head, body);
+    $('#prev', head).onclick = () => {
+      if (!i) return;
+      i--; const h = hist[i];
+      if (h.before === undefined) delete S.items[h.k]; else S.items[h.k] = h.before;
+      S.days[h.d] = h.dayBefore; S.xp = h.xpBefore; S.streak = h.streakBefore; S.plan = h.planBefore;
+      tally[h.q]--; xpGained -= h.gained; save();
+      toast(`Back to question ${i + 1}: your earlier grade was undone`);
+      next();
+    };
     const o = queue[i];
     g.render(body, o, q => {
-      tally[q]++; xpGained += review(game, o.id, q);
+      const k = game + ':' + o.id, d = today();
+      const snap = { k, d, q, before: S.items[k] ? structuredClone(S.items[k]) : undefined,
+        dayBefore: S.days[d] ? structuredClone(S.days[d]) : { xp: 0, rounds: 0, newBy: {} },
+        xpBefore: S.xp, streakBefore: structuredClone(S.streak), planBefore: S.plan ? structuredClone(S.plan) : null };
+      snap.gained = review(game, o.id, q);
       if (fromPlan) planTick(game);
+      hist[i] = snap; tally[q]++; xpGained += snap.gained;
       i++; next();
     }, { clock: $('#clock', head) });
   };
@@ -399,7 +492,7 @@ GAMES.sprint = {
     const t0 = Date.now(); let answered = false;
     const iv = setInterval(() => { const left = 1 - (Date.now() - t0) / 1000 / secs; bar.style.width = Math.max(0, left * 100) + '%';
       clock.textContent = Math.max(0, secs - (Date.now() - t0) / 1000).toFixed(1); if (left <= 0) answer(null); }, 100);
-    onLeave(() => clearInterval(iv));
+    onRound(() => clearInterval(iv));
     const answer = p => {
       if (answered) return; answered = true; clearInterval(iv);
       const secsTaken = (Date.now() - t0) / 1000;
@@ -410,15 +503,15 @@ GAMES.sprint = {
       $('#rev', el).innerHTML = `<div class="reveal"><b>${esc(s.title)}</b> → ${patternTag(s.pattern)}<br>
         <span>Key move: ${esc(s.move)}</span><div class="muted small">${p === null ? 'Time up.' : right ? `${secsTaken.toFixed(1)}s` : 'Not quite.'}
         ${right && q === 1 ? ' Correct but slow, so counted as shaky.' : ''}</div></div>
-        <div class="row" style="margin-top:12px"><button class="primary" id="nx">Next <kbd>Enter</kbd></button></div>`;
+        <div class="row" style="margin-top:12px"><button class="primary" id="nx" data-key="n">Next <kbd>Enter</kbd></button></div>`;
       const go = () => { document.removeEventListener('keydown', k2); done(q); };
       const k2 = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
-      setTimeout(() => document.addEventListener('keydown', k2), 150); onLeave(() => document.removeEventListener('keydown', k2));
+      setTimeout(() => document.addEventListener('keydown', k2), 150); onRound(() => document.removeEventListener('keydown', k2));
       $('#nx', el).onclick = go;
     };
     el.addEventListener('click', e => { const b = e.target.closest('.options button'); if (b) answer(b.dataset.p); });
     const k = e => { if (!answered && ['1', '2', '3', '4'].includes(e.key)) answer(opts[+e.key - 1]); };
-    document.addEventListener('keydown', k); onLeave(() => document.removeEventListener('keydown', k));
+    document.addEventListener('keydown', k); onRound(() => document.removeEventListener('keydown', k));
   },
 };
 
@@ -429,43 +522,94 @@ GAMES.lineup = {
   pool: () => C.problems,
   render(el, p, done, { clock }) {
     const lines = p.solution.split('\n').filter(t => t.trim()).map((t, i) => ({ t, i }));
-    let pool = shuffle(lines), built = [], tries = 0, hint = false;
+    const byId = Object.fromEntries(lines.map(l => [l.i, l]));
+    let pool = shuffle(lines), built = [], tries = 0, hint = false, finished = false;
+    let cur = { list: 'pool', pos: 0 }, focusAfterDraw = false;  // keyboard cursor (roving focus)
     const timer = startTimer(clock, 0, null, { countUp: true });
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
-      <span class="spacer"></span><button class="ghost" id="hint">Show pattern</button></div>
+      <span class="spacer"></span><button class="ghost" id="hint" data-key="h">Show pattern <kbd>H</kbd></button></div>
       <p>${esc(p.statement)}</p><div id="hintbox"></div>
-      <div class="parsons"><div><div class="muted small">Shuffled lines: click to add</div><div class="lines" id="pool"></div></div>
-      <div><div class="muted small">Your solution: click a line to send it back</div><div class="lines" id="built"></div></div></div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="check">Run tests <kbd>Ctrl+Enter</kbd></button>
-      <button class="ghost" id="giveup">Show answer</button><span class="spacer"></span><span class="muted small" id="cnt"></span></div>
-      <div id="out"></div></div>`;
+      <p class="muted small kbd-tip">Drag lines, or use the keyboard: <kbd>↑</kbd><kbd>↓</kbd> move between lines, <kbd>←</kbd><kbd>→</kbd> switch column,
+        <kbd>Enter</kbd> moves a line across, <kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> reorders.</p>
+      <div class="parsons">
+        <div><div class="muted small" id="pool-lbl">Shuffled lines</div><div class="lines" id="pool" role="listbox" aria-labelledby="pool-lbl"></div></div>
+        <div><div class="muted small" id="built-lbl">Your solution, top to bottom</div><div class="lines" id="built" role="listbox" aria-labelledby="built-lbl"></div></div></div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="check" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
+      <button class="ghost" id="giveup"></button><span id="moveon"></span><span class="spacer"></span><span class="muted small" id="cnt"></span></div>
+      <div id="ans" hidden></div><div id="out"></div></div>`;
+    const list = name => name === 'pool' ? pool : built;
     const draw = () => {
-      $('#pool', el).innerHTML = pool.map((l, k) => `<div class="ln" data-k="${k}">${esc(l.t)}</div>`).join('');
-      $('#built', el).innerHTML = built.map((l, k) => `<div class="ln" data-k="${k}"><span class="num">${k + 1}</span>${esc(l.t)}</div>`).join('') || '<div class="muted small" style="padding:8px">Start with the function signature.</div>';
+      const row = (l, k, name) => `<div class="ln" role="option" data-id="${l.i}" tabindex="${cur.list === name && cur.pos === k ? 0 : -1}">${name === 'built' ? `<span class="num">${k + 1}</span>` : ''}${esc(l.t)}</div>`;
+      $('#pool', el).innerHTML = pool.map((l, k) => row(l, k, 'pool')).join('') || '<div class="muted small empty">All lines placed. Run the tests.</div>';
+      $('#built', el).innerHTML = built.map((l, k) => row(l, k, 'built')).join('') || '<div class="muted small empty">Drag or press Enter on a line to start. The function signature usually goes first.</div>';
+      for (const name of ['pool', 'built']) if (!list(name).length) $('#' + name, el).tabIndex = cur.list === name ? 0 : -1; else $('#' + name, el).removeAttribute('tabindex');
       $('#cnt', el).textContent = `${built.length}/${lines.length} lines`;
+      if (focusAfterDraw) { focusAfterDraw = false; ($(`#${cur.list} .ln[tabindex="0"]`, el) || $('#' + cur.list, el)).focus(); }
     };
-    $('#pool', el).onclick = e => { const d = e.target.closest('.ln'); if (!d) return; built.push(pool.splice(+d.dataset.k, 1)[0]); draw(); };
-    $('#built', el).onclick = e => { const d = e.target.closest('.ln'); if (!d) return; pool.push(built.splice(+d.dataset.k, 1)[0]); draw(); };
+    const clampCur = () => { const n = list(cur.list).length; cur.pos = Math.max(0, Math.min(cur.pos, n - 1)); };
+    const moveAcross = (name, k) => {
+      const [l] = list(name).splice(k, 1); if (!l) return;
+      (name === 'pool' ? built : pool).push(l);
+      cur = { list: name, pos: k }; if (!list(name).length) cur = { list: name === 'pool' ? 'built' : 'pool', pos: (name === 'pool' ? built : pool).length - 1 };
+      clampCur(); focusAfterDraw = true; draw();
+    };
+    // click = move across (kept from before; drag is the other way in)
+    for (const name of ['pool', 'built']) $('#' + name, el).addEventListener('click', e => {
+      const d = e.target.closest('.ln'); if (!d || d._dragged) return;
+      moveAcross(name, list(name).findIndex(l => l.i === +d.dataset.id));
+    });
+    // keyboard
+    el.querySelector('.parsons').addEventListener('keydown', e => {
+      const d = e.target.closest('.ln, .lines'); if (!d) return;
+      const name = e.target.closest('.lines').id, arr = list(name);
+      const k = d.classList.contains('ln') ? arr.findIndex(l => l.i === +d.dataset.id) : 0;
+      const go = (lst, pos) => { e.preventDefault(); cur = { list: lst, pos }; clampCur(); focusAfterDraw = true; draw(); };
+      if (e.altKey && name === 'built' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        const j = k + (e.key === 'ArrowUp' ? -1 : 1); if (j < 0 || j >= arr.length) return e.preventDefault();
+        [arr[k], arr[j]] = [arr[j], arr[k]]; return go('built', j);
+      }
+      if (e.key === 'ArrowDown') return go(name, k + 1);
+      if (e.key === 'ArrowUp') return go(name, k - 1);
+      if (e.key === 'Home') return go(name, 0);
+      if (e.key === 'End') return go(name, arr.length - 1);
+      if (e.key === 'ArrowRight' && name === 'pool') return go('built', Math.min(k, built.length - 1));
+      if (e.key === 'ArrowLeft' && name === 'built') return go('pool', Math.min(k, pool.length - 1));
+      if ((e.key === 'Enter' && !e.ctrlKey && !e.metaKey) || e.key === ' ') { e.preventDefault(); if (arr.length) moveAcross(name, k); }
+    });
+    // drag and drop (mouse + touch) via SortableJS; the DOM order is read back into pool / built
+    if (window.Sortable) {
+      const sync = () => {
+        const ids = id => [...$('#' + id, el).querySelectorAll('.ln')].map(d => byId[+d.dataset.id]);
+        pool = ids('pool'); built = ids('built'); draw();
+      };
+      for (const id of ['pool', 'built']) Sortable.create($('#' + id, el), {
+        group: 'lineup', draggable: '.ln', animation: 120, delayOnTouchOnly: true, delay: 140,
+        ghostClass: 'ln-ghost', chosenClass: 'ln-chosen', onEnd: e => { e.item._dragged = true; setTimeout(() => (e.item._dragged = false), 0); sync(); },
+      });
+    }
     $('#hint', el).onclick = () => { hint = true; $('#hintbox', el).innerHTML = `<div class="reveal">${patternTag(p.pattern)} ${esc(p.insight)}</div>`; };
-    const finish = q => { timer.stop(); el.querySelector('#out').append(gradeButtons(done, q)); };
-    let finished = false;
+    const ans = answerToggle($('#giveup', el), $('#ans', el),
+      () => `<pre class="code">${esc(p.solution)}</pre><p>${esc(p.insight)}</p>`,
+      () => { if (!finished) $('#moveon', el).append(missedBar(done)); });
     const check = async () => {
       if (finished) return;
       if (pool.length) { toast(`Place all lines first (${pool.length} left)`); return; }
       tries++;
       const r = await runTests(p, built.map(l => l.t).join('\n'));
       $('#out', el).innerHTML = resultsHtml(r);
-      if (r.ok) { finished = true; finish(tries === 1 && !hint ? 2 : 1); }
-      else {
+      if (r.ok) {
+        finished = true; timer.stop();
+        if (ans.seen) { $('#moveon', el).innerHTML = ''; $('#out', el).append(missedBar(done, true)); }
+        else $('#out', el).append(gradeButtons(done, tries === 1 && !hint ? 2 : 1));
+      } else {
         const firstWrong = built.findIndex((l, k) => l.t.trim() !== lines[k].t.trim());
         if (firstWrong >= 0) $('#out', el).insertAdjacentHTML('beforeend', `<p class="muted small">Hint: the first line that differs from the reference is line ${firstWrong + 1}.</p>`);
       }
     };
     $('#check', el).onclick = check;
-    $('#giveup', el).onclick = () => { if (finished) return; finished = true; $('#out', el).innerHTML = `<pre class="code">${esc(p.solution)}</pre><p>${esc(p.insight)}</p>`; finish(0); };
-    const k = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) check(); };
-    document.addEventListener('keydown', k); onLeave(() => document.removeEventListener('keydown', k));
-    draw();
+    const k = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); check(); } };
+    document.addEventListener('keydown', k); onRound(() => document.removeEventListener('keydown', k));
+    focusAfterDraw = true; draw();
   },
 };
 
@@ -480,16 +624,18 @@ GAMES.fill = {
     const key = new Set(p.key_lines);
     let tries = 0, hint = false, finished = false;
     const timer = startTimer(clock, 0, null, { countUp: true });
+    let gapNo = 0;
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
-      ${patternTag(p.pattern)}<span class="spacer"></span><button class="ghost" id="hint">Hint</button></div>
+      ${patternTag(p.pattern)}<span class="spacer"></span><button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button></div>
       <p>${esc(p.statement)}</p><div id="hintbox"></div>
       <div class="fill">${lines.map((l, i) => {
         if (!key.has(i)) return `<div class="l">${esc(l) || ' '}</div>`;
-        const ind = l.match(/^ */)[0];
-        return `<div class="l"><input type="text" data-i="${i}" autocomplete="off" spellcheck="false" placeholder="key line" style="margin-left:${ind.length}ch"></div>`;
+        const ind = l.match(/^ */)[0]; gapNo++;
+        return `<div class="l"><input type="text" data-i="${i}" autocomplete="off" spellcheck="false" placeholder="gap ${gapNo}" aria-label="Gap ${gapNo}" style="margin-left:${ind.length}ch"></div>
+          <div class="l gap-ans" data-for="${i}" hidden style="padding-left:${ind.length}ch"></div>`;
       }).join('')}</div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="check">Run tests <kbd>Ctrl+Enter</kbd></button>
-      <button class="ghost" id="giveup">Show answer</button></div><div id="out"></div></div>`;
+      <div class="row" style="margin-top:12px"><button class="primary" id="check" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
+      <button class="ghost" id="giveup"></button><span id="moveon"></span></div><div id="out"></div></div>`;
     const inputs = $$('input', el);
     inputs[0]?.focus();
     inputs.forEach((inp, k) => inp.addEventListener('keydown', e => {
@@ -497,48 +643,106 @@ GAMES.fill = {
       if (e.key === 'Enter' && e.ctrlKey) check();
     }));
     $('#hint', el).onclick = () => { hint = true; $('#hintbox', el).innerHTML = `<div class="reveal">${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div>`; };
-    const finish = q => { timer.stop(); $('#out', el).append(gradeButtons(done, q)); };
+    const same = (a, b) => a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
+    // Show answer: each gap's answer appears right under it (your text stays), with ✓ when yours already matches.
+    const ans = answerToggle($('#giveup', el), null, open => {
+      $$('.gap-ans', el).forEach(div => {
+        const want = lines[+div.dataset.for].trim(), mine = $(`input[data-i="${div.dataset.for}"]`, el).value.trim();
+        div.hidden = !open;
+        div.innerHTML = `<span class="gap-tag">${same(mine, want) ? '✓ yours matches' : 'answer'}</span> ${esc(want)}`;
+        div.classList.toggle('ok', same(mine, want));
+      });
+      if (open) $('#hintbox', el).innerHTML = `<div class="reveal">${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div>`;
+    }, () => { if (!finished) $('#moveon', el).append(missedBar(done)); }, 'answers');
     const check = async () => {
       if (finished) return; tries++;
       const code = lines.map((l, i) => key.has(i) ? l.match(/^ */)[0] + el.querySelector(`input[data-i="${i}"]`).value.trim() : l).join('\n');
       const r = await runTests(p, code);
       $('#out', el).innerHTML = resultsHtml(r);
-      if (r.ok) { finished = true; finish(tries === 1 && !hint ? 2 : 1); }
+      if (r.ok) {
+        finished = true; timer.stop();
+        if (ans.seen) { $('#moveon', el).innerHTML = ''; $('#out', el).append(missedBar(done, true)); }
+        else $('#out', el).append(gradeButtons(done, tries === 1 && !hint ? 2 : 1));
+      }
     };
     $('#check', el).onclick = check;
-    $('#giveup', el).onclick = () => {
-      if (finished) return; finished = true;
-      inputs.forEach(inp => { const want = lines[+inp.dataset.i].trim(); if (inp.value.trim() !== want) { inp.title = 'You wrote: ' + inp.value; inp.value = want; inp.style.borderColor = 'var(--bad)'; } });
-      $('#out', el).innerHTML = `<div class="reveal">${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div>`;
-      finish(0);
-    };
   },
 };
 
 // 4. Skeleton Recall — write the pattern's template from memory.
 GAMES.skeleton = {
   name: 'Skeleton Recall', icon: '🦴', layer: 'Structure', cost: 2, defaultN: 2,
-  desc: 'Given only the pattern name, write its generic template from memory. Compare with the reference and grade yourself honestly.',
+  desc: 'Write a pattern’s reusable code template from memory: the state, the loop, the move, the return. Hints step up one at a time; feedback lists exactly what your version is missing.',
   pool: () => C.patterns.map((p, i) => ({ ...p, num: i, diff: 'Medium', pattern: p.id })),
   render(el, pt, done, { clock }) {
-    const timer = startTimer(clock, 120, () => submit());
-    el.innerHTML = `<div class="card"><h2 class="h3">${esc(pt.name)}</h2>
-      <p class="muted small">Used when: ${pt.triggers.map(esc).join(' · ')}</p>
-      <textarea class="code" id="ed" placeholder="# write the skeleton: loop shape, state, the condition, return"></textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="go">Compare <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
+    const timer = startTimer(clock, 180, () => toast('⏰ 3 minutes: compare when ready'));
+    const exId = PATTERN_PRIORITY.find(id => id !== pt.id && C.patterns.some(x => x.id === id));
+    const ex = C.patterns.find(x => x.id === exId);
+    const refLines = pt.skeleton.split('\n');
+    // hint ladder (progressive: nudge → shape → near-complete). Each step lowers the best grade you can get.
+    const hints = [
+      { cap: 2, label: 'Nudge', html: () => `<b>Ask yourself:</b><ol>${pt.fill.map(f => `<li>${esc(f)}</li>`).join('')}</ol>` },
+      { cap: 1, label: 'Shape', html: () => `<b>The shape</b> (keywords only; ${refLines.length} lines):<pre class="code">${esc(refLines.map(l => {
+          const ind = l.match(/^ */)[0], kw = l.trim().match(/^(for|while|if|elif|else|return|def|class|with|try|yield|break|continue)\b/);
+          return ind + (kw ? kw[1] + ' …' : '…'); }).join('\n'))}</pre>` },
+      { cap: 1, label: 'First lines', html: () => `<b>The first ${Math.ceil(refLines.length / 3)} lines:</b><pre class="code">${esc(refLines.slice(0, Math.ceil(refLines.length / 3)).join('\n'))}</pre>` },
+    ];
+    let hintLevel = 0;
+    el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">Write the ${esc(pt.name)} skeleton</h2><span class="spacer"></span>
+        <button class="ghost" id="hint" data-key="h">Hint 1 of 3 <kbd>H</kbd></button></div>
+      <div class="brief">
+        <p><b>What to write:</b> the template you reuse for <i>every</i> ${esc(pt.name)} problem, not a solution to one problem.
+        About ${refLines.length} lines. Use generic names (<code>nums</code>, <code>target</code>, <code>i</code>) and <code>...</code> or a <code># comment</code>
+        where a specific problem plugs in its own logic.</p>
+        <p class="small"><b>It should show:</b> the state you keep · the loop or recursion · the condition that moves you on · what you return.</p>
+        <p class="muted small">Used when: ${pt.triggers.map(esc).join(' · ')}</p>
+        ${ex ? `<details><summary class="small">What does a skeleton look like? (example from a different pattern: ${esc(ex.name)})</summary><pre class="code">${esc(ex.skeleton)}</pre></details>` : ''}
+      </div>
+      <div id="hintbox"></div>
+      <textarea class="code" id="ed" aria-label="Your skeleton" placeholder="# state you keep&#10;# loop&#10;#     condition that moves you on&#10;# return ..."></textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Compare <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
     const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => submit() }); ed.focus();
+    $('#hint', el).onclick = () => {
+      if (hintLevel >= hints.length) return;
+      $('#hintbox', el).insertAdjacentHTML('beforeend', `<div class="reveal small">${hints[hintLevel].html()}</div>`);
+      hintLevel++;
+      const b = $('#hint', el);
+      if (hintLevel >= hints.length) { b.disabled = true; b.innerHTML = 'No more hints'; } else b.innerHTML = `Hint ${hintLevel + 1} of 3 <kbd>H</kbd>`;
+      ed.focus();
+    };
+    // Structural features: what the reference skeleton contains, checked against yours.
+    const FEATURES = [
+      ['a for loop', /\bfor\b[^\n]*\bin\b/], ['a while loop', /\bwhile\b/], ['a hash map or set', /\{\s*\}|\bdict\(|\bset\(|defaultdict|Counter/],
+      ['a deque / queue', /\bdeque\b/], ['a heap', /heapq|heappush|heappop|heapify/], ['a stack (append / pop)', /\.append\(|\.pop\(\)/],
+      ['two pointers / bounds', /\b(lo|hi|left|right|l|r|i|j)\s*,\s*(lo|hi|left|right|l|r|i|j)\s*=|\b(lo|hi|left|right)\s*=/],
+      ['a midpoint', /\bmid\b\s*=/], ['sorting', /\bsort\(|\bsorted\(/], ['a helper function', /\bdef\b/],
+      ['an early exit / condition', /\bif\b/], ['a return', /\breturn\b/], ['a DP table', /\bdp\b|\[\s*0\s*\]\s*\*|\[\s*1\s*\]\s*\*/],
+      ['a visited / seen set', /\bvisited\b|\bseen\b/], ['recursion', null],
+    ];
+    const strip = s => s.replace(/#.*$/gm, '');
+    const recursive = code => [...code.matchAll(/\bdef\s+(\w+)/g)].some(m => code.split(m[0])[1]?.includes(m[1] + '('));
+    const has = (code, [name, re]) => name === 'recursion' ? recursive(code) : re.test(code);
     let sent = false;
     const submit = () => {
       if (sent) return; sent = true; timer.stop(); ed.readOnly = true;
-      const norm = s => s.split('\n').map(l => l.replace(/#.*$/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
-      const mine = norm(ed.value), ref = norm(pt.skeleton);
-      const tok = s => new Set(s.join(' ').split(/[^\w]+/).filter(w => w.length > 1));
-      const a = tok(mine), b = tok(ref); let hit = 0; b.forEach(w => a.has(w) && hit++);
-      const pct = b.size ? Math.round(hit / b.size * 100) : 0;
-      $('#out', el).innerHTML = `<div class="side" style="margin-top:12px"><div><div class="muted small">Reference</div><pre class="code">${esc(pt.skeleton)}</pre></div>
-        <div><div class="muted small">Fill-in questions</div><ul>${pt.fill.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
-        <p>Keyword overlap: <b>${pct}%</b></p><p class="muted small">Grade the structure (loop shape, state, condition, return), not the variable names.</p></div></div>`;
-      $('#out', el).append(gradeButtons(done, pct >= 70 ? 2 : pct >= 40 ? 1 : 0));
+      const mine = strip(ed.value), ref = strip(pt.skeleton);
+      const want = FEATURES.filter(f => has(ref, f));
+      const got = want.filter(f => has(mine, f));
+      const pct = want.length ? got.length / want.length : 0;
+      const lenOk = mine.split('\n').filter(l => l.trim()).length >= Math.ceil(refLines.filter(l => l.trim()).length * 0.6);
+      let q = pct >= 0.85 && lenOk ? 2 : pct >= 0.5 ? 1 : 0;
+      q = Math.min(q, hintLevel ? hints[hintLevel - 1].cap : 2);
+      $('#out', el).innerHTML = `<div class="side" style="margin-top:12px">
+        <div><div class="muted small">Reference</div><pre class="code">${esc(pt.skeleton)}</pre></div>
+        <div><b>Your skeleton has ${got.length} of ${want.length} parts</b>
+          <ul class="checks">${want.map(f => `<li class="${got.includes(f) ? 'ok' : 'miss'}">${got.includes(f) ? '✓' : '✗'} ${esc(f[0])}</li>`).join('')}</ul>
+          ${!lenOk ? `<p class="small muted">Yours is much shorter than the reference (${refLines.length} lines). Something is probably missing.</p>` : ''}
+          ${hintLevel ? `<p class="small muted">You used ${hintLevel} hint${hintLevel > 1 ? 's' : ''}, so the best grade is ${['Blanked', 'Shaky', 'Nailed'][hints[hintLevel - 1].cap]}.</p>` : ''}
+          <p class="muted small">Grade the structure, not variable names. The suggested grade is outlined.</p></div></div>`;
+      const maxQ = hintLevel ? hints[hintLevel - 1].cap : 2;
+      const bar = gradeButtons(done, q);
+      bar.querySelectorAll('button').forEach(b => { if (+b.dataset.q > maxQ) b.disabled = true; });
+      $('#out', el).append(bar);
     };
     $('#go', el).onclick = submit;
   },
@@ -555,18 +759,22 @@ GAMES.syntax = {
     el.innerHTML = `<div class="card"><div class="muted small">${esc(s.topic)}</div><div class="prompt">${esc(s.prompt)}</div>
       ${s.setup ? `<div class="muted small" style="margin-top:8px">Already defined:</div><pre class="code">${esc(s.setup)}</pre>` : ''}
       <textarea class="code snap" id="ed" placeholder="your code"></textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="go">Check <kbd>Ctrl+Enter</kbd></button><button class="ghost" id="ans">Show answer</button></div>
-      <div id="out"></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Check <kbd>Ctrl+Enter</kbd></button><button class="ghost" id="ans"></button><span id="moveon"></span></div>
+      <div id="ansbox" hidden></div><div id="out"></div></div>`;
     const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => check() }); ed.focus();
-    const finish = q => { finished = true; timer.stop(); $('#out', el).append(gradeButtons(done, q)); };
+    const shown = answerToggle($('#ans', el), $('#ansbox', el), () => `<pre class="code">${esc(s.answer)}</pre>`,
+      () => { if (!finished) $('#moveon', el).append(missedBar(done)); });
     const check = async () => {
       if (finished) return; tries++;
       const r = await runSyntax(s, ed.value);
       $('#out', el).innerHTML = r.ok ? `<div class="res">✓ Correct</div><pre class="code">${esc(s.answer)}</pre>` : `<div class="res fail">✗ ${esc(r.error || 'Check failed: ' + s.check)}</div>`;
-      if (r.ok) finish(tries === 1 ? 2 : 1);
+      if (r.ok) {
+        finished = true; timer.stop();
+        if (shown.seen) { $('#moveon', el).innerHTML = ''; $('#out', el).append(missedBar(done, true)); }
+        else $('#out', el).append(gradeButtons(done, tries === 1 ? 2 : 1));
+      }
     };
     $('#go', el).onclick = check;
-    $('#ans', el).onclick = () => { if (finished) return; $('#out', el).innerHTML = `<pre class="code">${esc(s.answer)}</pre>`; finish(0); };
   },
 };
 
@@ -582,9 +790,14 @@ GAMES.bigo = {
     let pickT = null, pickS = null;
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2>${patternTag(p.pattern)}</div>
       <p class="muted small">${esc(p.statement)}</p><pre class="code">${esc(p.solution)}</pre>
-      <div class="side"><div><b>Time</b><div class="options" id="t">${to.map(c => `<button data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>
-      <div><b>Space</b> <span class="muted small">(extra, excluding output)</span><div class="options" id="s">${so.map(c => `<button data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div></div></div>
+      <div class="side"><div><b>Time</b> <span class="muted small">keys 1-4</span><div class="options" id="t">${to.map((c, k) => `<button data-c="${esc(c)}"><kbd>${k + 1}</kbd> ${esc(c)}</button>`).join('')}</div></div>
+      <div><b>Space</b> <span class="muted small">(extra, excluding output) · then 1-4</span><div class="options" id="s">${so.map((c, k) => `<button data-c="${esc(c)}"><kbd>${k + 1}</kbd> ${esc(c)}</button>`).join('')}</div></div></div>
       <div id="out"></div></div>`;
+    const keys = e => {
+      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !['1', '2', '3', '4'].includes(e.key)) return;
+      if (pickT == null) $$('#t button', el)[+e.key - 1]?.click(); else if (pickS == null) $$('#s button', el)[+e.key - 1]?.click();
+    };
+    document.addEventListener('keydown', keys); onRound(() => document.removeEventListener('keydown', keys));
     const maybe = () => {
       if (pickT == null || pickS == null) return;
       timer.stop();
@@ -593,9 +806,9 @@ GAMES.bigo = {
         b.disabled = true; if (b.dataset.c === right) b.classList.add('right'); else if (b.dataset.c === mine) b.classList.add('wrong'); }));
       $('#out', el).innerHTML = `<div class="reveal">Time <b>${esc(p.time)}</b> · Space <b>${esc(p.space)}</b><br>${esc(p.insight)}</div>`;
       const q = okT && okS ? 2 : okT || okS ? 1 : 0;
-      const nx = Object.assign(document.createElement('button'), { className: 'primary', textContent: 'Next' });
-      nx.style.marginTop = '10px'; nx.onclick = () => done(q);
-      $('#out', el).append(nx);
+      const nx = Object.assign(document.createElement('button'), { className: 'primary', innerHTML: 'Next <kbd>N</kbd>' });
+      nx.dataset.key = 'n'; nx.style.marginTop = '10px'; nx.onclick = () => done(q);
+      $('#out', el).append(nx); nx.focus({ preventScroll: true });
     };
     $('#t', el).onclick = e => { const b = e.target.closest('button'); if (!b || pickT) return; pickT = b.dataset.c; b.style.outline = '2px solid var(--accent)'; maybe(); };
     $('#s', el).onclick = e => { const b = e.target.closest('button'); if (!b || pickS) return; pickS = b.dataset.c; b.style.outline = '2px solid var(--accent)'; maybe(); };
@@ -605,31 +818,44 @@ GAMES.bigo = {
 // 7. Edge Hunter — list clarifying questions & edge cases, then self-check.
 GAMES.edge = {
   name: 'Edge Hunter', icon: '🔍', layer: 'In-person', cost: 1.5, defaultN: 2, focus: 'clarify',
-  desc: 'You have 60 seconds to write the clarifying questions and edge cases you would raise. Then tick off what you covered.',
+  desc: '60 seconds to write the clarifying questions and edge cases you would raise, one per line. Scored automatically against the expected list; claiming one it didn’t match counts half.',
   pool: () => C.problems,
   render(el, p, done, { clock }) {
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span></div>
       <p class="prompt" style="font-size:17px">${esc(p.statement)}</p>
-      <textarea id="ed" style="min-height:150px" placeholder="- What if the input is empty?&#10;- Can there be duplicates?&#10;- ..."></textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="go">Reveal checklist <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
+      <p class="muted small">One question or edge case per line, specific to this problem (e.g. “what if n is 0?”, not just “edge cases”).</p>
+      <textarea id="ed" style="min-height:150px" aria-label="Your questions and edge cases" placeholder="- What if the input is empty?&#10;- Can there be duplicates?&#10;- ..."></textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="go" data-key="r">Score it <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
     const ed = $('#ed', el); ed.focus();
     const timer = startTimer(clock, 60, () => reveal());
     let shown = false;
     const reveal = () => {
       if (shown) return; shown = true; timer.stop(); ed.readOnly = true;
-      const specific = [...p.clarify.map(c => '❓ ' + c), ...p.edges.map(c => '⚠️ ' + c)];
-      $('#out', el).innerHTML = `<h2 class="h3" style="margin-top:14px">Tick what you covered</h2><div class="checklist">${specific.map((c, i) =>
-        `<label><input type="checkbox" data-i="${i}"> ${esc(c)}</label>`).join('')}</div>
-        <details style="margin-top:8px"><summary>Generic questions worth asking on any problem</summary><ul>${C.clarify_generic.map(c => `<li>${esc(c)}</li>`).join('')}</ul></details>
-        <div class="row" style="margin-top:12px"><button class="primary" id="score">Score it</button></div>`;
-      $('#score', el).onclick = () => {
-        const got = $$('.checklist input:checked', el).length, pct = specific.length ? got / specific.length : 1;
-        $('#score', el).disabled = true;
-        $('#out', el).append(gradeButtons(done, pct >= 0.7 ? 2 : pct >= 0.4 ? 1 : 0));
+      const mineLines = ed.value.split('\n').map(l => l.replace(/^[\s\-*•\d.)]+/, '').trim()).filter(l => l.length > 2);
+      const items = [...p.clarify.map(t => ({ t, kind: '❓' })), ...p.edges.map(t => ({ t, kind: '⚠️' }))]
+        .map(it => ({ ...it, match: bestEdgeMatch(it.t, mineLines) }));
+      const auto = items.filter(it => it.match).length;
+      const draw = () => {
+        const claimed = items.filter(it => !it.match && it.claimed).length;
+        const score = items.length ? (auto + claimed * 0.5) / items.length : 1;
+        const q = !mineLines.length ? 0 : score >= 0.75 ? 2 : score >= 0.4 ? 1 : 0;
+        $('#out', el).innerHTML = `<h2 class="h3" style="margin-top:14px">You covered ${auto} of ${items.length}${claimed ? ` (+${claimed} claimed, half credit)` : ''}: ${Math.round(score * 100)}%</h2>
+          <ul class="checks edge">${items.map((it, i) => `<li class="${it.match ? 'ok' : it.claimed ? 'claim' : 'miss'}">
+            <span>${it.match ? '✓' : it.claimed ? '½' : '✗'} ${it.kind} ${esc(it.t)}</span>
+            ${it.match ? `<span class="muted small">your line: “${esc(it.match)}”</span>`
+              : `<label class="small"><input type="checkbox" data-claim="${i}" ${it.claimed ? 'checked' : ''}> I covered this in other words</label>`}</li>`).join('')}</ul>
+          ${!mineLines.length ? '<p class="small" style="color:var(--bad)">Nothing written, so this counts as missed.</p>' : ''}
+          <details style="margin-top:8px"><summary>Questions worth asking on any problem</summary><ul>${C.clarify_generic.map(c => `<li>${esc(c)}</li>`).join('')}</ul></details>
+          <div class="gradebar"><span class="muted small" style="align-self:center">Grade from your score: <b>${['Blanked', 'Shaky', 'Nailed'][q]}</b></span>
+            <button class="primary" id="nx" data-key="n">Next <kbd>N</kbd></button></div>`;
+        $$('[data-claim]', el).forEach(c => c.onchange = () => { items[+c.dataset.claim].claimed = c.checked; draw(); });
+        $('#nx', el).onclick = () => done(q);
       };
+      draw();
+      $('#nx', el).focus({ preventScroll: true });
     };
     $('#go', el).onclick = reveal;
-    ed.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) reveal(); });
+    ed.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); reveal(); } });
   },
 };
 
@@ -644,13 +870,21 @@ GAMES.oa = {
     let runs = 0, finished = false;
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       <span class="muted small">${mins} min budget</span></div><p class="prompt" style="font-size:16px">${esc(p.statement)}</p>
-      <textarea class="code" id="ed"></textarea>
-      <div class="row" style="margin-top:10px"><button class="primary" id="run">Run tests <kbd>Ctrl+Enter</kbd></button>
-      <button class="ghost" id="give">Give up & study</button><span class="spacer"></span><span class="muted small" id="rc"></span></div><div id="out"></div></div>`;
+      <textarea class="code" id="ed" aria-label="Your solution"></textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="run" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
+      <button class="ghost" id="give"></button><span id="moveon"></span><span class="spacer"></span><span class="muted small" id="rc"></span></div>
+      <div id="sol" hidden></div><div id="out"></div></div>`;
     const ed = $('#ed', el); ed.value = p.starter; enhanceEditor(ed, { onSubmit: () => run() }); ed.focus();
     ed.selectionStart = ed.selectionEnd = ed.value.length - 1;
-    const timer = startTimer(clock, mins * 60, () => toast('⏰ Time budget used: finish up or give up'));
-    const finish = q => { finished = true; const t = timer.stop(); $('#out', el).insertAdjacentHTML('beforeend', `<p class="muted small">Time: ${fmtTime(t)} · runs: ${runs}</p>`); $('#out', el).append(gradeButtons(done, q)); };
+    const timer = startTimer(clock, mins * 60, () => toast('⏰ Time budget used: finish up or look at the solution'));
+    const sol = answerToggle($('#give', el), $('#sol', el),
+      () => `<div class="reveal">${patternTag(p.pattern)} ${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div><pre class="code">${esc(p.solution)}</pre>`,
+      () => { if (!finished) $('#moveon', el).append(missedBar(done)); }, 'solution');
+    const finish = q => {
+      finished = true; const t = timer.stop();
+      $('#out', el).insertAdjacentHTML('beforeend', `<p class="muted small">Time: ${fmtTime(t)} · runs: ${runs}</p>`);
+      if (sol.seen) { $('#moveon', el).innerHTML = ''; $('#out', el).append(missedBar(done, true)); } else $('#out', el).append(gradeButtons(done, q));
+    };
     const run = async () => {
       if (finished) return; runs++; $('#rc', el).textContent = `${runs} run${runs > 1 ? 's' : ''}`;
       const r = await runTests(p, ed.value);
@@ -658,7 +892,6 @@ GAMES.oa = {
       if (r.ok) finish(timer.elapsed() <= mins * 60 && runs <= 3 ? 2 : 1);
     };
     $('#run', el).onclick = run;
-    $('#give', el).onclick = () => { if (finished) return; $('#out', el).innerHTML = `<div class="reveal">${patternTag(p.pattern)} ${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div><pre class="code">${esc(p.solution)}</pre>`; finish(0); };
   },
 };
 
@@ -681,15 +914,15 @@ GAMES.mock = {
         ${S.settings.focus.talk ? `<div class="row" style="margin-top:12px"><button id="rec">${rec ? '⏹ Stop recording' : '🎙 Record myself'}</button></div>
         ${audioUrl ? `<audio controls src="${audioUrl}" style="width:100%;margin-top:8px"></audio>` : ''}` : ''}</div>`;
       let main = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span></div><p class="prompt" style="font-size:16px">${esc(p.statement)}</p>`;
-      if (P.id === 'clarify') main += `<p class="muted">Before solving: ask your questions. Type them as you say them.</p><textarea id="n" style="min-height:140px">${esc(notes.clarify || '')}</textarea>`;
+      if (P.id === 'clarify') main += `<p class="muted">Before solving: ask your questions. Type them as you say them.</p><textarea id="n" style="min-height:140px" aria-label="Your clarifying questions">${esc(notes.clarify || '')}</textarea>`;
       if (P.id === 'plan') main += `<details open><summary>Answers to typical clarifying questions</summary><ul class="small">${p.clarify.map(c => `<li>${esc(c)}</li>`).join('') || '<li>Standard constraints.</li>'}</ul></details>
         <p class="muted">Say: brute force + its cost → the bottleneck → the pattern → 3-5 step plan. Commit to a complexity.</p>
         <textarea id="n" style="min-height:150px" placeholder="Brute force: ...&#10;Bottleneck: ...&#10;Pattern: ...&#10;Plan: 1) ... 2) ...">${esc(notes.plan || '')}</textarea>
         <div class="row" style="margin-top:8px">Time <select id="ct">${C.complexities.map(c => `<option ${notes.ct === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
         Space <select id="cs">${C.complexities.map(c => `<option ${notes.cs === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>`;
-      if (P.id === 'code') main += `<p class="muted">Whiteboard rules: no run button, no auto-indent. Narrate what each block is for.</p><textarea class="code" id="n">${esc(notes.code || p.starter)}</textarea>`;
+      if (P.id === 'code') main += `<p class="muted">Whiteboard rules: no run button, no auto-indent. Narrate what each block is for.</p><textarea class="code" id="n" aria-label="Your code">${esc(notes.code || p.starter)}</textarea>`;
       if (P.id === 'test') main += `<p class="muted">Trace your code on the example and 2 edge cases, out loud. Fix bugs you find. Still no running.</p>
-        <textarea class="code" id="n">${esc(notes.code)}</textarea><textarea id="n2" style="min-height:80px;margin-top:8px" placeholder="Dry-run notes / edge cases tested">${esc(notes.test || '')}</textarea>`;
+        <textarea class="code" id="n" aria-label="Your code">${esc(notes.code)}</textarea><textarea id="n2" style="min-height:80px;margin-top:8px" placeholder="Dry-run notes / edge cases tested">${esc(notes.test || '')}</textarea>`;
       if (P.id === 'score') main += `<div id="res"><p class="muted">Running your final code…</p></div><h2 class="h3" style="margin-top:12px">Score yourself (1 = weak, 4 = strong)</h2>
         <table>${C.rubric.map(r => `<tr><td><b>${esc(r.name)}</b><div class="muted small">${esc(r.desc)}</div></td><td style="white-space:nowrap">${[1, 2, 3, 4].map(v =>
           `<label style="margin-right:6px"><input type="radio" name="${r.id}" value="${v}"> ${v}</label>`).join('')}</td></tr>`).join('')}</table>
@@ -721,7 +954,7 @@ GAMES.mock = {
         rec.start(); draw(); toast('🎙 Recording: narrate everything');
       } catch (e) { toast('Microphone unavailable'); }
     };
-    onLeave(() => rec && rec.stop());
+    onRound(() => rec && rec.stop());
     const scorePhase = async () => {
       const r = await runTests(p, notes.code || '');
       const okT = notes.ct === p.time, okS = notes.cs === p.space;
@@ -796,6 +1029,45 @@ function runFixed(app, game, o) {
   $('#bk', shell).onclick = back;
   g.render($('#b', shell), o, q => { const x = review(game, o.id, q); toast(`+${x} XP`); back(); }, { clock: $('#clock', shell) });
 }
+
+// Every problem in one searchable list: solve any of them against the real tests.
+ROUTES.problems = (app, _, params) => {
+  app.innerHTML = `<h1>Problems</h1>
+    <p class="muted">All ${C.problems.length} problems. <b>Solve</b> any of them from a blank editor against the real tests, or drill it with Line Up 🧩 / Fill the Gap ✍️.
+      <span class="small">Keys: <kbd>/</kbd> search · <kbd>↓</kbd><kbd>↑</kbd> move · <kbd>Enter</kbd> solve.</span></p>
+    <div class="row filters">
+      <input type="search" id="q" placeholder="Search by name, number or pattern" aria-label="Search problems" value="${esc(params.q || '')}" style="flex:1;min-width:220px">
+      <select id="fd" aria-label="Difficulty"><option value="">All levels</option><option>Easy</option><option>Medium</option><option>Hard</option></select>
+      <select id="fp" aria-label="Pattern"><option value="">All patterns</option>${C.patterns.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
+      <span class="muted small" id="cnt" role="status"></span></div>
+    <div class="plist" id="list"></div>`;
+  const draw = () => {
+    const q = $('#q').value.trim().toLowerCase(), fd = $('#fd').value, fp = $('#fp').value;
+    const rows = C.problems.filter(p => (!fd || p.diff === fd) && (!fp || p.pattern === fp)
+      && (!q || `${p.num} ${p.title} ${PAT(p.pattern).name}`.toLowerCase().includes(q)));
+    $('#cnt').textContent = `${rows.length} shown`;
+    $('#list').innerHTML = rows.map(p => `<div class="prow"><span class="muted pnum">${p.num}</span>
+      <a class="ptitle" href="#/play/oa?problem=${p.id}" title="Solve against the tests">${esc(p.title)}</a>
+      <span class="tag ${p.diff}">${p.diff}</span>${patternTag(p.pattern)}<span class="spacer"></span>
+      <span title="How well you know it">${dots(problemLevel(p.id))}</span>
+      <a class="btn ghost" href="#/play/lineup?problem=${p.id}" title="Line Up" aria-label="Line Up: ${esc(p.title)}">🧩</a>
+      <a class="btn ghost" href="#/play/fill?problem=${p.id}" title="Fill the Gap" aria-label="Fill the Gap: ${esc(p.title)}">✍️</a>
+      <a class="btn primary" href="#/play/oa?problem=${p.id}" tabindex="-1">Solve</a></div>`).join('') || '<p class="muted">No problems match.</p>';
+  };
+  $('#q').oninput = draw; $('#fd').onchange = draw; $('#fp').onchange = draw;
+  const titles = () => $$('#list .ptitle');
+  $('#q').addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); titles()[0]?.focus(); }
+    if (e.key === 'Enter') { e.preventDefault(); titles()[0]?.click(); }
+  });
+  $('#list').addEventListener('keydown', e => {
+    const t = titles(), k = t.indexOf(document.activeElement); if (k < 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); t[k + 1]?.focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); (k ? t[k - 1] : $('#q')).focus(); }
+  });
+  draw();
+  if (params.focus !== '0') $('#q').focus();
+};
 
 ROUTES.patterns = (app, [pid]) => {
   if (pid) {

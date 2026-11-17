@@ -20,22 +20,26 @@
 <body>
 <button type="button" class="skip" id="skip">Skip to content</button>
 <header class="topbar">
-  <a href="#/today" class="brand"><span class="logo">{}</span> Pattern Gym</a>
+  <a href="#/today" class="brand" aria-label="Pattern Gym, today"><span class="logo">{}</span> <span class="brand-name">Pattern Gym</span></a>
   <nav>
     <a href="#/today" data-nav="today">Today</a>
     <a href="#/study" data-nav="study">Study</a>
     <a href="#/games" data-nav="games">Games</a>
+    <a href="#/problems" data-nav="problems">Problems</a>
     <a href="#/patterns" data-nav="patterns">Patterns</a>
     <a href="#/stats" data-nav="stats">Stats</a>
     <a href="#/settings" data-nav="settings">Settings</a>
   </nav>
   <div class="hud" id="hud"></div>
+  <button type="button" class="ghost keys-btn" data-help title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
 </header>
 <main id="app" tabindex="-1"><p class="muted center">Loading...</p></main>
 <div id="toast"></div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script src="merge.js"></script>
+<script src="edge-match.js"></script>
 <script src="sync.js"></script>
 <script src="app.js"></script>
 </body>

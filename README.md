@@ -61,14 +61,20 @@ Learn before you drill: **The Method** (problem → pseudocode in 4 questions, i
 | Layer | Game | What it trains |
 |---|---|---|
 | Idea | ⚡ Pattern Sprint | Problem statement → pattern, under a timer (all 150 NeetCode problems) |
-| Structure | 🧩 Line Up | Put a shuffled real solution back in order (checked by running tests) |
-| Structure | 🦴 Skeleton Recall | Write a pattern's generic template from memory |
+| Structure | 🧩 Line Up | Put a shuffled real solution back in order: drag, click or keyboard (checked by running tests) |
+| Structure | 🦴 Skeleton Recall | Write a pattern's reusable template from memory, with a 3-step hint ladder and a part-by-part check |
 | Structure → Code | ✍️ Fill the Gap | Write the 2-4 key lines that make the skeleton solve *this* problem |
 | Syntax | 🐍 Syntax Snap | One-line Python idioms, executed and checked |
 | Full solve | 💻 OA Mode | Blank editor, timer, run button: OA conditions |
 | In-person | ⏱️ Big-O Call | Call time/space complexity of a solution |
-| In-person | 🔍 Edge Hunter | 60 s to list clarifying questions and edge cases |
+| In-person | 🔍 Edge Hunter | 60 s to list clarifying questions and edge cases, scored automatically against the expected list |
 | In-person | 🎤 Mock Interview | Clarify → plan aloud → code with no run button → dry-run → rubric self-score, optional voice recording |
+
+**Problems page:** search all 150 and solve any of them against the real tests, or open it in Line Up / Fill the Gap.
+
+**Answers and going back:** Show answer toggles (show, hide, keep working), but seeing it once records the round as missed. **← Previous** reopens the last question and undoes the grade you gave it.
+
+**Keyboard:** press `?` for the list. `g` then a letter changes page, `/` searches problems, `Esc` leaves a text box, `R` run, `H` hint, `A` answer, `N` next, `[` previous, `1 2 3` grade.
 
 Everything is spaced repetition: nailed items come back after 1, 3, 7, 14, 30... days; blanked ones come back tomorrow.
 Setting an interview date within 14 days switches to urgent mode, which caps intervals so everything gets reps before the day.

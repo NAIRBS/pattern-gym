@@ -26,8 +26,8 @@ jobs:
           python-version: "3.12"
       - name: Check every reference solution passes its tests
         run: python validate.py
-      - name: Test the progress merge logic
-        run: node tests/merge.test.js
+      - name: Test the progress merge and Edge Hunter matching
+        run: node tests/merge.test.js && node tests/edge-match.test.js
       - name: Build static content
         run: python build_static.py
       - uses: actions/configure-pages@v5
