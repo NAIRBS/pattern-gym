@@ -8,10 +8,21 @@ Daily drills for LeetCode-style OAs and in-person interviews (Python). Use it in
 | Needs | A browser | Python 3.10+ (standard library only) |
 | Your code runs | In your browser (Pyodide) | On your machine (`runner.py` subprocess) |
 | Progress saved in | That browser's local storage | `progress.json` next to `server.py` |
-| Moving progress | Settings → Download backup, then Restore from backup on the other device | Copy `progress.json`, or use the same backup/restore buttons |
+| Moving progress by hand | Settings → Download backup, then Restore from backup | Copy `progress.json`, or the same buttons |
+| Sync across devices | Sign in (Settings → Account & sync) | Same, if the Supabase redirect URLs allow localhost |
 
-There are no accounts yet, so progress doesn't sync between devices on its own. Supabase accounts are planned:
-see [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md).
+## Accounts and sync (optional)
+
+Sign in under **Settings → Account & sync**: enter your email, then open the link it sends **in the same browser**.
+Signed in, progress is still saved on the device first, then synced to Supabase (on load, a few seconds after each
+change, and when you come back online). Progress from different devices is **combined, never overwritten**: each
+drill keeps its most recent review, XP and daily totals take the higher value, lessons and mock interviews are
+combined, and the most recently changed settings win. Only **Restore from backup** and **Reset** replace the
+cloud copy, and they ask first. The "☁" pill in the header shows sync status.
+
+Without signing in everything works as before, and **Download backup / Restore from backup** still move progress by hand.
+The Supabase project URL and publishable key are in `static/config.js` (public by design; row-level security keeps
+each user to their own row). Empty them to turn sync off.
 
 ## Online
 
@@ -74,7 +85,9 @@ Setting an interview date within 14 days switches to urgent mode, which caps int
 - `build_static.py`: writes `static/content.json` and copies `runner.py` into `static/` for static hosting
 - `static/py-worker.js`: runs `runner.py` in the browser with Pyodide when there's no server
 - `validate.py`: checks every reference solution passes its tests. Run it after adding content (the deploy runs it too).
-- `docs/NEXT_STEPS.md`: what's done and what's next (Supabase accounts)
+- `static/sync.js`, `static/merge.js`, `static/config.js`: sign-in, cloud sync, and the merge rules
+  (tested by `node tests/merge.test.js`)
+- `docs/NEXT_STEPS.md`: architecture decisions, what's done, and the remaining setup
 
 ## Adding a problem
 

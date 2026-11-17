@@ -110,7 +110,16 @@ const DEFAULTS = {
   study: { lessons: {}, walks: {} },
 };
 let saveTimer = null;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveTimer = null; persist(); }, 300); renderHud(); }
+// settingsAt = when settings last changed here; sync uses it to pick the newest settings across devices.
+let settingsSeen = null;
+function markSettingsSeen() { settingsSeen = JSON.stringify(S.settings); }
+function save() {
+  const sj = JSON.stringify(S.settings);
+  if (settingsSeen !== null && sj !== settingsSeen) S.settingsAt = Date.now();
+  settingsSeen = sj;
+  clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveTimer = null; persist(); }, 300);
+  renderHud(); Cloud.schedule();
+}
 addEventListener('pagehide', () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; persist(); } });
 // Fill in anything missing (older saves, imported backups) from DEFAULTS.
 function normalizeState(raw) {
@@ -260,7 +269,7 @@ function renderHud() {
   $('#hud').innerHTML = `
     <span class="pill ${u.mode}" title="Set in Settings">${esc(u.label)}</span>
     <span class="pill" title="Streak (best ${S.streak.best || 0})">🔥 ${S.streak.last === today() || S.streak.last === addDays(today(), -1) ? S.streak.count : 0}</span>
-    <span class="pill" title="${into}/${span} XP to next level">Lv ${l} · ${S.xp} XP</span>`;
+    <span class="pill" title="${into}/${span} XP to next level">Lv ${l} · ${S.xp} XP</span>${Cloud.pill()}`;
 }
 const ROUTES = {};
 let cleanup = [];
@@ -850,8 +859,10 @@ ROUTES.settings = app => {
     <div class="card"><h3>New items per day, per game: <span id="nv">${st.newPerDay}</span></h3><input type="range" class="slider" id="new" min="1" max="12" value="${st.newPerDay}">
       <p class="muted small">Pattern Sprint gets 3× this. Reviews always come first; new items fill the rest.</p></div>
     <div class="card"><h3>Sprint timer: <span id="sv">${st.sprintSeconds}</span>s</h3><input type="range" class="slider" id="sec" min="6" max="30" value="${st.sprintSeconds}"></div>
-    <div class="card"><h3>Data</h3><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py.'
-      : 'Progress is saved in this browser only. Download a backup now and then, and use Restore to move it to another browser or device.'}</p>
+    <div class="card" id="acct" hidden></div>
+    <div class="card"><h3>Data</h3><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py'
+      : 'Progress is saved in this browser'}${Cloud.signedIn ? ' and synced to your account.' : SERVER ? '.'
+      : ' only. Sign in above to sync it, or download a backup and use Restore on the other device.'}</p>
       <div class="row"><button id="export">Download backup</button><button id="import">Restore from backup</button>
       <input type="file" id="importfile" accept=".json,application/json" hidden><button class="bad" id="reset">Reset all progress</button></div></div>
     </div>`;
@@ -872,10 +883,17 @@ ROUTES.settings = app => {
     let data;
     try { data = JSON.parse(await f.text()); } catch (err) { toast('That file isn’t valid JSON'); return; }
     if (!data || typeof data !== 'object' || Array.isArray(data) || !('items' in data || 'settings' in data)) { toast('That doesn’t look like a Pattern Gym backup'); return; }
-    if (!confirm('Replace your current progress with this backup? (Download a backup first if you want to keep it.)')) return;
-    S = normalizeState(data); save(); toast('Backup restored'); route();
+    const where = Cloud.signedIn ? ' here and in your account' : '';
+    if (!confirm(`Replace your current progress${where} with this backup? (Download a backup first if you want to keep it.)`)) return;
+    S = normalizeState(data); markSettingsSeen(); save(); Cloud.overwrite(); toast('Backup restored'); route();
   };
-  $('#reset').onclick = () => { if (confirm('Erase ALL progress, XP and streaks? This cannot be undone.')) { const s = S.settings; S = structuredClone(DEFAULTS); S.settings = s; save(); toast('Progress reset'); } };
+  $('#reset').onclick = () => {
+    const where = Cloud.signedIn ? ' here and in your account' : '';
+    if (confirm(`Erase ALL progress, XP and streaks${where}? This cannot be undone.`)) {
+      const s = S.settings; S = structuredClone(DEFAULTS); S.settings = s; markSettingsSeen(); save(); Cloud.overwrite(); toast('Progress reset');
+    }
+  };
+  Cloud.drawAccount($('#acct'));
 };
 
 // ─────────────────────────── STUDY ───────────────────────────
@@ -1044,6 +1062,8 @@ function studyWalk(app, pid, probId) {
     C = await loadContent();
     S = normalizeState(await loadState());
   } catch (e) { $('#app').innerHTML = '<div class="card">Can’t load content. Locally, is <code>python server.py</code> running? For static hosting, run <code>python build_static.py</code> first.</div>'; return; }
+  markSettingsSeen();
   renderHud(); route();
+  Cloud.init().catch(e => console.warn('sync init failed', e));
   if (!SERVER) setTimeout(() => { if (!pyWorker) startPy(); }, 1500);  // warm up Python so the first Run is quick
 })();
