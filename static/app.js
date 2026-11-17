@@ -1398,7 +1398,7 @@ function studyHome(app) {
       <p class="lede">Each pattern is a short course: the idea, one worked example taken from the brute force to the final answer,
         guided problems, then problems you solve cold before seeing any explanation.</p></div>
     ${nx ? `<a class="continue" href="${nx.href}" data-key="c">
-        <span class="continue-pattern" style="color:${pc(cur.color)}">${esc(cur.name)}</span>
+        ${nx.label.includes(cur.name) ? "" : `<span class="continue-pattern" style="color:${pc(cur.color)}">${esc(cur.name)}</span>`}
         <span class="continue-what">${esc(nx.label)}</span>
         <span class="btn primary continue-go">${esc(nx.verb)} <kbd>C</kbd></span></a>`
       : `<div class="continue"><span class="continue-what">Every course is complete. Mixed practice is where you keep sharp now.</span></div>`}
