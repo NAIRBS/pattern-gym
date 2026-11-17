@@ -331,7 +331,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'e' && focusEditor()) { e.preventDefault(); setTimeout(paintEdBtn, 0); return; }
   if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key) && navListKey(e)) return;
   if (e.key === ' ' && e.target.closest?.('button, a, summary, [role=option], [role=listbox]')) return;  // Space already clicks a focused control
-  const b = $$('#app [data-key]').find(b => b.dataset.key === e.key.toLowerCase() && b.offsetParent && !b.disabled);
+  const b = $$('#app [data-key], header [data-key]').find(b => b.dataset.key === e.key.toLowerCase() && b.offsetParent && !b.disabled);
   if (b) { e.preventDefault(); b.click(); }
 });
 document.querySelector('[data-help]')?.addEventListener('click', showKeys);
@@ -1035,7 +1035,7 @@ GAMES.mock = {
         <table>${C.rubric.map(r => `<tr><td><b>${esc(r.name)}</b><div class="muted small">${esc(r.desc)}</div></td><td style="white-space:nowrap">${[1, 2, 3, 4].map(v =>
           `<label style="margin-right:6px"><input type="radio" name="${r.id}" value="${v}"> ${v}</label>`).join('')}</td></tr>`).join('')}</table>
         <div class="row" style="margin-top:12px"><button class="primary" id="save">Save mock</button></div>`;
-      if (P.id !== 'score') main += `<div class="row" style="margin-top:10px"><button class="primary" id="nextp">Next phase →</button><span class="muted small">Suggested ${P.mins} min</span></div>`;
+      if (P.id !== 'score') main += `<div class="row" style="margin-top:10px"><button class="primary" id="nextp" data-key="n">Next phase <kbd>N</kbd></button><span class="muted small">Suggested ${P.mins} min</span></div>`;
       main += '</div>';
       el.innerHTML = head + `<div class="side"><div>${main}</div>${side}</div>`;
       const n = $('#n', el);
@@ -1094,18 +1094,18 @@ ROUTES.today = app => {
       <div><h1>${pct === 100 ? 'Done for today 🎉' : 'Today’s session'}</h1>
       <p class="muted">${S.settings.minutes} min plan · <b>${esc(u.label)}</b>${u.mode === 'urgent' ? ' · urgent mode: reviews are packed closer together' : ''}</p>
       <div class="row">${nextBlock ? `<a class="btn primary" href="#/play/${nextBlock.game}?plan=1" data-key="s">▶ ${pct ? 'Continue' : 'Start'}: ${GAMES[nextBlock.game].name} <kbd>S</kbd></a>` : `<a class="btn primary" href="#/games" data-key="s">Extra practice <kbd>S</kbd></a>`}
-      <a class="btn ghost" href="#/settings">Adjust time / date</a></div></div></div>
+      <a class="btn ghost" href="#/settings" data-key="d">Adjust time / date <kbd>D</kbd></a></div></div></div>
     ${(() => { const nl = nextLesson(); return nl ? `<h2>Learn</h2><a class="card block" href="#/study/${nl.id}" style="color:inherit" data-key="l"><div class="icon">📖</div>
       <div style="flex:1"><div class="row"><b>Today's lesson: <span style="color:${pc(nl.color)}">${esc(nl.name)}</span></b><span class="tag">Study</span></div>
       <div class="muted small">~10 min: read the lesson, build the skeleton line by line, walk through 2 problems. Then the games below keep it alive.</div></div>
-      <div class="mono">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div><kbd class="cardk">L</kbd></a>` : ''; })()}
+      <div class="mono">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div><span class="btn block-go">Open lesson <kbd>L</kbd></span></a>` : ''; })()}
     <h2>Practice</h2>
     <div class="grid">${plan.blocks.map((b, bi) => { const g = GAMES[b.game]; const d = dueCount(b.game);
       return `<a class="card block ${b.done >= b.target ? 'done' : ''}" href="#/play/${b.game}?plan=1" style="color:inherit" ${bi < 9 ? `data-key="${bi + 1}" data-kgroup="start a practice block"` : ''}>
         <div class="icon">${g.icon}</div><div style="flex:1"><div class="row"><b>${g.name}</b><span class="tag">${g.layer}</span>
         ${d ? `<span class="tag" style="color:var(--accent)">${d} due</span>` : ''}</div>
         <div class="muted small">${esc(g.desc)}</div><div class="bar"><i style="width:${b.done / b.target * 100}%"></i></div></div>
-        <div class="mono">${b.done}/${b.target}</div>${bi < 9 ? `<kbd class="cardk">${bi + 1}</kbd>` : ''}</a>`; }).join('')}</div>
+        <div class="mono">${b.done}/${b.target}</div><span class="btn block-go ${b.done >= b.target ? 'ghost' : b === nextBlock ? 'primary' : ''}">${b.done >= b.target ? 'Again' : b.done ? 'Continue' : 'Start'}${bi < 9 ? ` <kbd>${bi + 1}</kbd>` : ''}</span></a>`; }).join('')}</div>
     <h2>Weakest patterns right now</h2>
     <div class="grid g3" data-navlist>${weakest.map(({ p, m }) => `<a class="card" href="#/patterns/${p.id}" style="color:inherit" data-item><b style="color:${pc(p.color)}">${esc(p.name)}</b>
       <div class="muted small">${Math.round(m * 100)}% mastery</div><div class="small">${p.triggers.slice(0, 2).map(esc).join(' · ')}</div></a>`).join('')}</div>`;

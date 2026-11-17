@@ -127,7 +127,7 @@ const Cloud = (() => {
     };
     const [label, title] = map[status] || ['☁', ''];
     if (status === 'signedout')
-      return `<button type="button" class="pill cloud signedout" data-signin title="${esc(title)}">${esc(label)}</button>`;
+      return `<button type="button" class="pill cloud signedout" data-signin data-key="i" title="${esc(title)} (I)">${esc(label)} <kbd>I</kbd></button>`;
     return `<a class="pill cloud ${status}" href="#/settings" title="${esc(title)}">${esc(label)}</a>`;
   }
 
