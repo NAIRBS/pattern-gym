@@ -93,6 +93,7 @@ Setting an interview date within 14 days switches to urgent mode, which caps int
 - `validate.py`: checks every reference solution passes its tests. Run it after adding content (the deploy runs it too).
 - `static/sync.js`, `static/merge.js`, `static/config.js`: sign-in, cloud sync, and the merge rules
   (tested by `node tests/merge.test.js`)
+- `static/edge-match.js`: Edge Hunter's answer matching (tested by `node tests/edge-match.test.js`)
 - `docs/NEXT_STEPS.md`: architecture decisions, what's done, and the remaining setup
 
 ## Adding a problem
