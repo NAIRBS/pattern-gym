@@ -550,7 +550,7 @@ GAMES.syntax = {
     let tries = 0, finished = false;
     el.innerHTML = `<div class="card"><div class="muted small">${esc(s.topic)}</div><div class="prompt">${esc(s.prompt)}</div>
       ${s.setup ? `<div class="muted small" style="margin-top:8px">Already defined:</div><pre class="code">${esc(s.setup)}</pre>` : ''}
-      <textarea class="code" id="ed" style="min-height:90px" placeholder="your code"></textarea>
+      <textarea class="code snap" id="ed" placeholder="your code"></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="go">Check <kbd>Ctrl+Enter</kbd></button><button class="ghost" id="ans">Show answer</button></div>
       <div id="out"></div></div>`;
     const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => check() }); ed.focus();

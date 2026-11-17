@@ -126,28 +126,63 @@ const Cloud = (() => {
       error: ['☁ !', 'Sync problem: ' + (lastError || '') + '. Progress is still saved here.'],
     };
     const [label, title] = map[status] || ['☁', ''];
+    if (status === 'signedout')
+      return `<button type="button" class="pill cloud signedout" data-signin title="${esc(title)}">${esc(label)}</button>`;
     return `<a class="pill cloud ${status}" href="#/settings" title="${esc(title)}">${esc(label)}</a>`;
   }
+
+  // Sign-in dialog: opens over the current page (header pill or the Settings card).
+  function openSignIn() {
+    if (!client) return;
+    let dlg = document.getElementById('signin-dialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'signin-dialog';
+      dlg.setAttribute('aria-labelledby', 'signin-title');
+      document.body.append(dlg);
+      dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });  // click outside = close
+    }
+    dlg.innerHTML = `<form method="dialog" class="dlg-x"><button class="ghost" aria-label="Close">✕</button></form>
+      <h3 id="signin-title">Sign in to sync</h3>
+      <p class="muted small">Keep your progress in sync across devices. We’ll email you a sign-in link: open it in
+      <b>this same browser</b>. No password.</p>
+      <form id="signin-form">
+        <label class="small muted" for="signin-email">Email</label>
+        <input type="email" id="signin-email" required placeholder="you@example.com" autocomplete="email">
+        <button class="primary" type="submit">Email me a sign-in link</button>
+      </form>
+      <p class="small" id="signin-msg" role="status"></p>`;
+    const form = dlg.querySelector('#signin-form'), msg = dlg.querySelector('#signin-msg');
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const btn = form.querySelector('button'), email = form.querySelector('input').value.trim();
+      btn.disabled = true; msg.textContent = 'Sending…'; msg.style.color = '';
+      try {
+        await signIn(email);
+        form.hidden = true;
+        msg.innerHTML = `✉️ Check <b>${esc(email)}</b> for a sign-in link, then open it in this browser. You can close this.`;
+      } catch (err) {
+        msg.textContent = 'Couldn’t send the link: ' + (err.message || err); msg.style.color = 'var(--bad)';
+      }
+      btn.disabled = false;
+    };
+    dlg.showModal();
+    dlg.querySelector('#signin-email').focus();
+  }
+  document.addEventListener('click', e => {
+    if (e.target.closest('[data-signin]')) { e.preventDefault(); openSignIn(); }
+  });
 
   function drawAccount(card) {
     if (!client) { card.hidden = true; return; }
     card.hidden = false;
     if (!user) {
       card.innerHTML = `<h3>Account &amp; sync</h3>
-        <p class="muted small">Sign in to keep your progress in sync across devices. We email you a sign-in link; open it
-        in this same browser. No password.</p>
-        <form class="row" id="signin"><input type="email" id="email" required placeholder="you@example.com" autocomplete="email" style="flex:1;min-width:200px">
-        <button class="primary" type="submit">Email me a sign-in link</button></form>`;
-      card.querySelector('#signin').onsubmit = async e => {
-        e.preventDefault();
-        const btn = card.querySelector('button'), email = card.querySelector('#email').value.trim();
-        btn.disabled = true;
-        try { await signIn(email); card.querySelector('p').textContent = `Check ${email} for a sign-in link, then open it in this browser.`; }
-        catch (err) { toast('Couldn’t send the link: ' + (err.message || err)); }
-        btn.disabled = false;
-      };
+        <p class="muted small">Sign in to keep your progress in sync across devices. No password: we email you a link.</p>
+        <button class="primary" type="button" data-signin>Sign in</button>`;
       return;
     }
+    document.getElementById('signin-dialog')?.close();
     const when = lastSync ? 'Last synced ' + lastSync.toLocaleString() : status === 'syncing' ? 'Syncing…' : 'Not synced yet';
     card.innerHTML = `<h3>Account &amp; sync</h3>
       <p>Signed in as <b>${esc(user.email)}</b></p>
@@ -160,7 +195,7 @@ const Cloud = (() => {
   }
 
   return {
-    init, sync, schedule, overwrite, pill, drawAccount,
+    init, sync, schedule, overwrite, pill, drawAccount, openSignIn,
     get signedIn() { return !!user; },
     get enabled() { return !!client; },
   };
