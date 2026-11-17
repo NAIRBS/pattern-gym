@@ -107,7 +107,7 @@ const DEFAULTS = {
   settings: { interviewDate: addDays(today(), 14), minutes: 30, newPerDay: 4, sprintSeconds: 15,
               focus: { talk: true, clarify: true, complexity: true, noide: true } },
   items: {}, xp: 0, streak: { count: 0, last: null, best: 0 }, days: {}, mocks: [], plan: null,
-  study: { lessons: {}, walks: {} },
+  study: { lessons: {}, walks: {}, attempts: {} },
 };
 let saveTimer = null;
 // settingsAt = when settings last changed here; sync uses it to pick the newest settings across devices.
@@ -126,7 +126,7 @@ function normalizeState(raw) {
   const s = Object.assign(structuredClone(DEFAULTS), raw && typeof raw === 'object' ? raw : {});
   s.settings = Object.assign(structuredClone(DEFAULTS.settings), s.settings || {});
   s.settings.focus = Object.assign({}, DEFAULTS.settings.focus, s.settings.focus || {});
-  s.study = Object.assign({ lessons: {}, walks: {} }, s.study || {});
+  s.study = Object.assign({ lessons: {}, walks: {}, attempts: {} }, s.study || {});
   return s;
 }
 function dayRec(d = today()) { return S.days[d] ||= { xp: 0, rounds: 0, newBy: {} }; }
@@ -299,6 +299,8 @@ const KEY_HELP = [
   ['In a game', [['Ctrl+Enter', 'Run / check / score'], ['R', 'Run / check (when not typing)'], ['H', 'Hint'], ['A', 'Show / hide the answer'],
     ['N', 'Next question'], ['[', 'Previous question (undoes its grade)'], ['1 2 3', 'Grade: Blanked / Shaky / Nailed'], ['1-4', 'Pick an option (Sprint, Big-O)']]],
   ['Line Up', [['↑ ↓', 'Move between lines'], ['← →', 'Switch column'], ['Enter / Space', 'Move the line to the other column'], ['Alt+↑ ↓', 'Reorder a line in your solution']]],
+  ['Study', [['C', 'Continue with your next step'], ['M', 'Start a mystery problem (mixed practice)'], ['Space', 'Reveal the next step / skeleton line'],
+    ['Ctrl+Enter', 'Reveal, while typing your guess']]],
   ['Problems', [['↓ ↑', 'Move through the list'], ['Enter', 'Solve the selected problem']]],
 ];
 function showKeys() {
@@ -324,13 +326,13 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') { e.preventDefault(); showKeys(); return; }
   if (e.key === '/') { e.preventDefault(); if (location.hash.startsWith('#/problems')) $('#q')?.focus(); else location.hash = '#/problems'; return; }
   if (e.key === 'e' && focusEditor()) { e.preventDefault(); setTimeout(paintEdBtn, 0); return; }
+  if (e.key === ' ' && e.target.closest?.('button, a, summary, [role=option], [role=listbox]')) return;  // Space already clicks a focused control
   const b = $$('#app [data-key]').find(b => b.dataset.key === e.key.toLowerCase() && b.offsetParent && !b.disabled);
   if (b) { e.preventDefault(); b.click(); }
 });
 document.querySelector('[data-help]')?.addEventListener('click', showKeys);
 
 // Editor toggle: E jumps into the page's main editor (code box, gap inputs, Line Up lines), Esc leaves it.
-// A floating button shows which mode you're in and switches on click.
 const EDITOR_SEL = '#app textarea:not([readonly]), #app .fill input:not([readonly]), #app .lines .ln[tabindex="0"], #app .lines[tabindex="0"]';
 let lastEditor = null;
 const editorOnPage = () => $$(EDITOR_SEL).filter(x => x.offsetParent);
@@ -340,23 +342,57 @@ function focusEditor() {
   target.focus(); return true;
 }
 const inEditor = () => !!document.activeElement?.closest?.('#app') && document.activeElement.matches(EDITOR_SEL.replaceAll('#app ', ''));
-const edBtn = document.createElement('button');
-edBtn.type = 'button'; edBtn.id = 'edtoggle'; edBtn.hidden = true;
-document.body.append(edBtn);
-edBtn.addEventListener('mousedown', e => e.preventDefault());  // keep focus where it is until we decide
-edBtn.addEventListener('click', () => { if (inEditor()) document.activeElement.blur(); else focusEditor(); paintEdBtn(); });
-function paintEdBtn() {
-  const has = location.hash.startsWith('#/play') && editorOnPage().length > 0;
-  edBtn.hidden = !has; if (!has) return;
-  const on = inEditor();
-  edBtn.classList.toggle('on', on);
-  edBtn.innerHTML = on ? '✎ Editing · <kbd>Esc</kbd> to leave' : '✎ Edit · <kbd>E</kbd>';
-  edBtn.setAttribute('aria-label', on ? 'Leave the editor (Esc)' : 'Go to the editor (E)');
+
+// Key bar: always on screen (desktop), lists exactly the keys that work on this screen right now.
+// Every chip is also clickable, so it doubles as a button and teaches the key at the same time.
+const keybar = document.createElement('nav');
+keybar.id = 'keybar'; keybar.setAttribute('aria-label', 'Keyboard shortcuts for this screen');
+document.body.append(keybar);
+let introSeen = false; try { introSeen = localStorage.getItem('pg-keybar-intro') === '1'; } catch (e) {}
+const keyName = k => ({ ' ': 'Space', '[': '[', ',': ',' }[k] || k.toUpperCase());
+const chipLabel = el => {
+  const c = (el.querySelector('.btn') || el).cloneNode(true); c.querySelectorAll('kbd').forEach(k => k.remove());
+  const t = c.textContent.replace(/[←→✓💻✍️🧩⚡🦴🎲]/gu, '').replace(/\s+/g, ' ').trim();
+  return t.length > 24 ? t.slice(0, 23) + '…' : t;
+};
+let kbTargets = [];
+function paintKeybar() {
+  const chips = []; kbTargets = [];
+  const add = (keys, label, act, cls = '') => { kbTargets.push(act); chips.push(`<button type="button" class="kchip ${cls}" data-k="${kbTargets.length - 1}" tabindex="-1">${keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')}<span>${esc(label)}</span></button>`); };
+  if (editorOnPage().length) {
+    if (inEditor()) add(['Esc'], 'leave the editor', () => document.activeElement.blur(), 'on');
+    else add(['E'], 'go to the editor', () => focusEditor());
+  }
+  if (inEditor()) add(['Ctrl', 'Enter'], 'run / check', () => $('#app [data-key="r"]:not([disabled])')?.click());
+  const seen = new Set();
+  for (const b of $$('#app [data-key]')) {
+    const k = b.dataset.key;
+    if (seen.has(k) || !b.offsetParent || b.disabled || (inEditor() && k !== 'q')) continue;
+    seen.add(k); add([keyName(k)], chipLabel(b), () => b.click());
+  }
+  if (!inEditor()) {
+    if ($$('#app .gradebar [data-q]').some(b => b.offsetParent && !b.disabled)) add(['1', '2', '3'], 'grade: blanked / shaky / nailed', () => {});
+    if ($$('#app .options button').some(b => b.offsetParent && !b.disabled)) add(['1', '–', '4'], 'pick an option', () => {});
+    if ($('#app .parsons')) add(['↑', '↓', 'Enter'], 'move and place lines', () => {}, 'wide');
+  }
+  if (!editorOnPage().length || !inEditor()) {
+    add(['G', '…'], 'then T S G P A X , to change page', () => {});
+    add(['/'], 'search problems', () => { location.hash = '#/problems'; });
+  }
+  add(['?'], 'all shortcuts', () => showKeys());
+  keybar.innerHTML = (introSeen ? '' : `<span class="kintro">New here? Everything works from the keyboard. These are the keys for this screen.
+      <button type="button" class="kintro-x" aria-label="Got it, hide this tip">Got it</button></span>`) + chips.join('');
 }
+keybar.addEventListener('mousedown', e => e.preventDefault());   // keep focus where it is
+keybar.addEventListener('click', e => {
+  if (e.target.closest('.kintro-x')) { introSeen = true; try { localStorage.setItem('pg-keybar-intro', '1'); } catch (er) {} paintKeybar(); return; }
+  const c = e.target.closest('.kchip'); if (c) { kbTargets[+c.dataset.k]?.(); setTimeout(paintKeybar, 0); }
+});
+const paintEdBtn = () => { clearTimeout(paintEdBtn._t); paintEdBtn._t = setTimeout(paintKeybar, 30); };
 document.addEventListener('focusin', e => { if (e.target.matches?.(EDITOR_SEL.replaceAll('#app ', '')) && e.target.closest('#app')) lastEditor = e.target; paintEdBtn(); });
 document.addEventListener('focusout', () => setTimeout(paintEdBtn, 0));
 window.addEventListener('hashchange', () => { lastEditor = null; setTimeout(paintEdBtn, 50); });
-new MutationObserver(() => paintEdBtn()).observe(document.getElementById('app'), { childList: true, subtree: true });
+new MutationObserver(() => paintEdBtn()).observe(document.getElementById('app'), { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
 
 // ─────────────────────────── shared game pieces ───────────────────────────
 // Pattern colours are tuned for the dark theme; in light mode they are mixed toward the text colour so they stay readable.
@@ -1204,12 +1240,70 @@ ROUTES.settings = app => {
 };
 
 // ─────────────────────────── STUDY ───────────────────────────
+// Attempt-first course per pattern: the idea → one worked example (brute force → final answer) →
+// guided problems → solo problems solved cold before any explanation. Mixed practice then hides the
+// title and pattern, the closest thing here to a question you have never seen.
 const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 const studyOrder = () => PATTERN_PRIORITY.map(PAT).filter(p => p.lesson);
 const lessonDone = id => !!S.study.lessons[id];
-const walksDone = pid => C.problems.filter(p => p.pattern === pid && S.study.walks[p.id]).length;
+const walked = id => !!S.study.walks[id];
+const attempted = id => !!S.study.attempts[id];
+const walksDone = pid => C.problems.filter(p => p.pattern === pid && walked(p.id)).length;
 const nextLesson = () => studyOrder().find(p => !lessonDone(p.id));
 const sortedProblems = pid => C.problems.filter(p => p.pattern === pid).sort((a, b) => DIFF[a.diff] - DIFF[b.diff] || a.num - b.num);
+const firstSentence = s => (String(s).match(/^.*?[.!?](\s|$)/) || [s])[0].trim();
+
+// The approach for any problem. Walkthroughs follow it; the cold-solve coach asks it in order.
+const APPROACH = [
+  { t: 'Understand it', d: 'Say what goes in and what comes out. Ask about empty input, duplicates, negatives, size.' },
+  { t: 'Solve a tiny example by hand', d: 'Whatever your hands did, step by step, is your first algorithm.' },
+  { t: 'Brute force', d: 'The most obvious correct way, ignoring speed. Say its cost out loud.' },
+  { t: 'Find the repeated work', d: 'What does the brute force recompute or rescan, over and over?' },
+  { t: 'Pick the tool that removes it', d: 'Remember what you saw: hash map. Sorted: two pointers or binary search. A contiguous range: sliding window. Overlapping subproblems: DP. Every choice: backtracking.' },
+  { t: 'Plan in plain words', d: 'What you keep, what each step does to it, when you stop, what you return.' },
+  { t: 'Code it from the plan', d: 'Translate the plan line by line. Don’t improvise new logic while typing.' },
+  { t: 'Test it', d: 'Run the example by hand through your code, then the edge cases. State time and space.' },
+];
+
+function courseOf(pid) {
+  const all = sortedProblems(pid);
+  const nG = all.length >= 5 ? 2 : all.length >= 2 ? 1 : 0;
+  return { all, learn: all[0], guided: all.slice(1, 1 + nG), solo: all.slice(1 + nG) };
+}
+function roleOf(p) { const c = courseOf(p.pattern); return p.id === c.learn?.id ? 'learn' : c.guided.some(x => x.id === p.id) ? 'guided' : 'solo'; }
+function courseProgress(pid) {
+  const c = courseOf(pid);
+  const stages = [
+    { name: 'The idea', done: lessonDone(pid) ? 1 : 0, of: 1 },
+    { name: 'Worked example', done: c.learn && walked(c.learn.id) ? 1 : 0, of: c.learn ? 1 : 0 },
+    { name: 'Guided', done: c.guided.filter(x => walked(x.id)).length, of: c.guided.length },
+    { name: 'Solo, cold', done: c.solo.filter(x => attempted(x.id)).length, of: c.solo.length },
+  ].filter(s => s.of);
+  return { c, stages, complete: stages.every(s => s.done >= s.of) };
+}
+function nextStep(pid) {
+  const { c } = courseProgress(pid); const p = PAT(pid);
+  if (!lessonDone(pid)) return { label: `Learn the idea behind ${p.name}`, href: `#/study/${pid}`, verb: 'Start the lesson' };
+  if (c.learn && !walked(c.learn.id)) return { label: `Worked example: ${c.learn.title}, from brute force to the final answer`, href: `#/study/${pid}/${c.learn.id}`, verb: 'Open the walkthrough' };
+  const g = c.guided.find(x => !walked(x.id)); if (g) return { label: `Guided problem: ${g.title}`, href: `#/study/${pid}/${g.id}`, verb: 'Work through it' };
+  const s = c.solo.find(x => !attempted(x.id)); if (s) return { label: `Solve ${s.title} cold, before any explanation`, href: `#/study/solve/${s.id}`, verb: 'Solve it cold' };
+  return null;
+}
+// Mixed practice: guided + solo problems from patterns you've studied (worked examples are already spoiled).
+const mixedPool = () => studyOrder().filter(p => lessonDone(p.id)).flatMap(p => { const c = courseOf(p.id); return [...c.guided, ...c.solo]; });
+
+// Rough size of a complexity, for the shrinking meter in the walkthrough.
+function bigORank(s) {
+  s = String(s).replace(/\s/g, '');
+  if (/2\^|!|k\^n|\^n/.test(s)) return 7;
+  if (/n³|n\^3/.test(s)) return 6;
+  if (/n²|n\^2|n\*m|m\*n|n·m|m·n|nm\)|mn\)|n\*k|k\*n|V\*E|E\*V/i.test(s)) return 5;
+  if (/nlog|log\*n|n\*log|klog|Elog/i.test(s)) return 4;
+  if (/^O\(1\)/.test(s)) return 1;
+  if (/^O\(log/i.test(s)) return 2;
+  return 3;
+}
+const firstBigO = s => (String(s).match(/O\([^)]*\)/) || [''])[0];
 
 function exampleHtml(p) {
   const t = p.tests;
@@ -1230,137 +1324,297 @@ function codeWithKeys(p) {
 }
 function drillButtons(pid) {
   return `<div class="row">
-    <a class="btn" href="#/play/sprint?pattern=${pid}&n=8">⚡ Spot it (Sprint)</a>
+    <a class="btn" href="#/play/sprint?pattern=${pid}&n=8">⚡ Spot it</a>
     <a class="btn" href="#/play/skeleton?problem=${pid}">🦴 Recall the skeleton</a>
     <a class="btn" href="#/play/lineup?pattern=${pid}&n=3">🧩 Line Up ×3</a>
     <a class="btn" href="#/play/fill?pattern=${pid}&n=3">✍️ Fill the Gap ×3</a></div>`;
 }
+// Which of the pattern's trigger words appear in this problem's statement (the "cues").
+function cuesIn(p) {
+  const st = p.statement.toLowerCase();
+  const words = new Set(PAT(p.pattern).triggers.join(' ').toLowerCase().match(/[a-z]{4,}/g) || []);
+  ['with', 'that', 'need', 'from', 'each', 'have', 'before', 'what', 'when', 'into', 'than', 'only', 'some', 'like'].forEach(w => words.delete(w));
+  return [...words].filter(w => st.includes(w)).slice(0, 6);
+}
 
-ROUTES.study = (app, [pid, probId]) => {
-  if (pid && probId) return studyWalk(app, pid, probId);
-  if (pid) return studyLesson(app, pid);
-  const order = studyOrder(), done = order.filter(p => lessonDone(p.id)).length;
-  const nl = nextLesson();
-  const syntaxByTopic = {};
-  for (const s of C.syntax) (syntaxByTopic[s.topic] ||= []).push(s);
-  app.innerHTML = `<h1>Study</h1>
-    <p class="muted">Learn a pattern here first, then let the games make it stick. ${done}/${order.length} lessons done · ${Object.keys(S.study.walks).length}/${C.problems.length} walkthroughs.</p>
-    ${nl ? `<div class="card" style="border-color:var(--accent)"><div class="row"><span style="font-size:26px">📖</span><div style="flex:1"><div class="muted small">Next lesson</div>
-      <b style="font-size:18px;color:${pc(nl.color)}">${esc(nl.name)}</b><div class="small muted">${esc(nl.lesson.why.split('. ')[0])}.</div></div>
-      <a class="btn primary" href="#/study/${nl.id}">Start lesson →</a></div></div>` : ''}
-    <h2>Start here: the method</h2>
-    <div class="grid g2">${C.method.map((m, i) => `<details class="card" ${i === 0 && !done ? 'open' : ''}><summary style="color:var(--text);font-size:16px">${esc(m.title)}</summary>
-      <ul>${m.points.map(pt => `<li style="margin:6px 0">${md(pt)}</li>`).join('')}</ul></details>`).join('')}
-      <details class="card"><summary style="color:var(--text);font-size:16px">Input size → target complexity</summary>
-      <table style="margin-top:8px"><tr><th>Constraint</th><th>Aim for</th><th>Usually means</th></tr>${C.input_size.map(r => `<tr><td class="mono">${esc(r[0])}</td><td class="mono">${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</table></details></div>
-    <h2>Learning path</h2>
-    <p class="muted small">Ordered by how often each pattern shows up in OAs and interviews.</p>
-    <div class="grid path">${order.map((p, i) => { const probs = C.problems.filter(x => x.pattern === p.id).length;
-      return `<a class="card" href="#/study/${p.id}"><span class="idx">${i + 1}</span><div style="flex:1"><b style="color:${pc(p.color)}">${esc(p.name)}</b>
-        <div class="small muted">${p.triggers.slice(0, 2).map(esc).join(' · ')}</div></div>
-        <span class="small muted">${walksDone(p.id)}/${probs} walkthroughs</span><span class="small muted">${Math.round(mastery(p.id) * 100)}% mastery</span>
-        <span class="status ${lessonDone(p.id) ? 'done' : 'todo'}">${lessonDone(p.id) ? '✓ studied' : 'not yet'}</span></a>`; }).join('')}</div>
-    <h2>Reference</h2>
-    <div class="grid g2">
-      <details class="card"><summary style="color:var(--text);font-size:16px">🐍 Python cheat sheet</summary>
-        ${Object.entries(syntaxByTopic).map(([t, cards]) => `<h3 style="margin-top:12px">${esc(t)}</h3>${cards.map(c => `<div class="small muted" style="margin-top:6px">${esc(c.prompt)}</div><pre class="code" style="margin:4px 0">${esc(c.answer)}</pre>`).join('')}`).join('')}</details>
-      <details class="card"><summary style="color:var(--text);font-size:16px">🎤 Interview talk track</summary>
-        <ol>${C.think_aloud.map(t => `<li style="margin:5px 0">${esc(t)}</li>`).join('')}</ol>
-        <h3>Questions to ask on any problem</h3><ul>${C.clarify_generic.map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>
-    </div>`;
+ROUTES.study = (app, [a, b], params) => {
+  if (a === 'solve' && b) return studySolve(app, b, params);
+  if (a === 'mixed') {
+    const pool = mixedPool(); if (!pool.length) return studyHome(app);
+    const fresh = pool.filter(p => !attempted(p.id));
+    const pick = shuffle(fresh.length ? fresh : pool)[0];
+    location.replace(location.pathname + location.search + `#/study/solve/${pick.id}?mixed=1`);
+    return;
+  }
+  if (a && b) return studyWalk(app, a, b, params);
+  if (a) return studyCourse(app, a);
+  studyHome(app);
 };
 
-function studyLesson(app, pid) {
+function studyHome(app) {
+  const order = studyOrder();
+  const cur = order.find(p => nextStep(p.id)), nx = cur && nextStep(cur.id);
+  const studied = order.filter(p => lessonDone(p.id)).length, pool = mixedPool();
+  const untried = pool.filter(p => !attempted(p.id)).length;
+  const syntaxByTopic = {};
+  for (const s of C.syntax) (syntaxByTopic[s.topic] ||= []).push(s);
+  app.innerHTML = `<div class="study">
+    <div class="study-head"><h1>Study</h1>
+      <p class="lede">Each pattern is a short course: the idea, one worked example taken from the brute force to the final answer,
+        guided problems, then problems you solve cold before seeing any explanation.</p></div>
+    ${nx ? `<a class="continue" href="${nx.href}" data-key="c">
+        <span class="continue-pattern" style="color:${pc(cur.color)}">${esc(cur.name)}</span>
+        <span class="continue-what">${esc(nx.label)}</span>
+        <span class="btn primary continue-go">${esc(nx.verb)} <kbd>C</kbd></span></a>`
+      : `<div class="continue"><span class="continue-what">Every course is complete. Mixed practice is where you keep sharp now.</span></div>`}
+    <section class="mixed ${pool.length ? '' : 'locked'}">
+      <div><h2>Mixed practice</h2>
+        <p>${studied ? `A random problem from the ${studied} pattern${studied > 1 ? 's' : ''} you’ve studied, with its name and pattern hidden, so you have to work out the approach yourself.
+          ${untried} you haven’t tried yet.`
+          : 'Opens after your first lesson. It picks problems from every pattern you’ve studied and hides their names, so you work out the approach yourself, like in a real interview.'}</p></div>
+      ${pool.length ? `<a class="btn" href="#/study/mixed" data-key="m">Start a mystery problem <kbd>M</kbd></a>` : ''}</section>
+    <section><h2>The path</h2>
+      <p class="muted small">Ordered by how often each pattern comes up in online assessments and interviews. The bar under each shows the four stages:
+        the idea, worked example, guided, solo.</p>
+      <ol class="path">${order.map((p, i) => { const pr = courseProgress(p.id);
+        return `<li><a href="#/study/${p.id}" class="path-row${pr.complete ? ' complete' : ''}">
+          <span class="path-n">${pr.complete ? '✓' : i + 1}</span>
+          <span class="path-name"><b style="color:${pc(p.color)}">${esc(p.name)}</b><span class="small muted">${esc(p.triggers[0])}</span></span>
+          <span class="track" role="img" aria-label="${esc(pr.stages.map(s => `${s.name} ${s.done} of ${s.of}`).join(', '))}">${pr.stages.map(s =>
+            `<span class="seg" title="${esc(s.name)}: ${s.done} of ${s.of}"><i style="width:${Math.round(s.done / s.of * 100)}%"></i></span>`).join('')}</span></a></li>`; }).join('')}</ol></section>
+    <section class="approach"><h2>The approach, for any problem</h2>
+      <p class="muted">When you don’t recognise a problem, walk these steps in order. Every walkthrough follows them and the cold-solve coach asks them.</p>
+      <ol class="approach-steps">${APPROACH.map(a => `<li><b>${esc(a.t)}</b><span>${esc(a.d)}</span></li>`).join('')}</ol>
+      <details><summary>Input size tells you the target complexity</summary>
+        <table style="margin-top:8px"><tr><th>Constraint</th><th>Aim for</th><th>Usually means</th></tr>${C.input_size.map(r => `<tr><td class="mono">${esc(r[0])}</td><td class="mono">${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</table></details>
+      ${C.method.length ? `<details><summary>More on turning a problem into pseudocode</summary>${C.method.map(m => `<h3>${esc(m.title)}</h3><ul>${m.points.map(pt => `<li>${md(pt)}</li>`).join('')}</ul>`).join('')}</details>` : ''}</section>
+    <section class="refs"><h2>Reference</h2>
+      <details><summary>Python cheat sheet</summary>
+        ${Object.entries(syntaxByTopic).map(([t, cards]) => `<h3>${esc(t)}</h3>${cards.map(c => `<div class="small muted" style="margin-top:6px">${esc(c.prompt)}</div><pre class="code" style="margin:4px 0">${esc(c.answer)}</pre>`).join('')}`).join('')}</details>
+      <details><summary>What to say out loud in an interview</summary>
+        <ol>${C.think_aloud.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+        <h3>Questions to ask on any problem</h3><ul>${C.clarify_generic.map(t => `<li>${esc(t)}</li>`).join('')}</ul></details></section></div>`;
+}
+
+function probRow(x, role) {
+  if (!x) return '';
+  const solo = role === 'solo', locked = solo && !attempted(x.id);
+  const done = solo ? attempted(x.id) : walked(x.id);
+  return `<div class="prob-row"><span class="prob-title">${esc(x.title)}</span><span class="tag ${x.diff}">${x.diff}</span>
+    <span class="status ${done ? 'done' : 'todo'}">${solo ? (done ? 'tried' : 'not tried') : (done ? 'done' : 'to do')}</span><span class="spacer"></span>
+    ${solo ? `<a class="btn ${done ? '' : 'primary'}" href="#/study/solve/${x.id}">Solve cold</a>
+        <a class="btn ghost" href="#/study/${x.pattern}/${x.id}" title="${locked ? 'Unlocks after you try it' : 'See the approach'}">${locked ? '🔒 ' : ''}Walkthrough</a>`
+      : `<a class="btn ${done ? '' : 'primary'}" href="#/study/${x.pattern}/${x.id}">${role === 'learn' ? 'Brute force to final answer' : 'Work through it'}</a>
+        <a class="btn ghost" href="#/study/solve/${x.id}">Solve cold</a>`}</div>`;
+}
+
+function studyCourse(app, pid) {
   const p = PAT(pid); const L = p.lesson;
-  if (!L) return ROUTES.study(app, []);
+  if (!L) return studyHome(app);
   const order = studyOrder(), idx = order.findIndex(x => x.id === pid);
   const prev = order[idx - 1], next = order[idx + 1];
-  const probs = sortedProblems(pid);
-  app.innerHTML = `<div class="lesson"><a href="#/study">← Study</a>
-    <div class="row" style="margin-top:6px"><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1><span class="spacer"></span>
-      <span class="status ${lessonDone(pid) ? 'done' : 'todo'}" id="st">${lessonDone(pid) ? '✓ studied' : 'not yet studied'}</span></div>
-    <section><h2><span class="n">1</span>Why it exists</h2><p style="font-size:16px">${esc(L.why)}</p></section>
-    <section><h2><span class="n">2</span>Spot it</h2><div class="grid g2">
-      <div class="card"><h3>Reach for it when you see</h3><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
-      <div class="card"><h3>Don't confuse it with</h3><ul>${L.not_this.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></div></section>
-    <section><h2><span class="n">3</span>Build the skeleton, one line at a time</h2>
-      <p class="muted small">Before each reveal, guess what the next line must do. Press <kbd>Space</kbd> or click Next.</p>
+  const pr = courseProgress(pid), c = pr.c, nx = nextStep(pid);
+  let n = 1;
+  app.innerHTML = `<div class="study course"><a href="#/study" class="crumb">← Study</a>
+    <div class="course-head"><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1>
+      <ol class="stepper">${pr.stages.map(s => `<li class="${s.done >= s.of ? 'done' : s.done ? 'part' : ''}"><span>${esc(s.name)}</span><small>${s.done} of ${s.of}</small></li>`).join('')}</ol>
+      ${nx ? `<div class="row"><a class="btn primary" href="${nx.href}" data-key="c">${esc(nx.verb)} <kbd>C</kbd></a><span class="muted small">${esc(nx.label)}</span></div>`
+        : '<p class="status done">Course complete</p>'}</div>
+    <section class="stage"><h2><span class="n">${n++}</span>The idea</h2>
+      <p class="why">${esc(L.why)}</p>
+      <div class="two"><div><h3>Reach for it when you see</h3><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+        <div><h3>It’s a different pattern when</h3><ul>${L.not_this.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></div>
+      <h3>The skeleton, one line at a time</h3>
+      <p class="muted small">Before each line appears, guess what it has to do.</p>
       <div class="build" id="build"></div>
-      <div class="row" style="margin-top:10px"><button class="primary" id="nextl">Next line</button><button class="ghost" id="all">Show all</button><button class="ghost" id="reset">Restart</button></div></section>
-    <section><h2><span class="n">4</span>To fill the blanks, answer these</h2><ol>${p.fill.map(f => `<li style="margin:4px 0">${esc(f)}</li>`).join('')}</ol>
-      <p class="muted small">This is the bridge from "I know the pattern" to code: every problem below is this skeleton plus these answers.</p></section>
-    <section><h2><span class="n">5</span>Bugs to avoid</h2><ul>${L.bugs.map(b => `<li>${esc(b)}</li>`).join('')}</ul></section>
-    <section><h2><span class="n">6</span>Worked examples (${probs.length})</h2>
-      <p class="muted small">Start with the first two. Each walkthrough reveals the thinking one step at a time.</p>
-      <div class="grid">${probs.map(x => `<a class="card row" href="#/study/${pid}/${x.id}" style="color:var(--text)"><b>${esc(x.title)}</b>
-        <span class="tag ${x.diff}">${x.diff}</span><span class="spacer"></span><span class="status ${S.study.walks[x.id] ? 'done' : 'todo'}">${S.study.walks[x.id] ? '✓ understood' : 'walk through →'}</span></a>`).join('')}</div></section>
-    <section><h2><span class="n">7</span>Lock it in</h2><p class="muted small">Drill only this pattern right after studying it.</p>${drillButtons(pid)}
-      <div class="row" style="margin-top:14px"><button class="${lessonDone(pid) ? 'ghost' : 'good'}" id="mark">${lessonDone(pid) ? 'Mark as not studied' : '✓ Mark lesson studied'}</button></div></section>
+      <div class="row" style="margin-top:10px"><button class="primary" id="nextl" data-key=" ">Next line <kbd>Space</kbd></button>
+        <button class="ghost" id="all">Show all</button><button class="ghost" id="reset">Restart</button></div>
+      <h3>To make it fit a specific problem, answer</h3><ol>${p.fill.map(f => `<li>${esc(f)}</li>`).join('')}</ol>
+      <h3>Bugs to avoid</h3><ul>${L.bugs.map(b => `<li>${esc(b)}</li>`).join('')}</ul>
+      <div class="row"><button class="${lessonDone(pid) ? 'ghost' : 'good'}" id="mark">${lessonDone(pid) ? 'Mark as not learned' : '✓ I’ve got the idea'}</button></div></section>
+    <section class="stage"><h2><span class="n">${n++}</span>Worked example</h2>
+      <p class="muted">One problem taken from the obvious slow answer to the final one, a decision at a time. Type a guess before each reveal.</p>
+      ${probRow(c.learn, 'learn')}</section>
+    ${c.guided.length ? `<section class="stage"><h2><span class="n">${n++}</span>Guided</h2>
+      <p class="muted">The same steps, but you write the plan and the code. The answer stays hidden until you’ve tried.</p>
+      ${c.guided.map(x => probRow(x, 'guided')).join('')}</section>` : ''}
+    ${c.solo.length ? `<section class="stage"><h2><span class="n">${n++}</span>Solo, cold</h2>
+      <p class="muted">Solve these from a blank editor first. Each walkthrough unlocks after a real attempt, so these stay problems you haven’t seen.</p>
+      ${c.solo.map(x => probRow(x, 'solo')).join('')}</section>` : ''}
+    <section class="stage"><h2>Keep it fresh</h2><p class="muted small">Short drills on just this pattern.</p>${drillButtons(pid)}</section>
     <div class="row" style="margin-top:20px">${prev ? `<a class="btn ghost" href="#/study/${prev.id}">← ${esc(prev.name)}</a>` : ''}<span class="spacer"></span>
-      ${next ? `<a class="btn" href="#/study/${next.id}">${esc(next.name)} →</a>` : ''}</div></div>`;
+      ${next ? `<a class="btn" href="#/study/${next.id}">${esc(next.name)}</a>` : ''}</div></div>`;
   let shown = 0;
   const draw = () => {
     $('#build', app).innerHTML = L.build.slice(0, shown).map(([code, why], i) =>
       `<div class="bl ${i === shown - 1 ? 'cur' : ''}"><code>${esc(code)}</code><div class="why">${esc(why)}</div></div>`).join('') +
-      (shown < L.build.length ? `<div class="bl"><code class="muted">${shown === 0 ? '# press Next to start' : '# next line: what must happen now?'}</code><div></div></div>` : '');
+      (shown < L.build.length ? `<div class="bl"><code class="muted">${shown === 0 ? '# press Next line to start' : '# what has to happen next?'}</code><div></div></div>` : '');
     $('#nextl', app).disabled = shown >= L.build.length;
   };
   $('#nextl', app).onclick = () => { shown = Math.min(L.build.length, shown + 1); draw(); };
   $('#all', app).onclick = () => { shown = L.build.length; draw(); };
   $('#reset', app).onclick = () => { shown = 0; draw(); };
-  const key = e => { if (e.key === ' ' && !e.target.matches('input,textarea,button,a')) { e.preventDefault(); $('#nextl', app).click(); } };
-  document.addEventListener('keydown', key); onLeave(() => document.removeEventListener('keydown', key));
   $('#mark', app).onclick = () => {
     if (lessonDone(pid)) delete S.study.lessons[pid];
-    else { S.study.lessons[pid] = today(); addXP(10); toast('📖 Lesson studied +10 XP'); }
-    save(); studyLesson((app.innerHTML = '', app), pid);
+    else { S.study.lessons[pid] = today(); addXP(10); toast('📖 Idea learned +10 XP'); }
+    save(); studyCourse((app.innerHTML = '', app), pid);
   };
   draw();
 }
 
-function studyWalk(app, pid, probId) {
-  const p = PROB(probId); if (!p) return studyLesson(app, pid);
-  const list = sortedProblems(p.pattern), i = list.findIndex(x => x.id === p.id);
-  const prev = list[i - 1], next = list[i + 1];
+// Walkthrough: the approach applied to one problem, from the naive brute force to the final answer.
+function studyWalk(app, pid, probId, params) {
+  const p = PROB(probId); if (!p) return studyCourse(app, pid);
+  const role = roleOf(p), L = PAT(p.pattern).lesson || {};
+  if (role === 'solo' && !attempted(p.id) && params.peek !== '1') {
+    app.innerHTML = `<div class="study"><a href="#/study/${p.pattern}" class="crumb">← ${esc(PAT(p.pattern).name)}</a>
+      <div class="gate card"><h1>${esc(p.title)}</h1>
+        <p>Try this one cold first. An explanation lands much better after you’ve struggled with the problem yourself, and once you’ve read it,
+          this stops being a problem you haven’t seen.</p>
+        <div class="row"><a class="btn primary" href="#/study/solve/${p.id}" data-key="c">Solve it cold <kbd>C</kbd></a>
+          <a class="btn ghost" href="#/study/${p.pattern}/${p.id}?peek=1">Show the walkthrough anyway</a></div></div></div>`;
+    return;
+  }
+  const list = sortedProblems(p.pattern), i = list.findIndex(x => x.id === p.id), prev = list[i - 1], next = list[i + 1];
+  const bruteO = firstBigO(p.brute) || 'O(n²)', finalO = firstBigO(p.time) || p.time;
+  const cues = cuesIn(p);
+  const guided = role === 'guided';
   const steps = [
-    { t: 'Clarify first', think: 'What would you ask the interviewer? What inputs could break a naive solution?',
-      b: `<div class="grid g2"><div><b>Ask</b><ul>${(p.clarify.length ? p.clarify : ['Standard constraints; nothing tricky.']).map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>
-          <div><b>Edge cases</b><ul>${p.edges.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div></div>` },
-    { t: 'Brute force', think: 'What is the most obvious way to solve it, and how slow is it?', b: `<p>${esc(p.brute)}</p>` },
-    { t: 'The pattern & key insight', think: 'Which pattern removes the slow part? Why?', b: `<p>${patternTag(p.pattern)}</p><p style="font-size:16px">${esc(p.insight)}</p>` },
-    { t: 'Pseudocode plan', think: 'Say the steps out loud: what do you track, what happens each step, when do you stop?',
+    { t: 'Understand it', think: 'In one sentence: what goes in, what comes out? What would you ask before writing any code?',
+      b: `<div class="two"><div><b>Questions worth asking</b><ul>${(p.clarify.length ? p.clarify : ['Standard constraints; nothing tricky.']).map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>
+        <div><b>Inputs that could break a first attempt</b><ul>${p.edges.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div></div>` },
+    { t: 'Solve a tiny example by hand', think: 'Work the first example on paper. What did you actually do, step by step?',
+      b: `${exampleHtml(p)}<p>Whatever your hands did is a valid first algorithm, and it’s almost always the brute force. Write those steps down before thinking about speed.</p>` },
+    { t: 'Brute force', think: 'What’s the most obvious correct way, ignoring speed? What does it cost?',
+      b: `<p>${esc(p.brute)}</p>${p.brute_code ? `<pre class="code">${esc(p.brute_code)}</pre><p class="muted small">This is correct and passes every test. It’s just slow. Getting here first is a real result in an interview: say it, give its cost, then improve it.</p>` : ''}`, meter: 'brute' },
+    { t: 'Find the repeated work', think: 'Look at the brute force. What does it recompute or rescan over and over?',
+      b: `<p>${esc(L.why || p.brute)}</p>` },
+    { t: 'Pick the tool that removes it', think: 'Which words in the statement hint at the tool? Which pattern removes that repeated work?',
+      b: `<p>${patternTag(p.pattern)}${cues.length ? ` <span class="muted small">Cues in this statement: ${cues.map(c => `<mark>${esc(c)}</mark>`).join(' ')}</span>` : ''}</p>
+        <p class="insight">${esc(p.insight)}</p>` },
+    { t: 'Plan in plain words', think: guided ? 'Write your plan in the box before revealing: what you keep, what each step does, when you stop.'
+        : 'Say the steps out loud: what do you keep, what happens at each step, when do you stop?',
       b: `<ol class="plan">${p.plan.map(s => `<li>${esc(s)}</li>`).join('')}</ol>` },
-    { t: 'Code', think: 'Try writing it in your head (or on paper) from the plan first.',
-      b: `${codeWithKeys(p)}<p class="muted small"><span style="background:color-mix(in srgb, var(--accent) 22%, transparent);padding:0 6px;border-radius:3px">Highlighted</span> = the lines specific to this problem. Everything else is the <a href="#/study/${p.pattern}">${esc(PAT(p.pattern).name)}</a> skeleton.</p>` },
-    { t: 'The catch', think: 'Where would a first attempt go wrong?', b: `<p>⚠️ ${esc(p.catch)}</p>` },
-    { t: 'Complexity', think: 'State time and space, and why.', b: `<p class="mono" style="font-size:16px">Time ${esc(p.time)} · Space ${esc(p.space)}</p>` },
+    { t: 'Code it', think: guided ? 'Write the code yourself first, then come back and compare.' : 'Picture the code from the plan before you look.',
+      pre: guided ? `<div class="row"><a class="btn" href="#/play/fill?problem=${p.id}">✍️ Write the key lines</a><a class="btn" href="#/study/solve/${p.id}">💻 Write it all, cold</a></div>` : '',
+      b: `${p.brute_code ? `<div class="two code-pair"><div><div class="muted small">Brute force · ${esc(bruteO)}</div><pre class="code">${esc(p.brute_code)}</pre></div>
+          <div><div class="muted small">Final · ${esc(finalO)}</div>${codeWithKeys(p)}</div></div>` : codeWithKeys(p)}
+        <p class="muted small"><span class="hl-chip">Highlighted</span> lines are specific to this problem. The rest is the
+          <a href="#/study/${p.pattern}">${esc(PAT(p.pattern).name)}</a> skeleton.</p>`, meter: 'final' },
+    { t: 'Test it', think: 'Which input would most likely break this? Trace it through the code. Then state time and space.',
+      b: `<p>⚠️ ${esc(p.catch)}</p><p class="mono">Time ${esc(p.time)} · Space ${esc(p.space)}</p>` },
   ];
-  let open = 0;
-  app.innerHTML = `<a href="#/study/${p.pattern}">← ${esc(PAT(p.pattern).name)} lesson</a>
-    <div class="row" style="margin-top:6px"><h1>${esc(p.title)}</h1><span class="tag ${p.diff}">${p.diff}</span><span class="muted">#${p.num}</span></div>
-    <div class="card"><p style="font-size:16px;margin-top:0">${esc(p.statement)}</p><div class="muted small">Examples</div>${exampleHtml(p)}</div>
-    <p class="muted small" style="margin-top:14px">Each step: think of your answer (ideally say it out loud), THEN reveal. <kbd>Space</kbd> reveals the next step.</p>
-    <div id="steps"></div><div id="end"></div>`;
+  let open = 0; const guesses = {};
+  app.innerHTML = `<div class="study walk"><a href="#/study/${p.pattern}" class="crumb">← ${esc(PAT(p.pattern).name)}</a>
+    <div class="walk-head"><h1>${esc(p.title)}</h1><span class="tag ${p.diff}">${p.diff}</span><span class="muted">#${p.num}</span></div>
+    <div class="card statement-card"><p class="statement">${esc(p.statement)}</p></div>
+    <div class="meter" id="meter" aria-live="polite"></div>
+    <p class="muted small">Answer each step yourself first (type it, or say it out loud), then reveal. <kbd>Space</kbd> reveals the next step;
+      in the box, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> does.</p>
+    <ol class="ladder" id="steps"></ol><div id="end"></div></div>`;
+  const meter = () => {
+    const reached = open > 6 ? 'final' : open > 2 ? 'brute' : null;
+    const w = reached === 'final' ? bigORank(finalO) : bigORank(bruteO);
+    $('#meter', app).innerHTML = reached ? `<span class="meter-label">${reached === 'final' ? `From ${esc(bruteO)} down to` : 'Brute force runs in'} <b>${esc(reached === 'final' ? finalO : bruteO)}</b></span>
+      <span class="meter-bar"><i style="width:${Math.round(w / 7 * 100)}%" class="${reached}"></i></span>` : '';
+  };
   const draw = () => {
     $('#steps', app).innerHTML = steps.map((s, k) => k < open
-      ? `<div class="step"><div class="sh"><span class="status done">${k + 1}</span>${esc(s.t)}</div><div class="sb">${s.b}</div></div>`
-      : `<div class="step locked"><div class="sh"><span class="status todo">${k + 1}</span>${esc(s.t)}<span class="spacer"></span>${k === open ? '<button class="primary" id="rev">Reveal</button>' : ''}</div>
-         ${k === open ? `<div class="sb"><div class="think">🤔 ${esc(s.think)}</div></div>` : ''}</div>`).join('');
-    const rb = $('#rev', app); if (rb) rb.onclick = () => { open++; draw(); };
+      ? `<li class="rung done"><div class="rung-h"><span class="n">${k + 1}</span>${esc(s.t)}</div>
+          ${guesses[k] ? `<div class="you-said"><span class="muted small">You said</span><div>${esc(guesses[k])}</div></div>` : ''}<div class="rung-b">${s.b}</div></li>`
+      : k === open ? `<li class="rung current"><div class="rung-h"><span class="n">${k + 1}</span>${esc(s.t)}</div>
+          <div class="rung-b"><p class="think">${esc(s.think)}</p>${s.pre || ''}
+            <textarea id="guess" rows="${k >= 5 ? 4 : 2}" placeholder="Your answer (optional)" aria-label="Your answer for: ${esc(s.t)}"></textarea>
+            <div class="row"><button class="primary" id="rev" data-key=" ">Reveal <kbd>Space</kbd></button></div></div></li>`
+      : `<li class="rung locked"><div class="rung-h"><span class="n">${k + 1}</span>${esc(s.t)}</div></li>`).join('');
+    meter();
+    const reveal = () => { const g = $('#guess', app); if (g?.value.trim()) guesses[open] = g.value.trim(); open++; draw(); $('.rung.current', app)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+    $('#rev', app) && ($('#rev', app).onclick = reveal);
+    $('#guess', app)?.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); reveal(); } });
     if (open >= steps.length) {
-      $('#end', app).innerHTML = `<div class="card" style="margin-top:14px"><h3>Now make it stick</h3>
-        <p class="muted small">Understanding fades in a day unless you retrieve it. Do one of these right now:</p>
-        <div class="row"><a class="btn" href="#/play/lineup?problem=${p.id}">🧩 Line Up</a><a class="btn" href="#/play/fill?problem=${p.id}">✍️ Fill the Gap</a>
-        <a class="btn" href="#/play/oa?problem=${p.id}">💻 Write it from scratch</a><span class="spacer"></span>
-        <button class="${S.study.walks[p.id] ? 'ghost' : 'good'}" id="und">${S.study.walks[p.id] ? '✓ Understood' : '✓ Mark understood'}</button></div></div>
+      $('#end', app).innerHTML = `<div class="card end-card"><h2>Now make it stick</h2>
+        <p class="muted">Understanding fades within a day unless you use it. Rebuild it from memory now:</p>
+        <div class="row"><a class="btn primary" href="#/study/solve/${p.id}">💻 Solve it cold</a><a class="btn" href="#/play/fill?problem=${p.id}">✍️ Fill the Gap</a>
+          <a class="btn" href="#/play/lineup?problem=${p.id}">🧩 Line Up</a><span class="spacer"></span>
+          <button class="${walked(p.id) ? 'ghost' : 'good'}" id="und" data-key="n">${walked(p.id) ? '✓ Done' : '✓ Mark as done'} <kbd>N</kbd></button></div></div>
         <div class="row" style="margin-top:14px">${prev ? `<a class="btn ghost" href="#/study/${pid}/${prev.id}">← ${esc(prev.title)}</a>` : ''}<span class="spacer"></span>
-        ${next ? `<a class="btn" href="#/study/${pid}/${next.id}">${esc(next.title)} →</a>` : `<a class="btn" href="#/study/${pid}">Back to lesson</a>`}</div>`;
-      $('#und', app).onclick = () => { if (!S.study.walks[p.id]) { S.study.walks[p.id] = today(); addXP(4); toast('+4 XP'); save(); } $('#und', app).textContent = '✓ Understood'; $('#und', app).className = 'ghost'; };
+          <a class="btn" href="#/study/${p.pattern}">Back to ${esc(PAT(p.pattern).name)}</a></div>`;
+      $('#und', app).onclick = () => {
+        if (!walked(p.id)) { S.study.walks[p.id] = today(); addXP(4); toast('+4 XP'); save(); }
+        location.hash = `#/study/${p.pattern}`;
+      };
     }
   };
-  const key = e => { if (e.key === ' ' && !e.target.matches('input,textarea,button,a') && open < steps.length) { e.preventDefault(); open++; draw(); } };
-  document.addEventListener('keydown', key); onLeave(() => document.removeEventListener('keydown', key));
   draw();
+}
+
+// Solve cold: statement + blank editor, an optional approach coach that fades with practice,
+// and a hint ladder. Mixed practice hides the title and pattern until you're done.
+function studySolve(app, probId, params) {
+  const p = PROB(probId); if (!p) return studyHome(app);
+  const mystery = params.mixed === '1';
+  const coachOpen = Object.keys(S.study.attempts).length < 6;   // the coach fades: open for your first few cold solves
+  const back = mystery ? '#/study' : `#/study/${p.pattern}`;
+  let hints = 0, runs = 0, finished = false;
+  const hintList = [
+    () => `<b>Start with the brute force.</b> ${esc(p.brute)}`,
+    () => `<b>The tool:</b> ${patternTag(p.pattern)} ${esc(firstSentence(PAT(p.pattern).lesson?.why || p.insight))}`,
+    () => `<b>The plan:</b><ol class="plan">${p.plan.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`,
+  ];
+  app.innerHTML = `<div class="study solve">
+    <div class="gamehead"><a class="btn ghost" href="${back}" data-key="q">← Exit <kbd>Q</kbd></a>
+      <h1>${mystery ? '🎲 Mystery problem' : esc(p.title)}</h1><span class="tag ${p.diff}">${p.diff}</span>${mystery ? '' : patternTag(p.pattern)}
+      <span class="spacer"></span><span class="timer" id="clock"></span></div>
+    ${mystery ? '<p class="muted small">The name and pattern are hidden. Work out the approach from the statement alone.</p>' : ''}
+    <div class="solve-grid">
+      <div class="solve-left">
+        <div class="card"><p class="statement">${esc(p.statement)}</p><div class="muted small">Examples</div>${exampleHtml(p)}</div>
+        <details class="coach card" ${coachOpen ? 'open' : ''}><summary>Approach coach <span class="muted small">(optional notes, step by step)</span></summary>
+          ${APPROACH.slice(0, 6).map((a, k) => `<label class="coach-step"><span><b>${k + 1}. ${esc(a.t)}</b><span class="muted small">${esc(a.d)}</span></span>
+            <textarea rows="2" aria-label="${esc(a.t)}"></textarea></label>`).join('')}</details>
+        <div id="hintbox"></div>
+      </div>
+      <div class="solve-right">
+        <textarea class="code" id="ed" aria-label="Your solution"></textarea>
+        <div class="row" style="margin-top:10px"><button class="primary" id="run" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
+          <button class="ghost" id="hint" data-key="h">Hint 1 of 3 <kbd>H</kbd></button>
+          <button class="ghost" id="give" data-key="a">Show the walkthrough <kbd>A</kbd></button>
+          <span class="spacer"></span><span class="muted small" id="rc"></span></div>
+        <div id="out"></div></div></div></div>`;
+  const ed = $('#ed', app); ed.value = p.starter; enhanceEditor(ed, { onSubmit: () => run() });
+  ed.focus(); ed.selectionStart = ed.selectionEnd = ed.value.length - 1;
+  const timer = startTimer($('#clock', app), 0, null, { countUp: true });
+  const markAttempt = () => { if (!attempted(p.id)) { S.study.attempts[p.id] = today(); save(); } };
+  const reveal = () => mystery ? `<div class="reveal">It was <b>${esc(p.title)}</b>, a ${patternTag(p.pattern)} problem.</div>` : '';
+  const after = () => {
+    $('#out', app).insertAdjacentHTML('beforeend', `${reveal()}<div class="row" style="margin-top:10px">
+      <a class="btn" href="#/study/${p.pattern}/${p.id}">See the approach, brute force to final</a>
+      ${mystery ? `<a class="btn primary" href="#/study/mixed" data-key="n">Next mystery <kbd>N</kbd></a>` : `<a class="btn primary" href="${back}" data-key="n">Back to the course <kbd>N</kbd></a>`}</div>`);
+  };
+  $('#hint', app).onclick = () => {
+    if (hints >= hintList.length || finished) return;
+    $('#hintbox', app).insertAdjacentHTML('beforeend', `<div class="reveal small">${hintList[hints]()}</div>`);
+    hints++;
+    const b = $('#hint', app); if (hints >= hintList.length) { b.disabled = true; b.textContent = 'No more hints'; } else b.innerHTML = `Hint ${hints + 1} of 3 <kbd>H</kbd>`;
+  };
+  const run = async () => {
+    if (finished) return; runs++; markAttempt();
+    $('#rc', app).textContent = `${runs} run${runs > 1 ? 's' : ''}`;
+    const r = await runTests(p, ed.value);
+    $('#out', app).innerHTML = resultsHtml(r);
+    if (!r.ok) return;
+    finished = true; timer.stop();
+    const cap = hints === 0 ? 2 : hints === 1 ? 1 : 0;
+    if (cap === 0) { review('oa', p.id, 0); $('#out', app).insertAdjacentHTML('beforeend', '<p class="muted small">Solved with the plan as a hint, so it’s recorded as missed and comes back soon.</p>'); return after(); }
+    const bar = gradeButtons(q => { review('oa', p.id, q); bar.remove(); after(); }, runs <= 3 && hints === 0 ? 2 : 1);
+    bar.querySelectorAll('button').forEach(b => { if (+b.dataset.q > cap) b.disabled = true; });
+    $('#out', app).append(bar);
+  };
+  $('#run', app).onclick = run;
+  $('#give', app).onclick = () => {
+    if (!finished) { finished = true; timer.stop(); markAttempt(); review('oa', p.id, 0); }
+    location.hash = `#/study/${p.pattern}/${p.id}`;
+  };
 }
 
 // ─────────────────────────── boot ───────────────────────────

@@ -54,7 +54,18 @@ and runs code in the browser. To try the static build locally:
 
 ## Study tab
 
-Learn before you drill: **The Method** (problem → pseudocode in 4 questions, input-size → complexity table), a **lesson per pattern** (why it exists, how to spot it, the skeleton built line by line with the reason for each line, bugs to avoid), and a **step-by-step walkthrough for all 150 problems** (clarify → brute force → pattern → pseudocode plan → code with problem-specific lines highlighted → catch → complexity). Each lesson links straight into drills filtered to that pattern.
+Built to teach the approach, not to memorise 150 answers. Each pattern is a short course:
+
+1. **The idea:** why the pattern exists, the cues that point to it, when it's a different pattern, and its skeleton built line by line.
+2. **Worked example:** one problem walked from the **naive brute force (real code, passes the tests) to the final answer**, a
+   decision at a time: understand it → solve a tiny example by hand → brute force → find the repeated work → pick the tool that
+   removes it → plan → code → test. You type a guess before each step is revealed, and a meter shows the cost shrinking (e.g. O(n²) → O(n)).
+3. **Guided:** the same steps, but you write the plan and code before the answer shows.
+4. **Solo, cold:** solve from a blank editor first. The walkthrough stays locked until you've made a real attempt, so these stay unseen.
+
+**Mixed practice** picks a problem from the patterns you've studied and hides its name and pattern: the closest thing to a question
+you've never seen. The cold-solve page has an approach coach (fades after your first few) and a 3-step hint ladder
+(brute force → the tool → the plan); hints cap the grade.
 
 ## The ladder
 
@@ -74,7 +85,7 @@ Learn before you drill: **The Method** (problem → pseudocode in 4 questions, i
 
 **Answers and going back:** Show answer toggles (show, hide, keep working), but seeing it once records the round as missed. **← Previous** reopens the last question and undoes the grade you gave it.
 
-**Keyboard:** press `?` for the list. `g` then a letter changes page, `/` searches problems, `Esc` leaves a text box, `R` run, `H` hint, `A` answer, `N` next, `[` previous, `1 2 3` grade.
+**Keyboard:** the bar at the bottom of the screen always shows the keys that work on the current screen (each is clickable). Press `?` for the full list. `g` then a letter changes page, `/` searches problems, `Esc` leaves a text box, `R` run, `H` hint, `A` answer, `N` next, `[` previous, `1 2 3` grade.
 
 Everything is spaced repetition: nailed items come back after 1, 3, 7, 14, 30... days; blanked ones come back tomorrow.
 Setting an interview date within 14 days switches to urgent mode, which caps intervals so everything gets reps before the day.
@@ -90,7 +101,7 @@ Setting an interview date within 14 days switches to urgent mode, which caps int
   (`problems.py`, `problems_a.py`, `problems_b.py`, `problems_c.py`)
 - `build_static.py`: writes `static/content.json` and copies `runner.py` into `static/` for static hosting
 - `static/py-worker.js`: runs `runner.py` in the browser with Pyodide when there's no server
-- `validate.py`: checks every reference solution passes its tests. Run it after adding content (the deploy runs it too).
+- `validate.py`: checks every reference solution (and every brute-force version in `content/study_brute.py`) passes its tests. Run it after adding content (the deploy runs it too).
 - `static/sync.js`, `static/merge.js`, `static/config.js`: sign-in, cloud sync, and the merge rules
   (tested by `node tests/merge.test.js`)
 - `static/edge-match.js`: Edge Hunter's answer matching (tested by `node tests/edge-match.test.js`)

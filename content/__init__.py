@@ -10,6 +10,7 @@ from .syntax import SYNTAX
 from .interview import CLARIFY_GENERIC, THINK_ALOUD, RUBRIC, COMPLEXITIES
 from .study_patterns import LESSONS, METHOD, INPUT_SIZE
 from .study_problems import WALK
+from .study_brute import BRUTE
 
 
 def _strip_marks(code):
@@ -43,6 +44,7 @@ def load_all():
         p["starter"] = _starter(p["solution"])
         brute, plan = WALK.get(p["id"], ("", []))
         p["brute"], p["plan"] = brute, plan
+        p["brute_code"] = BRUTE.get(p["id"], "")
         problems.append(p)
     patterns = []
     for pt in PATTERNS:

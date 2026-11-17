@@ -6,7 +6,7 @@
    - xp:      max
    - days:    per day, max of xp / rounds / new-per-game
    - mocks:   union by (date, problem)
-   - study:   union (earliest date kept)
+   - study:   lessons, walks, attempts: union (earliest date kept)
    - streak:  recomputed from days; best = max
    - plan:    later date wins; same day → per-game max of `done`
    - settings: the copy with the later `settingsAt` (ms timestamp) wins
@@ -87,6 +87,7 @@
       study: {
         lessons: unionDates(a.study?.lessons, b.study?.lessons),
         walks: unionDates(a.study?.walks, b.study?.walks),
+        attempts: unionDates(a.study?.attempts, b.study?.attempts),
       },
     };
   }

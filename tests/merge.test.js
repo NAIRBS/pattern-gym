@@ -106,3 +106,9 @@ test('missing side returns the other', () => {
 });
 
 console.log(`\n${n} tests passed`);
+test('study attempts are unioned too', () => {
+  const a = base(), b = base();
+  a.study.attempts = { two_sum: '2026-11-10' }; b.study.attempts = { three_sum: '2026-11-11', two_sum: '2026-11-09' };
+  assert.deepStrictEqual(mergeState(a, b).study.attempts, { two_sum: '2026-11-09', three_sum: '2026-11-11' });
+});
+console.log('attempts test passed');

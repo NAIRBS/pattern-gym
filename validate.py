@@ -31,6 +31,13 @@ for p in c["problems"]:
     except SyntaxError as e:
         print("STARTER", p["id"], e); bad += 1
 
+    # the naive version shown in the Study walkthrough must be correct too (just slow)
+    if p.get("brute_code"):
+        rb = run_code(p["brute_code"], p["tests"])
+        if not rb["ok"]:
+            bad += 1
+            print("BRUTE FAIL", p["id"], rb.get("error"), [x for x in rb["results"] if not x["pass"]][:2])
+
 for s in c["sprint"]:
     if s["pattern"] not in pids:
         print("SPRINT PATTERN", s["num"], s["pattern"]); bad += 1
