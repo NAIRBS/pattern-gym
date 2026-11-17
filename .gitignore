@@ -1,0 +1,6 @@
+# personal progress stays on each machine
+progress.json
+progress.json.tmp
+__pycache__/
+*.pyc
+.claude/
