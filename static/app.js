@@ -285,11 +285,15 @@ function route() {
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
+// Skip link: a button (a "#main" link would fight the hash router), moves focus into the page.
+document.getElementById('skip')?.addEventListener('click', () => $('#app').focus());
 
 // ─────────────────────────── shared game pieces ───────────────────────────
+// Pattern colours are tuned for the dark theme; in light mode they are mixed toward the text colour so they stay readable.
+const pc = c => `color-mix(in srgb, ${c} var(--pc-mix), var(--text))`;
 const PAT = id => C.patterns.find(p => p.id === id) || { name: id, color: '#888' };
 const PROB = id => C.problems.find(p => p.id === id);
-function patternTag(id) { const p = PAT(id); return `<span class="tag" style="color:${p.color}">${esc(p.name)}</span>`; }
+function patternTag(id) { const p = PAT(id); return `<span class="tag" style="color:${pc(p.color)}">${esc(p.name)}</span>`; }
 function resultsHtml(r) {
   if (!r) return '';
   let h = '';
@@ -346,7 +350,7 @@ function runSession(app, game, n, fromPlan, filter) {
     if (i >= queue.length) return summary();
     const head = document.createElement('div');
     head.className = 'gamehead';
-    head.innerHTML = `<a href="${exitHref}" class="btn ghost">← Exit</a><b>${g.icon} ${g.name}</b>${filter ? ` ${patternTag(filter)}` : ''}
+    head.innerHTML = `<a href="${exitHref}" class="btn ghost">← Exit</a><h1>${g.icon} ${g.name}</h1>${filter ? ` ${patternTag(filter)}` : ''}
       <div class="progress"><i style="width:${i / queue.length * 100}%"></i></div><span class="muted">${i + 1}/${queue.length}</span>
       <span class="timer" id="clock"></span>`;
     const body = document.createElement('div');
@@ -427,7 +431,7 @@ GAMES.lineup = {
     const lines = p.solution.split('\n').filter(t => t.trim()).map((t, i) => ({ t, i }));
     let pool = shuffle(lines), built = [], tries = 0, hint = false;
     const timer = startTimer(clock, 0, null, { countUp: true });
-    el.innerHTML = `<div class="card"><div class="row"><h3>${esc(p.title)}</h3><span class="tag ${p.diff}">${p.diff}</span>
+    el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       <span class="spacer"></span><button class="ghost" id="hint">Show pattern</button></div>
       <p>${esc(p.statement)}</p><div id="hintbox"></div>
       <div class="parsons"><div><div class="muted small">Shuffled lines: click to add</div><div class="lines" id="pool"></div></div>
@@ -476,7 +480,7 @@ GAMES.fill = {
     const key = new Set(p.key_lines);
     let tries = 0, hint = false, finished = false;
     const timer = startTimer(clock, 0, null, { countUp: true });
-    el.innerHTML = `<div class="card"><div class="row"><h3>${esc(p.title)}</h3><span class="tag ${p.diff}">${p.diff}</span>
+    el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       ${patternTag(p.pattern)}<span class="spacer"></span><button class="ghost" id="hint">Hint</button></div>
       <p>${esc(p.statement)}</p><div id="hintbox"></div>
       <div class="fill">${lines.map((l, i) => {
@@ -518,7 +522,7 @@ GAMES.skeleton = {
   pool: () => C.patterns.map((p, i) => ({ ...p, num: i, diff: 'Medium', pattern: p.id })),
   render(el, pt, done, { clock }) {
     const timer = startTimer(clock, 120, () => submit());
-    el.innerHTML = `<div class="card"><h3>${esc(pt.name)}</h3>
+    el.innerHTML = `<div class="card"><h2 class="h3">${esc(pt.name)}</h2>
       <p class="muted small">Used when: ${pt.triggers.map(esc).join(' · ')}</p>
       <textarea class="code" id="ed" placeholder="# write the skeleton: loop shape, state, the condition, return"></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="go">Compare <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
@@ -576,7 +580,7 @@ GAMES.bigo = {
     const opts = right => shuffle([right, ...pick(C.complexities.filter(c => c !== right), 3)]);
     const to = opts(p.time), so = opts(p.space);
     let pickT = null, pickS = null;
-    el.innerHTML = `<div class="card"><div class="row"><h3>${esc(p.title)}</h3>${patternTag(p.pattern)}</div>
+    el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2>${patternTag(p.pattern)}</div>
       <p class="muted small">${esc(p.statement)}</p><pre class="code">${esc(p.solution)}</pre>
       <div class="side"><div><b>Time</b><div class="options" id="t">${to.map(c => `<button data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>
       <div><b>Space</b> <span class="muted small">(extra, excluding output)</span><div class="options" id="s">${so.map(c => `<button data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div></div></div>
@@ -604,7 +608,7 @@ GAMES.edge = {
   desc: 'You have 60 seconds to write the clarifying questions and edge cases you would raise. Then tick off what you covered.',
   pool: () => C.problems,
   render(el, p, done, { clock }) {
-    el.innerHTML = `<div class="card"><div class="row"><h3>${esc(p.title)}</h3><span class="tag ${p.diff}">${p.diff}</span></div>
+    el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span></div>
       <p class="prompt" style="font-size:17px">${esc(p.statement)}</p>
       <textarea id="ed" style="min-height:150px" placeholder="- What if the input is empty?&#10;- Can there be duplicates?&#10;- ..."></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="go">Reveal checklist <kbd>Ctrl+Enter</kbd></button></div><div id="out"></div></div>`;
@@ -614,7 +618,7 @@ GAMES.edge = {
     const reveal = () => {
       if (shown) return; shown = true; timer.stop(); ed.readOnly = true;
       const specific = [...p.clarify.map(c => '❓ ' + c), ...p.edges.map(c => '⚠️ ' + c)];
-      $('#out', el).innerHTML = `<h3 style="margin-top:14px">Tick what you covered</h3><div class="checklist">${specific.map((c, i) =>
+      $('#out', el).innerHTML = `<h2 class="h3" style="margin-top:14px">Tick what you covered</h2><div class="checklist">${specific.map((c, i) =>
         `<label><input type="checkbox" data-i="${i}"> ${esc(c)}</label>`).join('')}</div>
         <details style="margin-top:8px"><summary>Generic questions worth asking on any problem</summary><ul>${C.clarify_generic.map(c => `<li>${esc(c)}</li>`).join('')}</ul></details>
         <div class="row" style="margin-top:12px"><button class="primary" id="score">Score it</button></div>`;
@@ -638,7 +642,7 @@ GAMES.oa = {
   render(el, p, done, { clock }) {
     const mins = { Easy: 15, Medium: 25, Hard: 40 }[p.diff] || 25;
     let runs = 0, finished = false;
-    el.innerHTML = `<div class="card"><div class="row"><h3>${esc(p.title)}</h3><span class="tag ${p.diff}">${p.diff}</span>
+    el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       <span class="muted small">${mins} min budget</span></div><p class="prompt" style="font-size:16px">${esc(p.statement)}</p>
       <textarea class="code" id="ed"></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="run">Run tests <kbd>Ctrl+Enter</kbd></button>
@@ -673,10 +677,10 @@ GAMES.mock = {
       if (timer && timerPhase !== ph) timer.stop();
       const P = phases[ph];
       const head = `<div class="phase">${phases.map((x, i) => `<span class="${i === ph ? 'on' : i < ph ? 'done' : ''}">${i + 1}. ${x.name}</span>`).join('')}</div>`;
-      const side = `<div class="card"><h3>Say it out loud</h3><ol class="small" style="padding-left:18px;margin:0">${C.think_aloud.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+      const side = `<div class="card"><h2 class="h3">Say it out loud</h2><ol class="small" style="padding-left:18px;margin:0">${C.think_aloud.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
         ${S.settings.focus.talk ? `<div class="row" style="margin-top:12px"><button id="rec">${rec ? '⏹ Stop recording' : '🎙 Record myself'}</button></div>
         ${audioUrl ? `<audio controls src="${audioUrl}" style="width:100%;margin-top:8px"></audio>` : ''}` : ''}</div>`;
-      let main = `<div class="card"><div class="row"><h3>${esc(p.title)}</h3><span class="tag ${p.diff}">${p.diff}</span></div><p class="prompt" style="font-size:16px">${esc(p.statement)}</p>`;
+      let main = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span></div><p class="prompt" style="font-size:16px">${esc(p.statement)}</p>`;
       if (P.id === 'clarify') main += `<p class="muted">Before solving: ask your questions. Type them as you say them.</p><textarea id="n" style="min-height:140px">${esc(notes.clarify || '')}</textarea>`;
       if (P.id === 'plan') main += `<details open><summary>Answers to typical clarifying questions</summary><ul class="small">${p.clarify.map(c => `<li>${esc(c)}</li>`).join('') || '<li>Standard constraints.</li>'}</ul></details>
         <p class="muted">Say: brute force + its cost → the bottleneck → the pattern → 3-5 step plan. Commit to a complexity.</p>
@@ -686,7 +690,7 @@ GAMES.mock = {
       if (P.id === 'code') main += `<p class="muted">Whiteboard rules: no run button, no auto-indent. Narrate what each block is for.</p><textarea class="code" id="n">${esc(notes.code || p.starter)}</textarea>`;
       if (P.id === 'test') main += `<p class="muted">Trace your code on the example and 2 edge cases, out loud. Fix bugs you find. Still no running.</p>
         <textarea class="code" id="n">${esc(notes.code)}</textarea><textarea id="n2" style="min-height:80px;margin-top:8px" placeholder="Dry-run notes / edge cases tested">${esc(notes.test || '')}</textarea>`;
-      if (P.id === 'score') main += `<div id="res"><p class="muted">Running your final code…</p></div><h3 style="margin-top:12px">Score yourself (1 = weak, 4 = strong)</h3>
+      if (P.id === 'score') main += `<div id="res"><p class="muted">Running your final code…</p></div><h2 class="h3" style="margin-top:12px">Score yourself (1 = weak, 4 = strong)</h2>
         <table>${C.rubric.map(r => `<tr><td><b>${esc(r.name)}</b><div class="muted small">${esc(r.desc)}</div></td><td style="white-space:nowrap">${[1, 2, 3, 4].map(v =>
           `<label style="margin-right:6px"><input type="radio" name="${r.id}" value="${v}"> ${v}</label>`).join('')}</td></tr>`).join('')}</table>
         <div class="row" style="margin-top:12px"><button class="primary" id="save">Save mock</button></div>`;
@@ -751,7 +755,7 @@ ROUTES.today = app => {
       <div class="row">${nextBlock ? `<a class="btn primary" href="#/play/${nextBlock.game}?plan=1">▶ ${pct ? 'Continue' : 'Start'}: ${GAMES[nextBlock.game].name}</a>` : `<a class="btn primary" href="#/games">Extra practice</a>`}
       <a class="btn ghost" href="#/settings">Adjust time / date</a></div></div></div>
     ${(() => { const nl = nextLesson(); return nl ? `<h2>Learn</h2><a class="card block" href="#/study/${nl.id}" style="color:inherit"><div class="icon">📖</div>
-      <div style="flex:1"><div class="row"><b>Today's lesson: <span style="color:${nl.color}">${esc(nl.name)}</span></b><span class="tag">Study</span></div>
+      <div style="flex:1"><div class="row"><b>Today's lesson: <span style="color:${pc(nl.color)}">${esc(nl.name)}</span></b><span class="tag">Study</span></div>
       <div class="muted small">~10 min: read the lesson, build the skeleton line by line, walk through 2 problems. Then the games below keep it alive.</div></div>
       <div class="mono">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div></a>` : ''; })()}
     <h2>Practice</h2>
@@ -762,13 +766,13 @@ ROUTES.today = app => {
         <div class="muted small">${esc(g.desc)}</div><div class="bar"><i style="width:${b.done / b.target * 100}%"></i></div></div>
         <div class="mono">${b.done}/${b.target}</div></a>`; }).join('')}</div>
     <h2>Weakest patterns right now</h2>
-    <div class="grid g3">${weakest.map(({ p, m }) => `<a class="card" href="#/patterns/${p.id}" style="color:inherit"><b style="color:${p.color}">${esc(p.name)}</b>
+    <div class="grid g3">${weakest.map(({ p, m }) => `<a class="card" href="#/patterns/${p.id}" style="color:inherit"><b style="color:${pc(p.color)}">${esc(p.name)}</b>
       <div class="muted small">${Math.round(m * 100)}% mastery</div><div class="small">${p.triggers.slice(0, 2).map(esc).join(' · ')}</div></a>`).join('')}</div>`;
 };
 
 ROUTES.games = app => {
   app.innerHTML = `<h1>Games</h1><p class="muted">The ladder goes Idea → Structure → Syntax → Full solve → In-person. Use the daily plan, or grind any game here.</p>
-    <div class="grid g2">${Object.entries(GAMES).map(([id, g]) => `<div class="card"><div class="row"><span style="font-size:26px">${g.icon}</span><h3 style="margin:0">${g.name}</h3>
+    <div class="grid g2">${Object.entries(GAMES).map(([id, g]) => `<div class="card"><div class="row"><span style="font-size:26px">${g.icon}</span><h2 class="h3" style="margin:0">${g.name}</h2>
       <span class="tag">${g.layer}</span><span class="spacer"></span>${dueCount(id) ? `<span class="tag" style="color:var(--accent)">${dueCount(id)} due</span>` : ''}</div>
       <p class="muted small">${esc(g.desc)}</p><div class="row"><a class="btn primary" href="#/play/${id}?n=${g.defaultN}">Play ${g.defaultN > 1 ? g.defaultN + ' rounds' : ''}</a>
       ${g.defaultN > 1 ? `<a class="btn ghost" href="#/play/${id}?n=${g.defaultN * 2}">×${g.defaultN * 2}</a>` : ''}</div></div>`).join('')}</div>`;
@@ -788,7 +792,7 @@ function PROBLEM_OR_ITEM(game, id) { return GAMES[game].pool().find(o => o.id ==
 function runFixed(app, game, o) {
   const g = GAMES[game]; const shell = document.createElement('div'); app.append(shell);
   const back = () => history.length > 1 ? history.back() : (location.hash = `#/patterns/${o.pattern}`);
-  shell.innerHTML = `<div class="gamehead"><button class="ghost" id="bk">← Back</button><b>${g.icon} ${g.name}</b><span class="spacer"></span><span class="timer" id="clock"></span></div><div id="b"></div>`;
+  shell.innerHTML = `<div class="gamehead"><button class="ghost" id="bk">← Back</button><h1>${g.icon} ${g.name}</h1><span class="spacer"></span><span class="timer" id="clock"></span></div><div id="b"></div>`;
   $('#bk', shell).onclick = back;
   g.render($('#b', shell), o, q => { const x = review(game, o.id, q); toast(`+${x} XP`); back(); }, { clock: $('#clock', shell) });
 }
@@ -798,11 +802,11 @@ ROUTES.patterns = (app, [pid]) => {
     const p = PAT(pid);
     const probs = C.problems.filter(x => x.pattern === pid);
     const cards = C.sprint.filter(x => x.pattern === pid);
-    app.innerHTML = `<a href="#/patterns">← All patterns</a><h1 style="color:${p.color}">${esc(p.name)}</h1>
+    app.innerHTML = `<a href="#/patterns">← All patterns</a><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1>
       <p class="muted">${Math.round(mastery(pid) * 100)}% mastery</p>
-      <div class="side"><div><h3>Skeleton</h3><pre class="code">${esc(p.skeleton)}</pre></div>
-      <div class="card"><h3>Reach for it when</h3><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-      <h3>To fill the skeleton, answer</h3><ol>${p.fill.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+      <div class="side"><div><h2 class="h3">Skeleton</h2><pre class="code">${esc(p.skeleton)}</pre></div>
+      <div class="card"><h2 class="h3">Reach for it when</h2><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      <h2 class="h3">To fill the skeleton, answer</h2><ol>${p.fill.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
       <a class="btn" href="#/play/skeleton?problem=${pid}">🦴 Recall this skeleton</a></div></div>
       <h2>Coded problems (${probs.length})</h2>
       ${probs.length ? `<table><tr><th>#</th><th>Problem</th><th>Level</th><th>Practise</th></tr>${probs.map(x => `<tr><td>${x.num}</td>
@@ -847,24 +851,24 @@ ROUTES.settings = app => {
   const st = S.settings;
   app.innerHTML = `<h1>Settings</h1>
     <div class="grid" style="max-width:720px">
-    <div class="card"><h3>Urgency</h3><p class="muted small">Your next OA or interview. Within 14 days, the app goes into urgent mode and reviews are packed closer together so everything gets a few reps before the date.</p>
-      <div class="row"><input type="date" id="date" value="${st.interviewDate || ''}"><button id="nodate" class="ghost">No date</button>
+    <div class="card"><h2 class="h3">Urgency</h2><p class="muted small">Your next OA or interview. Within 14 days, the app goes into urgent mode and reviews are packed closer together so everything gets a few reps before the date.</p>
+      <div class="row"><input type="date" id="date" aria-label="Interview date" value="${st.interviewDate || ''}"><button id="nodate" class="ghost">No date</button>
       ${[7, 14, 30].map(d => `<button class="ghost" data-d="${d}">+${d}d</button>`).join('')}</div></div>
-    <div class="card"><h3>Daily time: <span id="mv">${st.minutes}</span> min</h3><input type="range" class="slider" id="min" min="10" max="120" step="5" value="${st.minutes}">
+    <div class="card"><h2 class="h3">Daily time: <span id="mv">${st.minutes}</span> min</h2><input type="range" class="slider" id="min" aria-label="Daily time in minutes" min="10" max="120" step="5" value="${st.minutes}">
       <p class="muted small">The daily plan is rebuilt from this. Mock interviews show up at 70+ min (55+ in urgent mode); OA Mode shows up around 45+ min.</p></div>
-    <div class="card"><h3>In-person focus</h3><p class="muted small">Turning these on adds their drills to the daily plan.</p><div class="checklist">
+    <div class="card"><h2 class="h3">In-person focus</h2><p class="muted small">Turning these on adds their drills to the daily plan.</p><div class="checklist">
       ${[['talk', 'Talking while coding (mock interviews, recording)'], ['clarify', 'Clarifying questions & edge cases (Edge Hunter)'],
          ['complexity', 'Complexity analysis (Big-O Call)'], ['noide', 'No-IDE coding & nerves (mock interviews, OA timer)']].map(([k, l]) =>
         `<label><input type="checkbox" data-f="${k}" ${st.focus[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
-    <div class="card"><h3>New items per day, per game: <span id="nv">${st.newPerDay}</span></h3><input type="range" class="slider" id="new" min="1" max="12" value="${st.newPerDay}">
+    <div class="card"><h2 class="h3">New items per day, per game: <span id="nv">${st.newPerDay}</span></h2><input type="range" class="slider" id="new" aria-label="New items per day, per game" min="1" max="12" value="${st.newPerDay}">
       <p class="muted small">Pattern Sprint gets 3× this. Reviews always come first; new items fill the rest.</p></div>
-    <div class="card"><h3>Sprint timer: <span id="sv">${st.sprintSeconds}</span>s</h3><input type="range" class="slider" id="sec" min="6" max="30" value="${st.sprintSeconds}"></div>
+    <div class="card"><h2 class="h3">Sprint timer: <span id="sv">${st.sprintSeconds}</span>s</h2><input type="range" class="slider" id="sec" aria-label="Sprint timer in seconds" min="6" max="30" value="${st.sprintSeconds}"></div>
     <div class="card" id="acct" hidden></div>
-    <div class="card"><h3>Data</h3><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py'
+    <div class="card"><h2 class="h3">Data</h2><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py'
       : 'Progress is saved in this browser'}${Cloud.signedIn ? ' and synced to your account.' : SERVER ? '.'
       : ' only. Sign in above to sync it, or download a backup and use Restore on the other device.'}</p>
       <div class="row"><button id="export">Download backup</button><button id="import">Restore from backup</button>
-      <input type="file" id="importfile" accept=".json,application/json" hidden><button class="bad" id="reset">Reset all progress</button></div></div>
+      <input type="file" id="importfile" aria-label="Backup file to restore" accept=".json,application/json" hidden><button class="bad" id="reset">Reset all progress</button></div></div>
     </div>`;
   const rebuild = () => { if (S.plan) S.plan.minutes = -1; save(); }; // forces rebuild, keeps today's progress
   $('#date').onchange = e => { st.interviewDate = e.target.value || null; rebuild(); toast('Urgency updated'); };
@@ -939,7 +943,7 @@ ROUTES.study = (app, [pid, probId]) => {
   app.innerHTML = `<h1>Study</h1>
     <p class="muted">Learn a pattern here first, then let the games make it stick. ${done}/${order.length} lessons done · ${Object.keys(S.study.walks).length}/${C.problems.length} walkthroughs.</p>
     ${nl ? `<div class="card" style="border-color:var(--accent)"><div class="row"><span style="font-size:26px">📖</span><div style="flex:1"><div class="muted small">Next lesson</div>
-      <b style="font-size:18px;color:${nl.color}">${esc(nl.name)}</b><div class="small muted">${esc(nl.lesson.why.split('. ')[0])}.</div></div>
+      <b style="font-size:18px;color:${pc(nl.color)}">${esc(nl.name)}</b><div class="small muted">${esc(nl.lesson.why.split('. ')[0])}.</div></div>
       <a class="btn primary" href="#/study/${nl.id}">Start lesson →</a></div></div>` : ''}
     <h2>Start here: the method</h2>
     <div class="grid g2">${C.method.map((m, i) => `<details class="card" ${i === 0 && !done ? 'open' : ''}><summary style="color:var(--text);font-size:16px">${esc(m.title)}</summary>
@@ -949,7 +953,7 @@ ROUTES.study = (app, [pid, probId]) => {
     <h2>Learning path</h2>
     <p class="muted small">Ordered by how often each pattern shows up in OAs and interviews.</p>
     <div class="grid path">${order.map((p, i) => { const probs = C.problems.filter(x => x.pattern === p.id).length;
-      return `<a class="card" href="#/study/${p.id}"><span class="idx">${i + 1}</span><div style="flex:1"><b style="color:${p.color}">${esc(p.name)}</b>
+      return `<a class="card" href="#/study/${p.id}"><span class="idx">${i + 1}</span><div style="flex:1"><b style="color:${pc(p.color)}">${esc(p.name)}</b>
         <div class="small muted">${p.triggers.slice(0, 2).map(esc).join(' · ')}</div></div>
         <span class="small muted">${walksDone(p.id)}/${probs} walkthroughs</span><span class="small muted">${Math.round(mastery(p.id) * 100)}% mastery</span>
         <span class="status ${lessonDone(p.id) ? 'done' : 'todo'}">${lessonDone(p.id) ? '✓ studied' : 'not yet'}</span></a>`; }).join('')}</div>
@@ -970,7 +974,7 @@ function studyLesson(app, pid) {
   const prev = order[idx - 1], next = order[idx + 1];
   const probs = sortedProblems(pid);
   app.innerHTML = `<div class="lesson"><a href="#/study">← Study</a>
-    <div class="row" style="margin-top:6px"><h1 style="color:${p.color}">${esc(p.name)}</h1><span class="spacer"></span>
+    <div class="row" style="margin-top:6px"><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1><span class="spacer"></span>
       <span class="status ${lessonDone(pid) ? 'done' : 'todo'}" id="st">${lessonDone(pid) ? '✓ studied' : 'not yet studied'}</span></div>
     <section><h2><span class="n">1</span>Why it exists</h2><p style="font-size:16px">${esc(L.why)}</p></section>
     <section><h2><span class="n">2</span>Spot it</h2><div class="grid g2">

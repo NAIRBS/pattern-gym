@@ -3,11 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pattern Gym</title>
+<title>Pattern Gym · daily coding-interview drills</title>
+<meta name="description" content="Daily drills for coding interviews in Python: spot the pattern, rebuild the skeleton, solve all 150 NeetCode problems, with spaced repetition.">
+<meta name="theme-color" content="#15171c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
+<link rel="canonical" href="https://nairbs.github.io/pattern-gym/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pattern Gym">
+<meta property="og:title" content="Pattern Gym · daily coding-interview drills">
+<meta property="og:description" content="Spot the pattern, rebuild the skeleton, solve all 150 NeetCode problems in Python, right in the browser.">
+<meta property="og:url" content="https://nairbs.github.io/pattern-gym/">
+<meta name="twitter:card" content="summary">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234ade80'/><text x='16' y='23' font-size='18' text-anchor='middle' font-family='monospace' font-weight='bold' fill='%23181a1f'>{}</text></svg>">
 </head>
 <body>
+<button type="button" class="skip" id="skip">Skip to content</button>
 <header class="topbar">
   <a href="#/today" class="brand"><span class="logo">{}</span> Pattern Gym</a>
   <nav>
@@ -20,7 +31,7 @@
   </nav>
   <div class="hud" id="hud"></div>
 </header>
-<main id="app"><p class="muted center">Loading...</p></main>
+<main id="app" tabindex="-1"><p class="muted center">Loading...</p></main>
 <div id="toast"></div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
