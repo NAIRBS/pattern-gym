@@ -34,7 +34,7 @@ code, pre, textarea.code, .mono { font-family: var(--mono); font-size: 13.5px; }
 .logo { background: var(--accent); color: var(--accent-ink); font-family: var(--mono); border-radius: var(--r-sm);
   padding: 1px 6px; font-size: 14px; }
 nav { display: flex; gap: 4px; }
-nav a { color: var(--muted); padding: 6px 9px; border-radius: var(--r-md); font-weight: 500; }
+nav a { color: var(--muted); padding: 4px 9px 12px; border-radius: var(--r-md); font-weight: 500; }
 nav a.active, nav a:hover { color: var(--text); background: var(--panel2); }
 .hud { margin-left: auto; display: flex; gap: 10px; align-items: center; font-size: 14px; }
 .hud .pill { background: var(--panel2); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
@@ -478,3 +478,29 @@ mark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: va
 }
 @media (prefers-reduced-motion: reduce) { .dseg-pill { transition: none; } }
 .sclear[hidden] { display: none; }
+
+/* ── keyboard hints on the page itself ── */
+/* tab badges: tiny letter under each tab; they light up after pressing G */
+nav a { position: relative; }
+nav a .navk { position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); font-size: 10.5px; line-height: 1.1; padding: 1px 5px; font-weight: 700;
+  border-radius: 4px; border: 1px solid var(--line); color: var(--text); background: var(--panel2); opacity: .8; transition: opacity .15s, color .15s, background .15s; }
+nav a:hover .navk, nav a.active .navk { opacity: 1; }
+body.g-armed nav a .navk { opacity: 1; color: var(--accent-ink); background: var(--accent); border-color: transparent; }
+@media (max-width: 820px), (pointer: coarse) { nav a .navk { display: none; } }
+
+/* number badges on cards (Today blocks, lesson card) */
+.card.block { position: relative; }
+.cardk { align-self: center; font-size: 12px; padding: 1px 7px; color: var(--muted); }
+.card.block:focus-visible .cardk, .card.block:hover .cardk { color: var(--text); border-color: var(--text); }
+@media (pointer: coarse) { .cardk { display: none; } }
+
+/* list items reached with arrow keys */
+[data-item]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* search: "/" when idle, "Esc" while typing */
+.skbd-esc { display: none; }
+.sfield:focus-within .skbd-idle { display: none; }
+.sfield:focus-within .skbd-esc { display: inline-block; opacity: 1; }
+.sfield:focus-within .skbd { opacity: 1; }
+.sfield:focus-within .sclear { right: 62px; }
+.sfield:focus-within input { padding-right: 100px; }

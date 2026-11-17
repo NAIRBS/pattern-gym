@@ -179,7 +179,7 @@ const Cloud = (() => {
     if (!user) {
       card.innerHTML = `<h3>Account &amp; sync</h3>
         <p class="muted small">Sign in to keep your progress in sync across devices. No password: we email you a link.</p>
-        <button class="primary" type="button" data-signin>Sign in</button>`;
+        <button class="primary" type="button" data-signin data-key="i">Sign in <kbd>I</kbd></button>`;
       return;
     }
     document.getElementById('signin-dialog')?.close();

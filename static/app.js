@@ -301,7 +301,10 @@ const KEY_HELP = [
   ['Line Up', [['↑ ↓', 'Move between lines'], ['← →', 'Switch column'], ['Enter / Space', 'Move the line to the other column'], ['Alt+↑ ↓', 'Reorder a line in your solution']]],
   ['Study', [['C', 'Continue with your next step'], ['M', 'Start a mystery problem (mixed practice)'], ['Space', 'Reveal the next step / skeleton line'],
     ['Ctrl+Enter', 'Reveal, while typing your guess']]],
-  ['Problems', [['↓ ↑', 'Move through the list'], ['Enter', 'Solve the selected problem']]],
+  ['Pages', [['S', 'Today: start / continue the plan'], ['L', 'Today: open today’s lesson'], ['1-9', 'Today: start a practice block · Games: play a game · Course: start a drill'],
+    ['↑ ↓', 'Move through any list (path, problems, patterns); Enter opens'], ['R', 'Pattern: recall its skeleton · Settings: restore a backup'],
+    ['B', 'Settings: download a backup'], ['I', 'Settings: sign in']]],
+  ['Problems', [['/', 'Jump to the search box'], ['Esc', 'Clear the search, press again to leave the box'], ['↓ ↑', 'Move through the results'], ['Enter', 'Solve the selected problem']]],
 ];
 function showKeys() {
   let dlg = document.getElementById('keys-dialog');
@@ -320,17 +323,40 @@ document.addEventListener('keydown', e => {
   if (isTyping(e.target)) { if (e.key === 'Escape' && !e.target.closest('dialog')) { e.target.blur(); setTimeout(paintEdBtn, 0); } return; }
   if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
   if (e.key === 'Escape' && inEditor()) { document.activeElement.blur(); paintEdBtn(); return; }  // Line Up lines
-  if (gAt && Date.now() - gAt < 1500 && NAV_KEYS[e.key]) { gAt = 0; e.preventDefault(); location.hash = '#/' + NAV_KEYS[e.key][0]; return; }
-  gAt = 0;
-  if (e.key === 'g') { gAt = Date.now(); return; }
+  if (gAt && Date.now() - gAt < 1500 && NAV_KEYS[e.key]) { gAt = 0; disarmG(); e.preventDefault(); location.hash = '#/' + NAV_KEYS[e.key][0]; return; }
+  gAt = 0; disarmG();
+  if (e.key === 'g') { gAt = Date.now(); armG(); return; }
   if (e.key === '?') { e.preventDefault(); showKeys(); return; }
   if (e.key === '/') { e.preventDefault(); if (location.hash.startsWith('#/problems')) $('#q')?.focus(); else location.hash = '#/problems'; return; }
   if (e.key === 'e' && focusEditor()) { e.preventDefault(); setTimeout(paintEdBtn, 0); return; }
+  if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key) && navListKey(e)) return;
   if (e.key === ' ' && e.target.closest?.('button, a, summary, [role=option], [role=listbox]')) return;  // Space already clicks a focused control
   const b = $$('#app [data-key]').find(b => b.dataset.key === e.key.toLowerCase() && b.offsetParent && !b.disabled);
   if (b) { e.preventDefault(); b.click(); }
 });
 document.querySelector('[data-help]')?.addEventListener('click', showKeys);
+let gTimer = null;
+function armG() { document.body.classList.add('g-armed'); clearTimeout(gTimer); gTimer = setTimeout(() => { gAt = 0; disarmG(); }, 1500); paintEdBtn(); }
+function disarmG() { if (!document.body.classList.contains('g-armed')) return; document.body.classList.remove('g-armed'); clearTimeout(gTimer); paintEdBtn(); }
+// Lists: ↑/↓ move between items (←/→ too in grids); the first ↓ on a page enters its first list.
+function navListKey(e) {
+  const items = l => $$('[data-item]', l).filter(i => i.offsetParent);
+  const cur = document.activeElement?.closest?.('[data-navlist]');
+  if (cur && document.activeElement.matches('[data-item]')) {
+    const grid = cur.dataset.navlist === 'grid', list = items(cur), k = list.indexOf(document.activeElement);
+    let j;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const cols = grid ? (list.filter(i => i.offsetTop === list[0].offsetTop).length || 1) : 1;
+      j = k + (e.key === 'ArrowDown' ? cols : -cols);
+    } else if (grid) j = k + (e.key === 'ArrowRight' ? 1 : -1);
+    else return false;
+    e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, j))]?.focus(); return true;
+  }
+  if (e.key !== 'ArrowDown' || document.activeElement?.closest?.('#app a, #app button, #app summary')) return false;
+  const first = $$('#app [data-navlist]').map(items).find(l => l.length)?.[0];
+  if (!first) return false;
+  e.preventDefault(); first.focus(); return true;
+}
 
 // Editor toggle: E jumps into the page's main editor (code box, gap inputs, Line Up lines), Esc leaves it.
 const EDITOR_SEL = '#app textarea:not([readonly]), #app .fill input:not([readonly]), #app .lines .ln[tabindex="0"], #app .lines[tabindex="0"]';
@@ -364,19 +390,34 @@ function paintKeybar() {
     else add(['E'], 'go to the editor', () => focusEditor());
   }
   if (inEditor()) add(['Ctrl', 'Enter'], 'run / check', () => $('#app [data-key="r"]:not([disabled])')?.click());
-  const seen = new Set();
+  const ae = document.activeElement, typing = isTyping(ae) && !inEditor();
+  if (document.body.classList.contains('g-armed')) {
+    for (const [k, [route, name]] of Object.entries(NAV_KEYS)) add([keyName(k)], name, () => { disarmG(); location.hash = '#/' + route; }, 'on');
+    keybar.innerHTML = chips.join(''); return;
+  }
+  if (typing) {
+    const search = ae.type === 'search' || ae.id === 'q';
+    add(['Esc'], search && ae.value ? 'clear the search' : search ? 'leave the search box' : 'leave the text box',
+      () => { if (search && ae.value) { ae.value = ''; ae.dispatchEvent(new Event('input')); } else ae.blur(); }, 'on');
+    if (search) { add(['↓'], 'into the results', () => {}); add(['Enter'], 'open the first result', () => {}); }
+  }
+  const seen = new Set(), groups = {};
   for (const b of $$('#app [data-key]')) {
     const k = b.dataset.key;
-    if (seen.has(k) || !b.offsetParent || b.disabled || (inEditor() && k !== 'q')) continue;
-    seen.add(k); add([keyName(k)], chipLabel(b), () => b.click());
+    if (seen.has(k) || !b.offsetParent || b.disabled || ((inEditor() || typing) && k !== 'q')) continue;
+    seen.add(k);
+    if (b.dataset.kgroup) { (groups[b.dataset.kgroup] ||= []).push(k); continue; }
+    add([keyName(k)], chipLabel(b), () => b.click());
   }
+  for (const [label, ks] of Object.entries(groups)) add(ks.length > 1 ? [ks[0], '–', ks[ks.length - 1]] : ks, label, () => {});
+  if (!inEditor() && !typing && $$('#app [data-navlist] [data-item]').some(i => i.offsetParent)) add(['↑', '↓'], 'move through the list, Enter opens', () => {});
   if (!inEditor()) {
     if ($$('#app .gradebar [data-q]').some(b => b.offsetParent && !b.disabled)) add(['1', '2', '3'], 'grade: blanked / shaky / nailed', () => {});
     if ($$('#app .options button').some(b => b.offsetParent && !b.disabled)) add(['1', '–', '4'], 'pick an option', () => {});
     if ($('#app .parsons')) add(['↑', '↓', 'Enter'], 'move and place lines', () => {}, 'wide');
   }
-  if (!editorOnPage().length || !inEditor()) {
-    add(['G', '…'], 'then T S G P A X , to change page', () => {});
+  if (!inEditor() && !typing) {
+    add(['G'], 'then a tab’s letter to change page', () => armG());
     add(['/'], 'search problems', () => { location.hash = '#/problems'; });
   }
   add(['?'], 'all shortcuts', () => showKeys());
@@ -1052,29 +1093,29 @@ ROUTES.today = app => {
     <div class="hero"><div class="ring" style="--p:${pct}"><div>${pct}%</div></div>
       <div><h1>${pct === 100 ? 'Done for today 🎉' : 'Today’s session'}</h1>
       <p class="muted">${S.settings.minutes} min plan · <b>${esc(u.label)}</b>${u.mode === 'urgent' ? ' · urgent mode: reviews are packed closer together' : ''}</p>
-      <div class="row">${nextBlock ? `<a class="btn primary" href="#/play/${nextBlock.game}?plan=1">▶ ${pct ? 'Continue' : 'Start'}: ${GAMES[nextBlock.game].name}</a>` : `<a class="btn primary" href="#/games">Extra practice</a>`}
+      <div class="row">${nextBlock ? `<a class="btn primary" href="#/play/${nextBlock.game}?plan=1" data-key="s">▶ ${pct ? 'Continue' : 'Start'}: ${GAMES[nextBlock.game].name} <kbd>S</kbd></a>` : `<a class="btn primary" href="#/games" data-key="s">Extra practice <kbd>S</kbd></a>`}
       <a class="btn ghost" href="#/settings">Adjust time / date</a></div></div></div>
-    ${(() => { const nl = nextLesson(); return nl ? `<h2>Learn</h2><a class="card block" href="#/study/${nl.id}" style="color:inherit"><div class="icon">📖</div>
+    ${(() => { const nl = nextLesson(); return nl ? `<h2>Learn</h2><a class="card block" href="#/study/${nl.id}" style="color:inherit" data-key="l"><div class="icon">📖</div>
       <div style="flex:1"><div class="row"><b>Today's lesson: <span style="color:${pc(nl.color)}">${esc(nl.name)}</span></b><span class="tag">Study</span></div>
       <div class="muted small">~10 min: read the lesson, build the skeleton line by line, walk through 2 problems. Then the games below keep it alive.</div></div>
-      <div class="mono">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div></a>` : ''; })()}
+      <div class="mono">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div><kbd class="cardk">L</kbd></a>` : ''; })()}
     <h2>Practice</h2>
-    <div class="grid">${plan.blocks.map(b => { const g = GAMES[b.game]; const d = dueCount(b.game);
-      return `<a class="card block ${b.done >= b.target ? 'done' : ''}" href="#/play/${b.game}?plan=1" style="color:inherit">
+    <div class="grid">${plan.blocks.map((b, bi) => { const g = GAMES[b.game]; const d = dueCount(b.game);
+      return `<a class="card block ${b.done >= b.target ? 'done' : ''}" href="#/play/${b.game}?plan=1" style="color:inherit" ${bi < 9 ? `data-key="${bi + 1}" data-kgroup="start a practice block"` : ''}>
         <div class="icon">${g.icon}</div><div style="flex:1"><div class="row"><b>${g.name}</b><span class="tag">${g.layer}</span>
         ${d ? `<span class="tag" style="color:var(--accent)">${d} due</span>` : ''}</div>
         <div class="muted small">${esc(g.desc)}</div><div class="bar"><i style="width:${b.done / b.target * 100}%"></i></div></div>
-        <div class="mono">${b.done}/${b.target}</div></a>`; }).join('')}</div>
+        <div class="mono">${b.done}/${b.target}</div>${bi < 9 ? `<kbd class="cardk">${bi + 1}</kbd>` : ''}</a>`; }).join('')}</div>
     <h2>Weakest patterns right now</h2>
-    <div class="grid g3">${weakest.map(({ p, m }) => `<a class="card" href="#/patterns/${p.id}" style="color:inherit"><b style="color:${pc(p.color)}">${esc(p.name)}</b>
+    <div class="grid g3" data-navlist>${weakest.map(({ p, m }) => `<a class="card" href="#/patterns/${p.id}" style="color:inherit" data-item><b style="color:${pc(p.color)}">${esc(p.name)}</b>
       <div class="muted small">${Math.round(m * 100)}% mastery</div><div class="small">${p.triggers.slice(0, 2).map(esc).join(' · ')}</div></a>`).join('')}</div>`;
 };
 
 ROUTES.games = app => {
   app.innerHTML = `<h1>Games</h1><p class="muted">The ladder goes Idea → Structure → Syntax → Full solve → In-person. Use the daily plan, or grind any game here.</p>
-    <div class="grid g2">${Object.entries(GAMES).map(([id, g]) => `<div class="card"><div class="row"><span style="font-size:26px">${g.icon}</span><h2 class="h3" style="margin:0">${g.name}</h2>
+    <div class="grid g2">${Object.entries(GAMES).map(([id, g], gi) => `<div class="card"><div class="row"><span style="font-size:26px">${g.icon}</span><h2 class="h3" style="margin:0">${g.name}</h2>
       <span class="tag">${g.layer}</span><span class="spacer"></span>${dueCount(id) ? `<span class="tag" style="color:var(--accent)">${dueCount(id)} due</span>` : ''}</div>
-      <p class="muted small">${esc(g.desc)}</p><div class="row"><a class="btn primary" href="#/play/${id}?n=${g.defaultN}">Play ${g.defaultN > 1 ? g.defaultN + ' rounds' : ''}</a>
+      <p class="muted small">${esc(g.desc)}</p><div class="row"><a class="btn primary" href="#/play/${id}?n=${g.defaultN}" data-key="${gi + 1}" data-kgroup="play a game">Play ${g.defaultN > 1 ? g.defaultN + ' rounds' : ''} <kbd>${gi + 1}</kbd></a>
       ${g.defaultN > 1 ? `<a class="btn ghost" href="#/play/${id}?n=${g.defaultN * 2}">×${g.defaultN * 2}</a>` : ''}</div></div>`).join('')}</div>`;
 };
 
@@ -1107,7 +1148,7 @@ ROUTES.problems = (app, _, params) => {
         <svg class="sicon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
         <input type="search" id="q" placeholder="Search by name, number or pattern" aria-label="Search problems" autocomplete="off" spellcheck="false" value="${esc(st.q)}">
         <button type="button" class="sclear" id="clear" aria-label="Clear search" hidden>✕</button>
-        <kbd class="skbd" aria-hidden="true">/</kbd>
+        <kbd class="skbd skbd-idle" aria-hidden="true">/</kbd><kbd class="skbd skbd-esc" aria-hidden="true">Esc</kbd>
       </div>
       <div class="sfilters">
         <div class="dseg" id="seg" role="radiogroup" aria-label="Difficulty"><span class="dseg-pill" aria-hidden="true"></span>
@@ -1181,7 +1222,7 @@ ROUTES.patterns = (app, [pid]) => {
       <div class="side"><div><h2 class="h3">Skeleton</h2><pre class="code">${esc(p.skeleton)}</pre></div>
       <div class="card"><h2 class="h3">Reach for it when</h2><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
       <h2 class="h3">To fill the skeleton, answer</h2><ol>${p.fill.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
-      <a class="btn" href="#/play/skeleton?problem=${pid}">🦴 Recall this skeleton</a></div></div>
+      <a class="btn" href="#/play/skeleton?problem=${pid}" data-key="r">🦴 Recall this skeleton <kbd>R</kbd></a></div></div>
       <h2>Coded problems (${probs.length})</h2>
       ${probs.length ? `<table><tr><th>#</th><th>Problem</th><th>Level</th><th>Practise</th></tr>${probs.map(x => `<tr><td>${x.num}</td>
         <td>${esc(x.title)} <span class="tag ${x.diff}">${x.diff}</span><details><summary class="small">Insight & solution</summary><p>${esc(x.insight)}</p>
@@ -1193,8 +1234,8 @@ ROUTES.patterns = (app, [pid]) => {
     return;
   }
   app.innerHTML = `<h1>Patterns</h1><p class="muted">The ~20 shapes behind the NeetCode 150. Each tile shows how well you know it across every game.</p>
-    <div class="heat">${C.patterns.map(p => { const m = mastery(p.id);
-      return `<a href="#/patterns/${p.id}" style="background:color-mix(in srgb, ${p.color} ${Math.round(8 + m * 60)}%, var(--panel))">
+    <div class="heat" data-navlist="grid">${C.patterns.map(p => { const m = mastery(p.id);
+      return `<a href="#/patterns/${p.id}" data-item style="background:color-mix(in srgb, ${p.color} ${Math.round(8 + m * 60)}%, var(--panel))">
       <b>${Math.round(m * 100)}%</b>${esc(p.name)}<div class="small muted">${C.problems.filter(x => x.pattern === p.id).length} coded · ${C.sprint.filter(x => x.pattern === p.id).length} cards</div></a>`; }).join('')}</div>`;
 };
 
@@ -1241,7 +1282,7 @@ ROUTES.settings = app => {
     <div class="card"><h2 class="h3">Data</h2><p class="muted small">${SERVER ? 'Progress is saved in progress.json next to server.py'
       : 'Progress is saved in this browser'}${Cloud.signedIn ? ' and synced to your account.' : SERVER ? '.'
       : ' only. Sign in above to sync it, or download a backup and use Restore on the other device.'}</p>
-      <div class="row"><button id="export">Download backup</button><button id="import">Restore from backup</button>
+      <div class="row"><button id="export" data-key="b">Download backup <kbd>B</kbd></button><button id="import" data-key="r">Restore from backup <kbd>R</kbd></button>
       <input type="file" id="importfile" aria-label="Backup file to restore" accept=".json,application/json" hidden><button class="bad" id="reset">Reset all progress</button></div></div>
     </div>`;
   const rebuild = () => { if (S.plan) S.plan.minutes = -1; save(); }; // forces rebuild, keeps today's progress
@@ -1359,10 +1400,10 @@ function codeWithKeys(p) {
 }
 function drillButtons(pid) {
   return `<div class="row">
-    <a class="btn" href="#/play/sprint?pattern=${pid}&n=8">⚡ Spot it</a>
-    <a class="btn" href="#/play/skeleton?problem=${pid}">🦴 Recall the skeleton</a>
-    <a class="btn" href="#/play/lineup?pattern=${pid}&n=3">🧩 Line Up ×3</a>
-    <a class="btn" href="#/play/fill?pattern=${pid}&n=3">✍️ Fill the Gap ×3</a></div>`;
+    <a class="btn" href="#/play/sprint?pattern=${pid}&n=8" data-key="1" data-kgroup="start a drill">⚡ Spot it <kbd>1</kbd></a>
+    <a class="btn" href="#/play/skeleton?problem=${pid}" data-key="2" data-kgroup="start a drill">🦴 Recall the skeleton <kbd>2</kbd></a>
+    <a class="btn" href="#/play/lineup?pattern=${pid}&n=3" data-key="3" data-kgroup="start a drill">🧩 Line Up ×3 <kbd>3</kbd></a>
+    <a class="btn" href="#/play/fill?pattern=${pid}&n=3" data-key="4" data-kgroup="start a drill">✍️ Fill the Gap ×3 <kbd>4</kbd></a></div>`;
 }
 // Which of the pattern's trigger words appear in this problem's statement (the "cues").
 function cuesIn(p) {
@@ -1411,8 +1452,8 @@ function studyHome(app) {
     <section><h2>The path</h2>
       <p class="muted small">Ordered by how often each pattern comes up in online assessments and interviews. The bar under each shows the four stages:
         the idea, worked example, guided, solo.</p>
-      <ol class="path">${order.map((p, i) => { const pr = courseProgress(p.id);
-        return `<li><a href="#/study/${p.id}" class="path-row${pr.complete ? ' complete' : ''}">
+      <ol class="path" data-navlist>${order.map((p, i) => { const pr = courseProgress(p.id);
+        return `<li><a href="#/study/${p.id}" class="path-row${pr.complete ? ' complete' : ''}" data-item>
           <span class="path-n">${pr.complete ? '✓' : i + 1}</span>
           <span class="path-name"><b style="color:${pc(p.color)}">${esc(p.name)}</b><span class="small muted">${esc(p.triggers[0])}</span></span>
           <span class="track" role="img" aria-label="${esc(pr.stages.map(s => `${s.name} ${s.done} of ${s.of}`).join(', '))}">${pr.stages.map(s =>
@@ -1435,11 +1476,11 @@ function probRow(x, role) {
   if (!x) return '';
   const solo = role === 'solo', locked = solo && !attempted(x.id);
   const done = solo ? attempted(x.id) : walked(x.id);
-  return `<div class="prob-row"><span class="prob-title">${esc(x.title)}</span><span class="tag ${x.diff}">${x.diff}</span>
+  return `<div class="prob-row" data-navrow><span class="prob-title">${esc(x.title)}</span><span class="tag ${x.diff}">${x.diff}</span>
     <span class="status ${done ? 'done' : 'todo'}">${solo ? (done ? 'tried' : 'not tried') : (done ? 'done' : 'to do')}</span><span class="spacer"></span>
-    ${solo ? `<a class="btn ${done ? '' : 'primary'}" href="#/study/solve/${x.id}">Solve cold</a>
+    ${solo ? `<a class="btn ${done ? '' : 'primary'}" href="#/study/solve/${x.id}" data-item>Solve cold</a>
         <a class="btn ghost" href="#/study/${x.pattern}/${x.id}" title="${locked ? 'Unlocks after you try it' : 'See the approach'}">${locked ? '🔒 ' : ''}Walkthrough</a>`
-      : `<a class="btn ${done ? '' : 'primary'}" href="#/study/${x.pattern}/${x.id}">${role === 'learn' ? 'Brute force to final answer' : 'Work through it'}</a>
+      : `<a class="btn ${done ? '' : 'primary'}" href="#/study/${x.pattern}/${x.id}" data-item>${role === 'learn' ? 'Brute force to final answer' : 'Work through it'}</a>
         <a class="btn ghost" href="#/study/solve/${x.id}">Solve cold</a>`}</div>`;
 }
 
@@ -1450,7 +1491,7 @@ function studyCourse(app, pid) {
   const prev = order[idx - 1], next = order[idx + 1];
   const pr = courseProgress(pid), c = pr.c, nx = nextStep(pid);
   let n = 1;
-  app.innerHTML = `<div class="study course"><a href="#/study" class="crumb">← Study</a>
+  app.innerHTML = `<div class="study course" data-navlist><a href="#/study" class="crumb">← Study</a>
     <div class="course-head"><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1>
       <ol class="stepper">${pr.stages.map(s => `<li class="${s.done >= s.of ? 'done' : s.done ? 'part' : ''}"><span>${esc(s.name)}</span><small>${s.done} of ${s.of}</small></li>`).join('')}</ol>
       ${nx ? `<div class="row"><a class="btn primary" href="${nx.href}" data-key="c">${esc(nx.verb)} <kbd>C</kbd></a><span class="muted small">${esc(nx.label)}</span></div>`
