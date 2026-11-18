@@ -17,7 +17,7 @@ WALK = {
   "count each value", "buckets[f] = values that appear exactly f times (f up to n)", "walk f from n down to 1:", "  add bucket values to the result", "  stop when the result has k values"]),
 "product_except_self": ("For each i, multiply all other elements: O(n²).", [
   "res[i] starts as product of everything LEFT of i (running product, starts at 1)", "walk right to left with a second running product (starts at 1)", "multiply res[i] by the product of everything RIGHT of i", "return res"]),
-"valid_sudoku": ("Check each row, each column and each box in three separate passes: still O(81), just more code.", [
+"valid_sudoku": ("Check each row, each column and each box in three separate passes: still O(1) (always 81 cells), just more code.", [
   "one set 'seen'", "for every filled cell (r, c) with value v:", "  build 3 keys: (row r, v), (v, col c), (box r//3, c//3, v)", "  if any key already in seen -> False", "  add all 3 keys", "return True"]),
 "encode_decode": ("Join with a delimiter like ',': breaks when a string contains it.", [
   "encode: for each string write len + '#' + string", "decode: i = 0", "while i < len(s):", "  j = position of the next '#' from i", "  n = int(s[i:j]); take the n chars after j", "  move i past them"]),
@@ -26,7 +26,7 @@ WALK = {
 # ── Two Pointers ──
 "valid_palindrome": ("Build a cleaned, lowercased copy and compare with its reverse: O(n) extra space.", [
   "l at start, r at end", "while l < r:", "  move l right past non-alphanumerics; move r left likewise", "  if lowercase chars differ -> False", "  step both inward", "return True"]),
-"two_sum_ii": ("Hash map works but ignores 'sorted' and uses O(n) space.", [
+"two_sum_ii": ("Try every pair, ignoring that the array is sorted: O(n²). A hash map also works, but uses O(n) space.", [
   "l = 0, r = last", "while l < r:", "  s = nums[l] + nums[r]", "  equal -> return [l+1, r+1]", "  too small -> l += 1; too big -> r -= 1"]),
 "three_sum": ("Three nested loops plus a set to dedupe: O(n³).", [
   "sort nums", "for each i (skip if same value as previous i):", "  two pointers l = i+1, r = end looking for sum == -nums[i]", "  on a hit: record, move l, skip equal values of l", "  sum too small -> l++, too big -> r--"]),
@@ -41,7 +41,7 @@ WALK = {
   "set 'window', l = 0", "for each r:", "  while s[r] is in window: remove s[l], l++", "  add s[r]", "  best = max(best, r - l + 1)"]),
 "char_replacement": ("Try every substring and count replacements needed: O(n²·26).", [
   "count map for the window, l = 0, maxf = 0", "for each r: add s[r], update maxf", "  while (window length - maxf) > k: remove s[l], l++", "  best = max(best, window length)"]),
-"permutation_in_string": ("Generate every permutation of s1 and search s2: O(n!·m).", [
+"permutation_in_string": ("Sort every window of length len(s1) from scratch and compare: O(n·m log m).", [
   "need = counts of s1", "window = counts of the first len(s1) chars of s2", "if equal -> True", "slide: add the new right char, remove the char that left", "  if equal -> True", "return False"]),
 "min_window": ("Check every substring for containing t: O(n²·k).", [
   "need = counts of t, missing = len(t)", "for each r: if need[s[r]] > 0, missing--; need[s[r]]--", "  while missing == 0 (window covers t):", "    record window if smallest", "    give back s[l]: need[s[l]]++; if it went positive, missing++", "    l++"]),
@@ -65,11 +65,11 @@ WALK = {
   "lo = 0, hi = n - 1", "while lo <= hi:", "  mid = middle", "  equal -> return mid", "  smaller -> lo = mid + 1; bigger -> hi = mid - 1", "return -1"]),
 "search_2d_matrix": ("Scan the whole matrix: O(m·n).", [
   "treat it as one sorted array of length R·C", "binary search over indices 0..R·C-1", "value at idx = matrix[idx // C][idx % C]", "return True on a hit, else False"]),
-"koko": ("Try every speed from 1 upward: O(max·n).", [
+"koko": ("Try every speed from the lowest possible one upward: O(m·n), m = largest pile.", [
   "search space: speeds 1..max(piles)", "hours(k) = sum of ceil(p / k)", "binary search for the smallest k with hours(k) <= h:", "  feasible -> hi = mid; not feasible -> lo = mid + 1", "return lo"]),
 "find_min_rotated": ("Scan for the minimum: O(n).", [
   "lo = 0, hi = n - 1", "while lo < hi:", "  if nums[mid] > nums[hi]: the drop is to the right -> lo = mid + 1", "  else: minimum is at mid or left -> hi = mid", "return nums[lo]"]),
-"search_rotated": ("Find the pivot, then binary search one half (fine) or scan: O(n).", [
+"search_rotated": ("Scan every element: O(n). (Finding the pivot first, then binary searching, is also fine.)", [
   "standard binary search loop", "if nums[mid] == target -> done", "if the left half [lo..mid] is sorted:", "  target inside it -> go left, else go right", "else the right half is sorted:", "  target inside it -> go right, else go left"]),
 "time_map": ("get scans all values for the key: O(n).", [
   "store per key a list of (timestamp, value) (already in time order)", "get: binary search for the last timestamp <= t", "  when arr[mid] time <= t: record its value, go right", "  else go left", "return recorded value or ''"]),
@@ -145,7 +145,7 @@ WALK = {
   "max-heap via negatives", "while 2+ stones: pop two largest", "  if different, push the difference", "return the remaining stone or 0"]),
 "k_closest": ("Sort all points by distance: O(n log n).", [
   "max-heap of size k keyed by -(x² + y²)", "push each point; if size > k pop (removes the farthest)", "return the points left"]),
-"meeting_rooms_ii": ("For each meeting count how many others overlap it: O(n²).", [
+"meeting_rooms_ii": ("For each meeting's start time, count the meetings running then: O(n²).", [
   "sort by start", "min-heap of end times (rooms in use)", "for each meeting: if the earliest end <= its start, reuse that room (pop)", "  push this meeting's end", "answer = heap size"]),
 "kth_largest_stream": ("Sort everything on every add: O(n log n) per add.", [
   "keep a min-heap of the k largest values", "add: push; if size > k pop", "return heap top"]),
@@ -265,17 +265,17 @@ WALK = {
 # ── Greedy ──
 "max_subarray": ("Try every subarray: O(n²).", [
   "cur = best = first value", "for each next x: cur = max(x, cur + x)", "  best = max(best, cur)", "return best"]),
-"jump_game": ("DFS/DP over every reachable index: O(n²).", [
+"jump_game": ("Mark every index reachable from each reachable index: O(n²).", [
   "goal = last index", "walk i from right to left:", "  if i + nums[i] >= goal: goal = i", "return goal == 0"]),
 "jump_game_ii": ("DP min jumps to each index: O(n²).", [
   "jumps = 0, end = 0 (edge of current jump's reach), far = 0", "for i up to n-2: far = max(far, i + nums[i])", "  if i == end: jumps++, end = far", "return jumps"]),
 "gas_station": ("Try every start and simulate the loop: O(n²).", [
   "if total gas < total cost -> -1", "tank = 0, start = 0", "for each i: tank += gas[i] - cost[i]", "  if tank < 0: start = i + 1, tank = 0", "return start"]),
-"hand_of_straights": ("Repeatedly sort and remove groups: O(n² log n).", [
+"hand_of_straights": ("Sort, then repeatedly take the smallest card and remove its group from the list: O(n²).", [
   "length must divide by groupSize", "count each card", "for each value x in sorted order with n copies left:", "  need n copies of x..x+groupSize-1; fail if short; subtract n", "return True"]),
 "merge_triplets": ("Try all subsets of triplets: O(2^n).", [
   "ignore triplets with any value above target", "for the rest: note which positions equal the target", "True if all 3 positions were matched"]),
-"partition_labels": ("For each cut position check letter overlap: O(n²).", [
+"partition_labels": ("At each position, check whether any letter on the left also appears on the right: O(n²).", [
   "last index of each letter", "sweep: end = max(end, last[c])", "  when i == end: record size, next part starts at i + 1"]),
 "valid_parenthesis_string": ("Try all 3 meanings of every '*': O(3^n).", [
   "lo, hi = min and max possible open count", "'(' -> both +1; ')' -> both -1; '*' -> lo-1, hi+1", "hi < 0 -> False; clamp lo at 0", "valid if lo == 0 at the end"]),
@@ -291,11 +291,11 @@ WALK = {
 "min_interval_query": ("For each query scan all intervals: O(n·q).", [
   "sort intervals; process queries in sorted order", "push intervals with start <= q into a heap of (size, end)", "pop heap entries whose end < q", "answer for q = heap top size or -1", "return answers in the original query order"]),
 # ── Math & Geometry ──
-"rotate_image": ("Copy into a new matrix at rotated positions: O(n²) space.", [
+"rotate_image": ("Copy into a new matrix at rotated positions: O(n²) time like the final, but O(n²) extra space.", [
   "transpose: swap m[i][j] with m[j][i] for j > i", "reverse every row"]),
 "spiral_matrix": ("Simulate with direction changes and a visited grid (also fine).", [
   "top, bottom, left, right walls", "while walls valid: go right along top, top++", "  go down the right wall, right--", "  if top <= bottom: go left along bottom, bottom--", "  if left <= right: go up the left wall, left++"]),
-"set_matrix_zeroes": ("Record zero rows and columns in two sets: O(m + n) space.", [
+"set_matrix_zeroes": ("Record zero rows and columns in two sets: O(m·n) time like the final, but O(m + n) extra space.", [
   "remember if row 0 has a zero", "for rows 1+: a zero at (r, c) marks matrix[0][c] and matrix[r][0]", "for rows 1+, columns right to left: zero the cell if its row or column is marked", "finally zero row 0 if it had a zero"]),
 "happy_number": ("Keep every number seen in a list, so each check rescans it: O(k²) for k steps.", [
   "seen set", "while n != 1 and n not seen: add n, n = sum of squared digits", "return n == 1"]),

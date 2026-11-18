@@ -64,8 +64,8 @@ content/
   patterns.py      23 patterns: triggers, fill questions, skeleton
   study_patterns.py LESSONS per pattern (why, not_this, build line-by-line, bugs), METHOD, INPUT_SIZE
   study_problems.py WALK: per-problem brute-force sentence + pseudocode plan (all 150)
-  study_brute.py   BRUTE: runnable naive code (44): each pattern's worked example (23) + every DP problem
-                   (plain recursion = the memo version minus the cache)
+  study_brute.py   BRUTE: runnable naive code (84): worked examples, every DP problem (plain recursion =
+                   the memo version minus the cache), and the array/string/search/heap/greedy ones
   sprint.py, syntax.py, interview.py   Sprint cards (150), Syntax Snap cards (34), clarify/talk-track/rubric
 static/
   app.js           everything UI: utilities, storage, runner client, SRS, daily plan, router, keyboard,
@@ -117,13 +117,13 @@ tests/             node tests: merge.test.js, edge-match.test.js
 1. Supabase free tier pauses after 7 days without use. If sync shows "☁ !", resume the project in the dashboard.
    Supabase Auth URLs (already set): Site URL `https://nairbs.github.io/pattern-gym/`; redirect URLs that
    URL, `http://localhost:8787/`, `http://localhost:8000/`. Update them if the site address ever changes.
-2. Brute-force code (`content/study_brute.py`): the worked examples and **all 23 DP problems** are done.
-   Next: the array/string problems (nested loops → hash map / window / two pointers / binary search).
-   Add code only where a naive version is runnable, clearly slower, and teaches the "find the repeated
-   work" step. Skip graphs, trees, linked lists, design classes, backtracking and bit/math tricks, where the
-   "brute force" is the same traversal or a trivial non-answer; their walkthroughs already say so in the
-   one-line `brute` text. When adding code, the `brute` sentence in `study_problems.py` must describe
-   that code and contain a plain `O(...)` (validate checks this; the label and meter read it).
+2. Brute-force code (`content/study_brute.py`) is **done where it teaches** (84 problems). The rest are
+   left without code on purpose: graphs, trees, linked lists, backtracking and bit/math tricks (the
+   "brute force" is the same traversal or a trivial non-answer), plus Valid Sudoku, Encode/Decode, Eval
+   RPN, Car Fleet, Merge Intervals, Non-overlapping Intervals, Merge Triplets, Task Scheduler, Twitter,
+   Spiral Matrix and the "convert to int" problems. Their walkthroughs say so in the one-line `brute`
+   text. If code is ever added, the `brute` sentence in `study_problems.py` must describe that code and
+   contain an `O(...)` (validate checks this; the code label and the meter read it).
 
 Done 2026-11-18:
 - Node test summary lines moved to the end of each file (the count was short).
@@ -131,7 +131,11 @@ Done 2026-11-18:
   rewritten to match the code shown and give a cost.
 - The walkthrough's complexity meter used to say "Brute force runs in O(n²)" whenever the sentence had no
   `O(...)` (47 problems, including "No brute force" ones). It now shows "exponential" when the sentence
-  says so, otherwise the final cost with "No faster version needed".
+  says so, otherwise the final cost with "Same time as the brute force".
+- Brute-force code for 40 array/string/search/heap/greedy/interval/matrix problems (nested loops,
+  rescans, sort-everything); 11 sentences rewritten to match.
+- `firstBigO` balances brackets (`O(log(min(m, n)))` used to be cut off); `bigORank` knows `n·k`, `n·q`,
+  `V·E`. No walkthrough's meter shows the brute force cheaper than the final version.
 - `.two` grid columns are `minmax(0, 1fr)`, so long code lines scroll inside their block instead of
   widening the page.
 

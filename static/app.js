@@ -1397,13 +1397,23 @@ function bigORank(s) {
   s = String(s).replace(/\s/g, '');
   if (/2\^|!|k\^n|\^n|expon/i.test(s)) return 7;
   if (/n³|n\^3|²·?[a-zA-Z]/.test(s)) return 6;   // n³, or a squared term times another variable (m²·n², V²·E)
-  if (/n²|n\^2|n\*m|m\*n|n·m|m·n|nm\)|mn\)|n\*k|k\*n|V\*E|E\*V/i.test(s)) return 5;
+  if (/n²|n\^2|n\*m|m\*n|n·m|m·n|nm\)|mn\)|n\*k|k\*n|n·k|k·n|n·q|q·n|V\*E|E\*V|V·E|E·V/i.test(s)) return 5;
   if (/nlog|log\*n|n\*log|klog|Elog/i.test(s)) return 4;
   if (/^O\(1\)/.test(s)) return 1;
   if (/^O\(log/i.test(s)) return 2;
   return 3;
 }
-const firstBigO = s => (String(s).match(/O\([^)]*\)/) || [''])[0];
+// First O(...) in a sentence, brackets balanced, so O(log(min(m, n))) and O(2^(m+n)) come out whole.
+function firstBigO(s) {
+  s = String(s);
+  const i = s.indexOf('O(');
+  if (i < 0) return '';
+  for (let j = i + 2, depth = 1; j < s.length; j++) {
+    if (s[j] === '(') depth++;
+    else if (s[j] === ')' && --depth === 0) return s.slice(i, j + 1);
+  }
+  return '';
+}
 
 function exampleHtml(p) {
   const t = p.tests;
@@ -1579,7 +1589,7 @@ function studyWalk(app, pid, probId, params) {
   const finalO = firstBigO(p.time) || p.time;
   // No O(...) in the brute sentence: either it says exponential, or the obvious way costs the same as the final one.
   const bruteO = firstBigO(p.brute) || (/exponential|\^|n!/i.test(p.brute) ? 'exponential' : finalO);
-  const sameCost = bigORank(bruteO) === bigORank(finalO);
+  const sameCost = bruteO.replace(/\s/g, '') === finalO.replace(/\s/g, '');
   const cues = cuesIn(p);
   const guided = role === 'guided';
   const steps = [
@@ -1618,7 +1628,7 @@ function studyWalk(app, pid, probId, params) {
   const meter = () => {
     const reached = open > 6 ? 'final' : open > 2 ? 'brute' : null;
     const w = reached === 'final' ? bigORank(finalO) : bigORank(bruteO);
-    $('#meter', app).innerHTML = reached ? `<span class="meter-label">${reached === 'final' ? (sameCost ? 'No faster version needed: still' : `From ${esc(bruteO)} down to`) : 'Brute force runs in'} <b>${esc(reached === 'final' ? finalO : bruteO)}</b></span>
+    $('#meter', app).innerHTML = reached ? `<span class="meter-label">${reached === 'final' ? (sameCost ? 'Same time as the brute force:' : `From ${esc(bruteO)} down to`) : 'Brute force runs in'} <b>${esc(reached === 'final' ? finalO : bruteO)}</b></span>
       <span class="meter-bar"><i style="width:${Math.round(w / 7 * 100)}%" class="${reached}"></i></span>` : '';
   };
   const draw = () => {

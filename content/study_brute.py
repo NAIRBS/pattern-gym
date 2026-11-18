@@ -485,4 +485,404 @@ BRUTE = {
             return match(i, j + 2) or (first and match(i + 1, j))
         return first and match(i + 1, j + 1)
     return match(0, 0)""",
+
+# Arrays, strings, search, heaps, greedy, intervals: the nested-loop / re-scan / sort-everything
+# version that the pattern replaces.
+
+"valid_anagram": """def isAnagram(s, t):
+    # sorting puts equal letters side by side: O(n log n)
+    return sorted(s) == sorted(t)""",
+
+"two_sum": """def twoSum(nums, target):
+    for i in range(len(nums)):
+        # for each number, scan everything after it for its partner
+        for j in range(i + 1, len(nums)):
+            if nums[i] + nums[j] == target:
+                return [i, j]""",
+
+"group_anagrams": """def groupAnagrams(strs):
+    groups = []
+    for s in strs:
+        # compare against one word from every group made so far
+        for g in groups:
+            if sorted(g[0]) == sorted(s):
+                g.append(s)
+                break
+        else:
+            groups.append([s])
+    return groups""",
+
+"top_k_frequent": """def topKFrequent(nums, k):
+    count = {}
+    for x in nums:
+        count[x] = count.get(x, 0) + 1
+    # sort every distinct value by count, though only k are needed
+    order = sorted(count, key=lambda x: count[x], reverse=True)
+    return order[:k]""",
+
+"longest_consecutive": """def longestConsecutive(nums):
+    if not nums:
+        return 0
+    # the sort is the O(n log n) part
+    nums = sorted(set(nums))
+    best = run = 1
+    for i in range(1, len(nums)):
+        run = run + 1 if nums[i] == nums[i - 1] + 1 else 1
+        best = max(best, run)
+    return best""",
+
+"two_sum_ii": """def twoSum(numbers, target):
+    for i in range(len(numbers)):
+        # never uses the fact that numbers is sorted
+        for j in range(i + 1, len(numbers)):
+            if numbers[i] + numbers[j] == target:
+                return [i + 1, j + 1]""",
+
+"three_sum": """def threeSum(nums):
+    found = set()
+    n = len(nums)
+    for i in range(n):
+        for j in range(i + 1, n):
+            for k in range(j + 1, n):      # every triple
+                if nums[i] + nums[j] + nums[k] == 0:
+                    # set removes repeats
+                    found.add(tuple(sorted((nums[i], nums[j], nums[k]))))
+    return [list(t) for t in found]""",
+
+"container_water": """def maxArea(height):
+    best = 0
+    for i in range(len(height)):
+        # every pair of lines
+        for j in range(i + 1, len(height)):
+            best = max(best, (j - i) * min(height[i], height[j]))
+    return best""",
+
+"trapping_rain": """def trap(height):
+    water = 0
+    for i in range(len(height)):
+        # rescan both sides for the tallest wall, for every bar
+        left = max(height[:i + 1])
+        right = max(height[i:])
+        water += min(left, right) - height[i]
+    return water""",
+
+"longest_substring": """def lengthOfLongestSubstring(s):
+    best = 0
+    for i in range(len(s)):
+        # every substring s[i..j]
+        for j in range(i, len(s)):
+            sub = s[i:j + 1]
+            # O(n) duplicate check each time
+            if len(set(sub)) == len(sub):
+                best = max(best, len(sub))
+    return best""",
+
+"char_replacement": """def characterReplacement(s, k):
+    best = 0
+    for i in range(len(s)):
+        count = {}
+        # every substring starting at i
+        for j in range(i, len(s)):
+            count[s[j]] = count.get(s[j], 0) + 1
+            # letters to change = length - most common letter
+            if (j - i + 1) - max(count.values()) <= k:
+                best = max(best, j - i + 1)
+    return best""",
+
+"permutation_in_string": """def checkInclusion(s1, s2):
+    need = sorted(s1)
+    m = len(s1)
+    for i in range(len(s2) - m + 1):
+        # rebuild each window from scratch instead of sliding it
+        if sorted(s2[i:i + m]) == need:
+            return True
+    return False""",
+
+"min_window": """def minWindow(s, t):
+    need = Counter(t)
+    best = ''
+    for i in range(len(s)):
+        # every substring s[i..j]
+        for j in range(i, len(s)):
+            # recounted from scratch
+            have = Counter(s[i:j + 1])
+            if all(have[c] >= n for c, n in need.items()):
+                if not best or j - i + 1 < len(best):
+                    best = s[i:j + 1]
+                # longer ones from i can't be shorter
+                break
+    return best""",
+
+"sliding_window_max": """def maxSlidingWindow(nums, k):
+    # max() rescans k numbers for every window, though they overlap by k - 1
+    return [max(nums[i:i + k]) for i in range(len(nums) - k + 1)]""",
+
+"largest_rectangle": """def largestRectangleArea(heights):
+    best = 0
+    for i, h in enumerate(heights):
+        # spread out from bar i while the neighbours are at least as tall
+        l = i
+        while l > 0 and heights[l - 1] >= h:
+            l -= 1
+        r = i
+        while r + 1 < len(heights) and heights[r + 1] >= h:
+            r += 1
+        best = max(best, h * (r - l + 1))
+    return best""",
+
+"min_stack": """class MinStack:
+    def __init__(self):
+        self.stack = []
+    def push(self, val):
+        self.stack.append(val)
+    def pop(self):
+        self.stack.pop()
+    def top(self):
+        return self.stack[-1]
+    def getMin(self):
+        # rescans the whole stack on every call
+        return min(self.stack)""",
+
+"search_2d_matrix": """def searchMatrix(matrix, target):
+    for row in matrix:
+        # ignores that rows and columns are sorted
+        for v in row:
+            if v == target:
+                return True
+    return False""",
+
+"koko": """def minEatingSpeed(piles, h):
+    # start at the lowest speed that could possibly work, then go up by 1
+    speed = max(1, (sum(piles) + h - 1) // h)
+    while sum((p + speed - 1) // speed for p in piles) > h:
+        speed += 1
+    return speed""",
+
+"find_min_rotated": """def findMin(nums):
+    # looks at every element; ignores the sorted halves
+    return min(nums)""",
+
+"search_rotated": """def search(nums, target):
+    for i, x in enumerate(nums):   # ignores the sorted halves
+        if x == target:
+            return i
+    return -1""",
+
+"time_map": """class TimeMap:
+    def __init__(self):
+        self.store = {}
+    def set(self, key, value, timestamp):
+        self.store.setdefault(key, []).append((timestamp, value))
+    def get(self, key, timestamp):
+        res = ''
+        # scans every entry, though timestamps arrive in increasing order
+        for t, v in self.store.get(key, []):
+            if t <= timestamp:
+                res = v
+        return res""",
+
+"median_two_sorted": """def findMedianSortedArrays(nums1, nums2):
+    merged = []
+    i = j = 0
+    # merge, like merge sort
+    while i < len(nums1) or j < len(nums2):
+        if j == len(nums2) or (i < len(nums1) and nums1[i] <= nums2[j]):
+            merged.append(nums1[i])
+            i += 1
+        else:
+            merged.append(nums2[j])
+            j += 1
+    n = len(merged)
+    if n % 2:
+        return float(merged[n // 2])
+    return (merged[n // 2 - 1] + merged[n // 2]) / 2""",
+
+"merge_k_lists": """def mergeKLists(lists):
+    def merge(a, b):
+        dummy = tail = ListNode()
+        while a and b:
+            if a.val <= b.val:
+                tail.next, a = a, a.next
+            else:
+                tail.next, b = b, b.next
+            tail = tail.next
+        tail.next = a or b
+        return dummy.next
+    res = None
+    # merge into one growing result list, rewalked for every new list: O(k·N)
+    for node in lists:
+        res = merge(res, node)
+    return res""",
+
+"last_stone": """def lastStoneWeight(stones):
+    stones = list(stones)
+    while len(stones) > 1:
+        # re-sort everything each round
+        stones.sort()
+        a, b = stones.pop(), stones.pop()
+        if a != b:
+            stones.append(a - b)
+    return stones[0] if stones else 0""",
+
+"k_closest": """def kClosest(points, k):
+    # sort all n points, though only k are kept
+    return sorted(points, key=lambda p: p[0] * p[0] + p[1] * p[1])[:k]""",
+
+"kth_largest_array": """def findKthLargest(nums, k):
+    # sorts all n numbers to read one
+    return sorted(nums)[-k]""",
+
+"median_finder": """class MedianFinder:
+    def __init__(self):
+        self.nums = []
+    def addNum(self, num):
+        # finding the spot is fast; shifting the list is O(n)
+        bisect.insort(self.nums, num)
+    def findMedian(self):
+        n = len(self.nums)
+        if n % 2:
+            return float(self.nums[n // 2])
+        return (self.nums[n // 2 - 1] + self.nums[n // 2]) / 2""",
+
+"jump_game": """def canJump(nums):
+    reach = [False] * len(nums)
+    reach[0] = True
+    for i in range(len(nums)):
+        if reach[i]:
+            # mark every index this one can jump to
+            for j in range(i + 1, min(len(nums), i + nums[i] + 1)):
+                reach[j] = True
+    return reach[-1]""",
+
+"jump_game_ii": """def jump(nums):
+    n = len(nums)
+    jumps = [0] + [float('inf')] * (n - 1)
+    for i in range(n):
+        # relax every index reachable from i
+        for j in range(i + 1, min(n, i + nums[i] + 1)):
+            jumps[j] = min(jumps[j], jumps[i] + 1)
+    return jumps[-1]""",
+
+"gas_station": """def canCompleteCircuit(gas, cost):
+    n = len(gas)
+    # try every start and drive the loop
+    for start in range(n):
+        tank = 0
+        for k in range(n):
+            i = (start + k) % n
+            tank += gas[i] - cost[i]
+            if tank < 0:
+                break
+        else:
+            return start
+    return -1""",
+
+"hand_of_straights": """def isNStraightHand(hand, groupSize):
+    cards = sorted(hand)
+    while cards:
+        # smallest card must start a group
+        first = cards[0]
+        for x in range(first, first + groupSize):
+            if x not in cards:           # O(n) search
+                return False
+            cards.remove(x)              # O(n) removal
+    return True""",
+
+"partition_labels": """def partitionLabels(s):
+    res, start = [], 0
+    for end in range(len(s)):
+        # can we cut after end? only if no letter on the left appears on the right
+        if not set(s[start:end + 1]) & set(s[end + 1:]):
+            res.append(end - start + 1)
+            start = end + 1
+    return res""",
+
+"valid_parenthesis_string": """def checkValidString(s):
+    def ok(i, open_count):
+        if open_count < 0:
+            return False
+        if i == len(s):
+            return open_count == 0
+        if s[i] == '(':
+            return ok(i + 1, open_count + 1)
+        if s[i] == ')':
+            return ok(i + 1, open_count - 1)
+        # '*' could be '(', ')' or nothing: three branches each time
+        return (ok(i + 1, open_count + 1) or ok(i + 1, open_count - 1)
+                or ok(i + 1, open_count))
+    return ok(0, 0)""",
+
+"insert_interval": """def insert(intervals, newInterval):
+    # ignore that the list is already sorted: add, sort, merge
+    allv = sorted(intervals + [newInterval])
+    res = [list(allv[0])]
+    for s, e in allv[1:]:
+        if s <= res[-1][1]:
+            res[-1][1] = max(res[-1][1], e)
+        else:
+            res.append([s, e])
+    return res""",
+
+"meeting_rooms_ii": """def minMeetingRooms(intervals):
+    best = 0
+    for s, _ in intervals:
+        # at this start time, how many meetings are running?
+        running = sum(1 for a, b in intervals if a <= s < b)
+        best = max(best, running)
+    return best""",
+
+"min_interval_query": """def minInterval(intervals, queries):
+    res = []
+    for q in queries:
+        # scan every interval for every query
+        sizes = [r - l + 1 for l, r in intervals if l <= q <= r]
+        res.append(min(sizes) if sizes else -1)
+    return res""",
+
+"rotate_image": """def rotate(matrix):
+    n = len(matrix)
+    # build the rotated copy in a second matrix: O(n²) extra space
+    copy = [[0] * n for _ in range(n)]
+    for r in range(n):
+        for c in range(n):
+            copy[c][n - 1 - r] = matrix[r][c]
+    matrix[:] = copy""",
+
+"set_matrix_zeroes": """def setZeroes(matrix):
+    # remember zero rows and columns in sets: O(m + n) extra space
+    rows, cols = set(), set()
+    for r in range(len(matrix)):
+        for c in range(len(matrix[0])):
+            if matrix[r][c] == 0:
+                rows.add(r)
+                cols.add(c)
+    for r in range(len(matrix)):
+        for c in range(len(matrix[0])):
+            if r in rows or c in cols:
+                matrix[r][c] = 0""",
+
+"pow_x_n": """def myPow(x, n):
+    if n < 0:
+        x, n = 1 / x, -n
+    res = 1.0
+    for _ in range(n):   # n multiplications, one at a time
+        res *= x
+    return res""",
+
+"detect_squares": """class DetectSquares:
+    def __init__(self):
+        # every point, duplicates included
+        self.points = []
+    def add(self, point):
+        self.points.append(tuple(point))
+    def count(self, point):
+        x, y = point
+        res = 0
+        # try each point as the opposite corner
+        for px, py in self.points:
+            if px == x or abs(px - x) != abs(py - y):
+                continue
+            # then scan everything again for the other two corners
+            res += self.points.count((x, py)) * self.points.count((px, y))
+        return res""",
 }
