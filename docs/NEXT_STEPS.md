@@ -1,89 +1,129 @@
-# Next steps: host on GitHub Pages with Supabase accounts
+# Pattern Gym: project context
 
-Status (2026-11-17): steps 1-5 are built. Supabase project `qrmtkzktkpjsjebeiqqu` exists with the `progress`
-table and RLS (verified: anonymous writes are rejected). Sign-in + sync code is in `static/sync.js`, tested
-against an in-memory stand-in for Supabase, but a **real email sign-in has not been tested yet** (step 6).
-Owner still has to: enable Pages / make the repo public, and set the Supabase Auth URLs (see to-dos).
-If you're Claude picking this up in a new session: read this file, README.md, then `static/app.js` and `server.py`.
+**Updated 2026-11-18, at commit `692a6b6`.** If you're Claude starting a new session: read this file, then
+`README.md`, then the parts of `static/app.js` you need (it's sectioned with `// ───` banners). Update this
+file whenever you change architecture, state shape, conventions or the to-do list.
 
-## Background
+## Status
 
-- Owner is prepping for coding OAs and in-person technical interviews (Python). Core difficulty: turning an idea
-  into pseudocode/code. Daily time and interview urgency vary, which is why both are settings.
-- Current architecture: `server.py` (stdlib HTTP server) serves `static/`, exposes `/api/content` (built from
-  `content/*.py`), `/api/run` + `/api/syntax` (runs user code via `runner.py` in a subprocess, 6 s timeout),
-  and `/api/state` (reads/writes `progress.json`).
-- `python validate.py` must print `ALL OK` after any content change.
+- **Live:** https://nairbs.github.io/pattern-gym/ (repo `NAIRBS/pattern-gym` is public; Pages deploys from
+  GitHub Actions; the last deploys succeeded).
+- **Local:** `python server.py` → http://localhost:8787 (`start.bat` on Windows). Both modes run the same `static/` app.
+- **Built:** everything in the original plan (static hosting, in-browser Python, browser storage, Supabase
+  sign-in + sync, deploy workflow) plus the Study course redesign, Problems page, keyboard-first UI,
+  green theme and a WCAG 2.2 AA pass.
+- **Not yet verified:** a real email sign-in on the live site and two-device sync with a real inbox
+  (see "Open to-dos").
 
-## Goal
+## Who it's for and why
 
-Host the app on GitHub Pages with user accounts, keeping local mode working.
+- The owner is preparing for coding OAs and in-person technical interviews, in Python.
+- **Core difficulty:** turning an idea into pseudocode and then code. Re-solving problems, rewriting solutions
+  and "understanding deeply" didn't stick. So the app teaches a repeatable **approach** and drills
+  **recognition → structure → syntax → full solve → in-person skills** with spaced repetition.
+- Daily time and interview urgency change often, so both are settings (interview date → "urgent mode"
+  within 14 days, daily minutes → the Today plan). In-person focus areas are toggles.
 
-## Decisions already made
+## Architecture
 
-1. **Hosting:** GitHub Pages, deployed by a GitHub Actions workflow. Free Pages needs a **public** repo
-   (or GitHub Pro for private). Progress never goes in the repo.
-2. **Accounts + storage:** Supabase (Postgres + Auth). Login via email magic link; optionally GitHub/Google OAuth.
-   Free tier pauses after 7 days of inactivity (one click to resume in the dashboard).
-3. **Code execution:** in the browser with **Pyodide** in a Web Worker. Never execute user code on a server
-   (multi-user = untrusted code). Terminate + recreate the worker on timeout (6 s) to stop infinite loops.
-4. **Offline-first:** browser storage (localStorage/IndexedDB, request `navigator.storage.persist()`) is the
-   working copy; Supabase is the cloud copy. Pull on load/login, push debounced (~5 s) after changes.
-5. **Merge, never overwrite:** per SRS item keep the one with the later `last` (then higher `reps`);
-   `xp` = max; `days` = per-day max; `mocks` = union by (date, problem); `study.lessons`/`walks` = union;
-   `streak` recomputed from `days`; `settings` = most recently changed.
-6. **Backup:** Settings gets working Export AND Import. ✅ done. "Restore from backup" and "Reset" replace
-   progress (and, when signed in, overwrite the cloud copy too) on purpose; everything else merges.
+| | Online (GitHub Pages) | Local (`server.py`) |
+|---|---|---|
+| Content | `static/content.json`, built by `build_static.py` | `/api/content`, built from `content/*.py` at startup |
+| Running code | `static/py-worker.js`: Pyodide 0.26.4 runs `runner.py` (copied into `static/` by the build) | `/api/run` + `/api/syntax`: `runner.py` in a subprocess |
+| Progress | localStorage key `pattern-gym-state` (+ `navigator.storage.persist()`) | `/api/state` → `progress.json` |
+| Cloud sync | Optional Supabase (`sync.js`) on top of either | same |
 
-## Build plan
+- `app.js` picks the mode automatically (tries `/api/content` first). `index.html` uses **relative** asset
+  paths so the site works under `/pattern-gym/`.
+- Timeouts: 6 s for tests, 4 s for syntax cards. Online, the worker is **terminated and recreated** on
+  timeout or crash (that's what stops infinite loops). Deep recursion surfaces as an error, not a hang.
+- **Never run user code on a server.** Multi-user means untrusted code; it runs in each user's browser.
+- **Sync** (`static/sync.js`, global `Cloud`): email-link sign-in (PKCE, so the link must be opened in the
+  same browser), one row per user in table `progress` (`user_id`, `data` jsonb, `updated_at`) with RLS
+  "own row". The cycle is pull → `mergeState(local, cloud)` → save locally → upsert if different. It runs
+  on load, on sign-in, 5 s after local changes, on `online`, and when the tab becomes visible.
+  `static/config.js` holds the project URL and the publishable key, which are public by design. Never put
+  the service_role key in the repo.
+- **Merge rules** (`static/merge.js`, pure functions, used by the page and node tests): per SRS item, the
+  later `last` wins, then higher `reps`; `xp` max; `days` per-day max; `mocks` union by (date, problem);
+  `study.lessons` / `walks` / `attempts` union (earliest date kept); `streak` recomputed from `days`;
+  `plan` later date wins (same day: per-game max of `done`); `settings` from the copy with later
+  `settingsAt`. Only **Restore from backup** and **Reset** overwrite the cloud copy, and both confirm first.
 
-1. **Static content:** ✅ done. `python build_static.py` writes `static/content.json` (gitignored; the
-   workflow builds it). Frontend tries `/api/content` (local mode), else relative `content.json`.
-   `index.html` uses relative asset paths so it works under `/pattern-gym/`.
-2. **Browser runner:** ✅ done. No port needed: `runner.py` now exposes `run(code, spec)` / `run_json()`,
-   `build_static.py` copies it into `static/`, and `static/py-worker.js` runs it with Pyodide v0.26.4
-   (jsdelivr). `app.js` `runTests()` / `runSyntax()` pick server or worker; on timeout (6 s, 4 s for
-   syntax) or a crash the worker is terminated and recreated. Verified in the browser: all 150 reference
-   solutions + 34 syntax answers pass; infinite loop → time limit, deep recursion → RecursionError.
-3. **Storage layer:** ✅ done. `app.js` `loadState()` / `persist()`: server mode → `/api/state`,
-   static mode → localStorage (`pattern-gym-state`) with `navigator.storage.persist()`. Cloud sync sits on
-   top of either (`static/sync.js`). Merge rules live in `static/merge.js`, tested by
-   `node tests/merge.test.js` (also run by the deploy workflow). `S.settingsAt` is set by `save()` whenever
-   settings change, so the newest settings win.
-4. **Supabase:** ✅ built. Table + row-level security (already run in the project's SQL editor):
-   ```sql
-   create table progress (
-     user_id uuid primary key references auth.users on delete cascade,
-     data jsonb not null default '{}',
-     updated_at timestamptz not null default now()
-   );
-   alter table progress enable row level security;
-   create policy "own row" on progress for all
-     using (auth.uid() = user_id) with check (auth.uid() = user_id);
-   ```
-   `static/config.js` holds the project URL + publishable key (safe to publish because of RLS).
-   supabase-js 2.118.0 from jsdelivr (UMD). Sign-in: emailed link, PKCE flow, so the link must be opened in the
-   same browser that asked for it. The link comes back as `?code=...` (query, not hash, so the hash router is
-   untouched); `Cloud.init()` exchanges it and cleans the URL.
-   Sync (`Cloud.sync()`): pull row → `mergeState(local, cloud)` → save locally → upsert if different. Runs on
-   load, sign-in, 5 s after local changes, on `online`, and when the tab becomes visible. Overlapping calls
-   are queued. Races between devices converge on the next sync because merging only ever adds.
-   UI: "☁" pill in the header (status; links to Settings) and an "Account & sync" card in Settings.
-5. **Deploy workflow:** ✅ done. `.github/workflows/pages.yml` (push to main or manual run): checkout,
-   setup-python, `python validate.py`, `node tests/merge.test.js`, `python build_static.py`, upload `static/`, deploy.
-6. **Test:** done so far: all 150 solutions in Pyodide, timeouts, local storage, restore, merge unit tests,
-   sync against a stand-in client, RLS. **Still to do with a real inbox:** sign in on the live site, sync two
-   devices, sign out, offline then back online.
+## Codebase map
 
-## Owner's to-dos (can't be done for them)
+```text
+server.py          local HTTP server (stdlib): static files, /api/content, /api/run, /api/syntax, /api/state
+runner.py          runs code against a test spec; run(code, spec) / run_json() for Pyodide; main() for subprocess
+build_static.py    writes static/content.json + copies runner.py into static/ (both gitignored)
+validate.py        every reference solution AND brute-force version must pass; walkthrough/lesson completeness
+content/
+  problems.py, problems_a/b/c.py   150 problems: statement, insight, catch, complexity, clarify, edges,
+                                   solution (key lines marked `  # <<`), tests (F/D helpers)
+  patterns.py      23 patterns: triggers, fill questions, skeleton
+  study_patterns.py LESSONS per pattern (why, not_this, build line-by-line, bugs), METHOD, INPUT_SIZE
+  study_problems.py WALK: per-problem brute-force sentence + pseudocode plan (all 150)
+  study_brute.py   BRUTE: runnable naive code for each pattern's worked-example problem (23, one per pattern)
+  sprint.py, syntax.py, interview.py   Sprint cards (150), Syntax Snap cards (34), clarify/talk-track/rubric
+static/
+  app.js           everything UI: utilities, storage, runner client, SRS, daily plan, router, keyboard,
+                   games (GAMES.*), pages (ROUTES.*), Study (courses, walkthroughs, cold solve)
+  py-worker.js     Pyodide worker
+  sync.js, merge.js, config.js   sign-in + sync
+  edge-match.js    Edge Hunter scoring (synonym-normalised token matching; pure, node-tested)
+tests/             node tests: merge.test.js, edge-match.test.js
+.github/workflows/pages.yml   validate → node tests → build_static → deploy static/ to Pages
+```
 
-- GitHub: make the repo public (or have Pro); Settings → Pages → Source: GitHub Actions; re-run the deploy.
-- Supabase → Authentication → URL Configuration: Site URL `https://nairbs.github.io/pattern-gym/`; add redirect
-  URLs `https://nairbs.github.io/pattern-gym/`, `http://localhost:8787/`, `http://localhost:8000/`.
-  Without this, sign-in links send you to the wrong address.
-- Optional: enable GitHub/Google login providers in Supabase (the app would need buttons for them).
-- Free tier: the project pauses after 7 days without use; resume it in the Supabase dashboard if sync shows "☁ !".
+## Key concepts in `app.js`
+
+- **State `S`** (see `DEFAULTS`): `settings` (interviewDate, minutes, newPerDay, sprintSeconds, sprintNoLimit,
+  edgeSeconds, singleKeys, focus{talk,clarify,complexity,noide}), `settingsAt`, `items` (`"game:id"` →
+  {box, due, reps, lapses, last, lastQ}), `xp`, `streak`, `days`, `mocks`, `plan`,
+  `study` {lessons, walks, attempts}. **Any new field needs a merge rule in `merge.js` plus a test.**
+- **SRS:** boxes 0–7, intervals 1/3/7/14/30/60/120 days, capped by urgency. Grades: 0 blanked, 1 shaky, 2 nailed.
+- **Routes:** today, study, games, play, problems, patterns, stats, settings (hash router; `onLeave` cleanup).
+- **Games** (`GAMES.*`): sprint, lineup (SortableJS drag/drop + keyboard), skeleton (structural check,
+  hint ladder), fill, syntax, bigo, edge (auto-scored via edge-match.js), oa, mock.
+  "Show answer" toggles but counts as missed; "Previous" reopens the last question and undoes its grade.
+- **Study** = one course per pattern, in `PATTERN_PRIORITY` order: **idea** (lesson) → **worked example**
+  (first problem, brute force → final, complexity meter) → **guided** (1–2 problems, guess before each
+  reveal) → **solo, cold** (`#/study/solve/<id>`: blank editor, approach coach that fades, 3-step hint
+  ladder that caps the grade; the walkthrough unlocks only after an attempt). **Mixed practice**
+  (`#/study/mixed`) hides the title and pattern. The 8-step `APPROACH` is the spine of all of it.
+- **Keyboard:** `?` sheet, `G`+letter navigation, `/` search, `E`/`Esc` editor in/out, `Q` exit, number keys
+  for options, and a bottom **key bar** listing the keys valid on the current screen. Controls declare
+  keys with `data-key` and must **print their key on themselves**. Settings → Keyboard can turn
+  single-key shortcuts off (WCAG 2.1.4).
+
+## Conventions (keep these)
+
+- After any content change: `python validate.py` prints `ALL OK`. After merge/edge changes:
+  `node tests/merge.test.js && node tests/edge-match.test.js`. The deploy workflow enforces both.
+- Adding a problem: append `P(...)`, mark key lines with `  # <<`, run validate. Test-spec features: design
+  classes `D(...)`, `arg_types` (linked, tree, linked_many, linked_cycle), `inplace=`, `prelude=`,
+  `harness=` (round-trips / several valid answers), `compare=` (unordered, unordered_nested, float).
+- Accessibility is a requirement, not polish: AA contrast in both themes, 44 px targets, visible focus,
+  aria-live for results/toasts/sync, page titles from the heading, adjustable or no time limits,
+  `prefers-reduced-motion`.
+- Pin exact CDN versions (supabase-js 2.118.0, Pyodide 0.26.4, SortableJS 1.15.2).
+- Progress never goes in the repo (`progress.json` is gitignored).
+
+## Open to-dos
+
+1. **Test sign-in for real** on the live site: email link, sync between two devices, sign out,
+   offline → back online.
+2. **Check Supabase Auth → URL Configuration** (owner, in the dashboard): Site URL
+   `https://nairbs.github.io/pattern-gym/`; redirect URLs that URL, `http://localhost:8787/` and
+   `http://localhost:8000/`. Without these, sign-in links go to the wrong address. Not recorded as done.
+3. Supabase free tier pauses after 7 days without use. If sync shows "☁ !", resume the project in the dashboard.
+4. Small fix: in `tests/merge.test.js` the "study attempts" test is appended after the final
+   "N tests passed" line, so the count it prints is one short (the test still runs).
+5. `content/study_brute.py` covers each pattern's worked example only (23 of 150). Brute-force code for guided
+   problems would strengthen the walkthroughs.
 
 ## Later ideas
 
-Leaderboards / shared streaks if friends use it; Gist sync as a no-account alternative.
+- GitHub / Google sign-in buttons (providers must be enabled in Supabase first).
+- Leaderboards or shared streaks if friends use it.
+- Gist sync as a no-account alternative.

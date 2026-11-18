@@ -168,7 +168,7 @@ pattern-gym/
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring
 ├── tests/                 node tests for merge and edge matching
-└── docs/NEXT_STEPS.md     architecture decisions and what's next
+└── docs/NEXT_STEPS.md     project context: architecture, conventions, what's verified, to-dos
 ```
 
 ## Adding a problem
