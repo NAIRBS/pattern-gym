@@ -34,8 +34,9 @@ no('duplicates at the very end', []);
 // best line is returned
 assert.strictEqual(bestEdgeMatch('negative n', ['n is big', 'n negative?']), 'n negative?'); n++;
 
-console.log(`${n} edge-match tests passed`);
 yes('no lists', ['what if there are no lists at all']);
 yes('no edges -> n', ['graph with no edges']);
 no('no edges -> n', ['what if n is large']);
-console.log('fallback tests passed');
+
+// keep this the last line: any test added below it would be missing from the count
+console.log(`${n} edge-match tests passed`);

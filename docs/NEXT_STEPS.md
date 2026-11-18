@@ -1,6 +1,6 @@
 # Pattern Gym: project context
 
-**Updated 2026-11-18, at commit `692a6b6`.** If you're Claude starting a new session: read this file, then
+**Updated 2026-11-18.** If you're Claude starting a new session: read this file, then
 `README.md`, then the parts of `static/app.js` you need (it's sectioned with `// ───` banners). Update this
 file whenever you change architecture, state shape, conventions or the to-do list.
 
@@ -12,8 +12,8 @@ file whenever you change architecture, state shape, conventions or the to-do lis
 - **Built:** everything in the original plan (static hosting, in-browser Python, browser storage, Supabase
   sign-in + sync, deploy workflow) plus the Study course redesign, Problems page, keyboard-first UI,
   green theme and a WCAG 2.2 AA pass.
-- **Not yet verified:** a real email sign-in on the live site and two-device sync with a real inbox
-  (see "Open to-dos").
+- **Verified by the owner (2026-11-18):** real email sign-in on the live site, sync between devices, and
+  the Supabase Auth URL configuration (Site URL + redirect URLs).
 
 ## Who it's for and why
 
@@ -100,6 +100,7 @@ tests/             node tests: merge.test.js, edge-match.test.js
 
 - After any content change: `python validate.py` prints `ALL OK`. After merge/edge changes:
   `node tests/merge.test.js && node tests/edge-match.test.js`. The deploy workflow enforces both.
+  In the node tests, the "N passed" summary must stay the last line; add new tests above it.
 - Adding a problem: append `P(...)`, mark key lines with `  # <<`, run validate. Test-spec features: design
   classes `D(...)`, `arg_types` (linked, tree, linked_many, linked_cycle), `inplace=`, `prelude=`,
   `harness=` (round-trips / several valid answers), `compare=` (unordered, unordered_nested, float).
@@ -111,16 +112,18 @@ tests/             node tests: merge.test.js, edge-match.test.js
 
 ## Open to-dos
 
-1. **Test sign-in for real** on the live site: email link, sync between two devices, sign out,
-   offline → back online.
-2. **Check Supabase Auth → URL Configuration** (owner, in the dashboard): Site URL
-   `https://nairbs.github.io/pattern-gym/`; redirect URLs that URL, `http://localhost:8787/` and
-   `http://localhost:8000/`. Without these, sign-in links go to the wrong address. Not recorded as done.
-3. Supabase free tier pauses after 7 days without use. If sync shows "☁ !", resume the project in the dashboard.
-4. Small fix: in `tests/merge.test.js` the "study attempts" test is appended after the final
-   "N tests passed" line, so the count it prints is one short (the test still runs).
-5. `content/study_brute.py` covers each pattern's worked example only (23 of 150). Brute-force code for guided
-   problems would strengthen the walkthroughs.
+1. Supabase free tier pauses after 7 days without use. If sync shows "☁ !", resume the project in the dashboard.
+   Supabase Auth URLs (already set): Site URL `https://nairbs.github.io/pattern-gym/`; redirect URLs that
+   URL, `http://localhost:8787/`, `http://localhost:8000/`. Update them if the site address ever changes.
+2. Brute-force code (`content/study_brute.py`) exists for the 23 worked examples only, and most other
+   problems don't need it. Add it only where a naive version is runnable, clearly slower, and teaches the
+   "find the repeated work" step: chiefly **DP** (plain recursion → memo → table) and the array/string
+   problems (nested loops → hash map / window / two pointers / binary search). Skip graphs, trees, linked
+   lists, design classes, backtracking and bit/math tricks, where the "brute force" is the same traversal
+   or a trivial non-answer; their walkthroughs already say so in the one-line `brute` text.
+
+Done 2026-11-18: both node test files printed their "N passed" line before the last tests ran, so the
+count was short. The summary line is now the last line of each file.
 
 ## Later ideas
 

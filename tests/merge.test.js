@@ -7,7 +7,7 @@ const { mergeState } = require(path.join(__dirname, '..', 'static', 'merge.js'))
 const base = () => ({
   settings: { minutes: 30, interviewDate: '2026-12-01' }, settingsAt: 0,
   items: {}, xp: 0, streak: { count: 0, last: null, best: 0 }, days: {}, mocks: [], plan: null,
-  study: { lessons: {}, walks: {} },
+  study: { lessons: {}, walks: {}, attempts: {} },
 });
 let n = 0;
 const test = (name, fn) => { fn(); n++; console.log('ok -', name); };
@@ -105,10 +105,11 @@ test('missing side returns the other', () => {
   assert.strictEqual(mergeState(undefined, a), a);
 });
 
-console.log(`\n${n} tests passed`);
 test('study attempts are unioned too', () => {
   const a = base(), b = base();
   a.study.attempts = { two_sum: '2026-11-10' }; b.study.attempts = { three_sum: '2026-11-11', two_sum: '2026-11-09' };
   assert.deepStrictEqual(mergeState(a, b).study.attempts, { two_sum: '2026-11-09', three_sum: '2026-11-11' });
 });
-console.log('attempts test passed');
+
+// keep this the last line: any test added below it would be missing from the count
+console.log(`\n${n} tests passed`);
