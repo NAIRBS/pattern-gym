@@ -37,6 +37,12 @@ for p in c["problems"]:
         if not rb["ok"]:
             bad += 1
             print("BRUTE FAIL", p["id"], rb.get("error"), [x for x in rb["results"] if not x["pass"]][:2])
+        # the walkthrough labels the code with the first O(...) in the brute sentence (app.js firstBigO),
+        # which stops at the first ')': so it must exist and must not contain nested brackets
+        m = re.search(r"O\([^)]*\)", p.get("brute", ""))
+        if not m or m.group(0).count("(") != 1:
+            bad += 1
+            print("BRUTE COST", p["id"], "brute sentence needs a plain O(...) with no nested brackets:", p.get("brute"))
 
 for s in c["sprint"]:
     if s["pattern"] not in pids:

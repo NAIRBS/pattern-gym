@@ -99,7 +99,7 @@ WALK = {
 "reverse_k_group": ("Copy values to an array, reverse chunks, rebuild: O(n) space.", [
   "dummy before head; group_prev = dummy", "loop: find the k-th node after group_prev (stop if missing)", "reverse the k nodes, with the first node pointing to the node after the group", "connect group_prev to the new group head", "group_prev = the old first node (now last)"]),
 # ── Trees ──
-"invert_tree": ("No brute force; recursion is the natural solution.", [
+"invert_tree": ("No faster trick exists; the naive version builds a mirrored copy instead of swapping: O(n) time, O(n) extra nodes.", [
   "if node is None: return None", "swap node.left and node.right (inverted versions)", "return node"]),
 "max_depth": ("No brute force; recursion is the natural solution.", [
   "depth(None) = 0", "depth(node) = 1 + max(depth(left), depth(right))"]),
@@ -125,7 +125,7 @@ WALK = {
   "dfs(node) returns the best path going DOWN from node (one side only)", "left = max(dfs(left), 0), right = max(dfs(right), 0)  (drop negative branches)", "candidate through node = val + left + right -> update best", "return val + max(left, right)"]),
 "serialize_tree": ("No brute force; pick a traversal with null markers.", [
   "serialize: preorder, writing 'N' for None, joined by commas", "deserialize: iterator over the tokens", "build(): token 'N' -> None", "  else node = token; node.left = build(); node.right = build()"]),
-"level_order": ("DFS with a depth parameter also works; BFS is the natural fit.", [
+"level_order": ("Walk the whole tree again for every depth: O(n²) when the tree is one long chain.", [
   "queue with root (if any)", "while queue:", "  level size = len(queue)", "  pop that many nodes, collect values, push their children", "  append the level"]),
 "right_side_view": ("DFS right-first, recording the first node at each depth (also fine).", [
   "BFS level by level", "for each level: record the LAST node's value", "push children left then right"]),
@@ -167,7 +167,7 @@ WALK = {
   "sort", "bt(start): record copy of path", "  for i from start: if i > start and nums[i] == nums[i-1] -> skip", "  choose, bt(i + 1), undo"]),
 "combination_sum_ii": ("All subsets, keep those summing to target, dedupe: O(2^n) with waste.", [
   "sort", "bt(start, remaining): 0 -> record", "  for i from start: skip duplicates at this level (i > start and same as previous)", "  if c > remaining -> break (sorted)", "  choose, bt(i + 1, remaining - c), undo"]),
-"generate_parentheses": ("Generate all 2^(2n) strings and filter valid ones.", [
+"generate_parentheses": ("Generate all 2^(2n) bracket strings and keep the valid ones: O(4^n · n).", [
   "bt(s, open, close)", "length 2n -> record", "if open < n -> add '('", "if close < open -> add ')'"]),
 "word_search": ("No better approach in general; DFS with pruning.", [
   "for every cell: dfs(r, c, i=0)", "dfs: i == len(word) -> True", "  out of bounds or char mismatch -> False", "  mark cell, try 4 neighbours with i + 1, unmark", "return whether any start works"]),
@@ -178,7 +178,7 @@ WALK = {
 "n_queens": ("Try all n^n placements and check each board.", [
   "sets: cols, diag (r-c), anti (r+c)", "bt(row): row == n -> record the board", "for each col: if attacked -> skip", "  place: add to sets, set 'Q', bt(row + 1), remove, reset '.'"]),
 # ── Graphs ──
-"num_islands": ("Same idea; BFS or union-find also work.", [
+"num_islands": ("Flood-fill again from every land cell, remembering nothing: O(m²·n²).", [
   "for every cell: if it's land '1':", "  count++, flood-fill from it turning connected land to '0'", "flood: out of bounds or not '1' -> stop; mark; recurse 4 directions", "return count"]),
 "clone_graph": ("No brute force; it's a traversal with a map.", [
   "map original -> clone", "dfs(n): if already cloned -> return clone", "  create clone, store in map FIRST", "  for each neighbour: append dfs(neighbour) to clone's neighbours", "  return clone"]),
@@ -192,13 +192,13 @@ WALK = {
   "queue ALL rotten oranges; count fresh", "while queue and fresh > 0:", "  process one whole level (one minute): rot fresh neighbours, fresh--, enqueue", "  minutes++", "return minutes if fresh == 0 else -1"]),
 "walls_and_gates": ("BFS from every room to find the nearest gate: O((m·n)²).", [
   "queue ALL gates at once", "BFS: for each neighbour that is still INF:", "  set it to current distance + 1, enqueue", "(first visit = shortest distance)"]),
-"course_schedule": ("DFS cycle detection with 3 colours (also valid).", [
+"course_schedule": ("Keep sweeping all courses, taking any whose prerequisites are done, until nothing changes: O(V²·E).", [
   "graph b -> a and indegree counts", "queue all courses with indegree 0", "pop, count++, decrement neighbours, enqueue those reaching 0", "possible if count == numCourses"]),
 "course_schedule_ii": ("Same as Course Schedule.", [
   "Kahn's algorithm as in Course Schedule", "append each popped course to 'order'", "return order if it has every course, else []"]),
 "alien_dictionary": ("No brute force; build the graph then topo sort.", [
   "node for every letter", "for each adjacent pair of words: first differing letters x, y -> edge x -> y", "  if no difference and the first word is longer -> return ''", "topological sort (Kahn's)", "if not every letter is output -> '' (cycle)"]),
-"graph_valid_tree": ("DFS checking connectivity and cycles (also valid).", [
+"graph_valid_tree": ("Before adding each edge, search the graph so far for a path between its ends: O(n²).", [
   "edges must be exactly n - 1, else False", "union-find over edges", "  if an edge joins two nodes already connected -> False (cycle)", "return True"]),
 "count_components": ("DFS from each unvisited node, count starts (also valid).", [
   "parent[i] = i; count = n", "for each edge: find both roots", "  different roots -> union them, count--", "return count"]),
@@ -206,7 +206,7 @@ WALK = {
   "union-find over nodes 1..n", "for each edge in order:", "  if both ends already share a root -> return this edge", "  else union them"]),
 "reconstruct_itinerary": ("Backtracking DFS trying destinations in sorted order (works, slower).", [
   "adjacency lists sorted so pop() gives the smallest destination", "dfs(a): while a has unused tickets: dfs(next destination popped)", "  after all tickets from a are used: append a to route", "answer = route reversed"]),
-"min_cost_connect": ("Kruskal: sort all n² edges + union-find (also fine).", [
+"min_cost_connect": ("Grow the tree one point at a time, trying every inside/outside pair each round: O(n³).", [
   "Prim's: heap with (0, point 0), visited set", "pop cheapest; skip if visited", "add its cost, mark visited", "push distances from it to every unvisited point", "until all points visited"]),
 "network_delay": ("Bellman-Ford: O(V·E).", [
   "adjacency list", "Dijkstra from k with a min-heap of (time, node)", "first pop of a node = its shortest time", "if all n nodes reached -> max time, else -1"]),
@@ -221,7 +221,7 @@ WALK = {
   "reach[0] = reach[1] = 0", "reach[i] = min(reach[i-1] + cost[i-1], reach[i-2] + cost[i-2])", "answer = reach[n] (keep two variables)"]),
 "house_robber": ("Try every subset of non-adjacent houses: O(2^n).", [
   "prev = best up to two houses back, cur = best up to the last house", "for each house x: new = max(cur (skip x), prev + x (rob x))", "shift prev, cur", "return cur"]),
-"house_robber_ii": ("Same, plus checking first/last conflicts: exponential.", [
+"house_robber_ii": ("Same recursion twice: once without the last house, once without the first: O(2^n).", [
   "one house -> return it", "answer = max(rob(houses without the first), rob(houses without the last))", "rob() is House Robber"]),
 "longest_palindrome": ("Check every substring for palindrome: O(n³).", [
   "for each centre i: try (i, i) and (i, i+1)", "  expand while ends match and in bounds", "  if longer than best, best = s[l+1:r]", "return best"]),
@@ -229,38 +229,38 @@ WALK = {
   "for each centre (i, i) and (i, i+1):", "  while ends match: count++, expand outward", "return count"]),
 "decode_ways": ("Recursion taking 1 or 2 digits each time: O(2^n).", [
   "dp[0] = 1 (empty)", "for i in 1..n:", "  if s[i-1] != '0': dp[i] += dp[i-1]", "  if s[i-2:i] is 10..26: dp[i] += dp[i-2]", "return dp[n]"]),
-"coin_change": ("Recursion trying every coin at each step: exponential.", [
+"coin_change": ("Recursion trying every coin at each step: O(k^n) for k coins, n = amount.", [
   "dp[0] = 0, others infinity", "for a in 1..amount: for each coin c <= a:", "  dp[a] = min(dp[a], dp[a - c] + 1)", "return dp[amount] or -1"]),
 "max_product_subarray": ("Try every subarray: O(n²).", [
   "track curMax and curMin products ending here", "for each x: candidates = x, curMax·x, curMin·x", "  curMax = max of them, curMin = min of them", "  best = max(best, curMax)"]),
-"word_break": ("Recursion trying every prefix: exponential without memo.", [
+"word_break": ("Recursion trying every prefix, no memo: O(2^n).", [
   "dp[0] = True", "for i in 1..n: for j < i:", "  if dp[j] and s[j:i] is a word -> dp[i] = True", "return dp[n]"]),
 "lis": ("Try all subsequences: O(2^n).", [
   "dp[i] = LIS ending at i, starts at 1", "for each i, for each j < i with nums[j] < nums[i]:", "  dp[i] = max(dp[i], dp[j] + 1)", "return max(dp)"]),
 "partition_equal_subset": ("Try all subsets for sum = total/2: O(2^n).", [
   "odd total -> False", "reachable = {0}", "for each x: reachable |= {r + x for r in reachable}", "return total // 2 in reachable"]),
 # ── 2D DP ──
-"unique_paths": ("Recursion paths(r, c) = paths(r-1, c) + paths(r, c-1): exponential.", [
+"unique_paths": ("Recursion paths(r, c) = paths(r-1, c) + paths(r, c-1): exponential, O(2^k) for k = m + n.", [
   "grid of 1s (first row and column have exactly one path)", "for each other cell: dp = up + left", "return bottom-right"]),
-"lcs": ("Try all subsequences of one string: O(2^n).", [
+"lcs": ("Recursion: match the first characters, or drop one from either string: O(2^n), n = total length.", [
   "(m+1) x (n+1) table of 0", "for each i, j: chars match -> diagonal + 1", "  else max(up, left)", "return dp[m][n]"]),
-"stock_cooldown": ("Recursion over buy/sell/rest decisions per day: exponential.", [
+"stock_cooldown": ("Recursion over buy/sell/rest decisions per day: O(2^n).", [
   "three states: hold, sold (today), rest", "each day: hold = max(hold, rest - p)", "  sold = hold + p", "  rest = max(rest, sold)", "(all from yesterday's values) answer = max(sold, rest)"]),
-"coin_change_ii": ("Recursion choosing coins: exponential, and easy to double count.", [
+"coin_change_ii": ("Recursion: use this coin again or move past it for good (that order stops double counting): O(2^n), n = amount.", [
   "dp[0] = 1", "for each coin (OUTER loop):", "  for a from coin to amount: dp[a] += dp[a - coin]", "return dp[amount]"]),
 "target_sum": ("Try +/- for every number: O(2^n).", [
   "ways = {0: 1}", "for each x: new map: for each sum s with count c:", "  new[s + x] += c; new[s - x] += c", "return ways[target]"]),
-"interleaving_string": ("Recursion choosing s1 or s2 for each char: exponential.", [
+"interleaving_string": ("Recursion choosing s1 or s2 for each char: O(2^n), n = len(s3).", [
   "lengths must add up", "dp[i][j]: can s1[:i] + s2[:j] form s3[:i+j]", "dp[0][0] = True", "dp[i][j] = (dp[i-1][j] and s1[i-1] == s3[i+j-1]) or (dp[i][j-1] and s2[j-1] == s3[i+j-1])"]),
-"longest_increasing_path": ("DFS from every cell without memo: exponential.", [
+"longest_increasing_path": ("DFS from every cell without memo: exponential, up to O(4^n).", [
   "dfs(r, c) = 1 + max dfs of strictly larger neighbours (memoised)", "no visited set needed (strictly increasing can't loop)", "answer = max dfs over all cells"]),
-"distinct_subsequences": ("Generate all subsequences of s: O(2^n).", [
+"distinct_subsequences": ("Recursion keeping or skipping each char of s: O(2^n).", [
   "dp[i][0] = 1 for all i", "dp[i][j] = dp[i-1][j] (skip s[i-1])", "  + dp[i-1][j-1] if s[i-1] == t[j-1] (use it)", "return dp[m][n]"]),
-"edit_distance": ("Recursion trying insert/delete/replace: exponential.", [
+"edit_distance": ("Recursion trying insert/delete/replace: O(3^n), n = total length.", [
   "dp[i][0] = i, dp[0][j] = j", "match -> diagonal", "else 1 + min(up (delete), left (insert), diagonal (replace))", "return dp[m][n]"]),
 "burst_balloons": ("Try every burst order: O(n!).", [
   "pad with 1 on both ends", "dp[l][r] = best for bursting everything strictly between l and r", "for each gap length, each l, r: try each k as the LAST to burst:", "  dp[l][k] + vals[l]·vals[k]·vals[r] + dp[k][r]", "return dp[0][n-1]"]),
-"regex_matching": ("Recursion branching on '*': exponential without memo.", [
+"regex_matching": ("Recursion branching on '*', no memo: O(2^n).", [
   "dp[0][0] = True; row 0: 'x*' can match empty -> dp[0][j] = dp[0][j-2]", "for each i, j:", "  p[j-1] == '*': zero copies dp[i][j-2], or one more copy if p[j-2] matches s[i-1]: dp[i-1][j]", "  else: chars match (or '.') and dp[i-1][j-1]", "return dp[m][n]"]),
 # ── Greedy ──
 "max_subarray": ("Try every subarray: O(n²).", [
@@ -297,7 +297,7 @@ WALK = {
   "top, bottom, left, right walls", "while walls valid: go right along top, top++", "  go down the right wall, right--", "  if top <= bottom: go left along bottom, bottom--", "  if left <= right: go up the left wall, left++"]),
 "set_matrix_zeroes": ("Record zero rows and columns in two sets: O(m + n) space.", [
   "remember if row 0 has a zero", "for rows 1+: a zero at (r, c) marks matrix[0][c] and matrix[r][0]", "for rows 1+, columns right to left: zero the cell if its row or column is marked", "finally zero row 0 if it had a zero"]),
-"happy_number": ("No brute force; detect the loop.", [
+"happy_number": ("Keep every number seen in a list, so each check rescans it: O(k²) for k steps.", [
   "seen set", "while n != 1 and n not seen: add n, n = sum of squared digits", "return n == 1"]),
 "plus_one": ("Convert to int, add 1, convert back (fails in fixed-width languages).", [
   "from the last digit: if < 9 -> add 1, return", "  else set it to 0 and continue left", "all were 9 -> prepend 1"]),

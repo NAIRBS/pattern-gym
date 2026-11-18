@@ -362,7 +362,7 @@ main { padding-bottom: 110px; }
 .stage h2 .n, .rung .n { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; font-size: 13px; font-weight: 700;
   background: var(--panel2); color: var(--muted); flex: none; }
 .why { font-size: 17px; line-height: 1.6; max-width: 66ch; }
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }   /* minmax: long code lines scroll inside their <pre>, not the page */
 .prob-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; margin: 8px 0;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); }
 .prob-title { font-weight: 600; }
@@ -411,7 +411,7 @@ mark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: va
 .coach-step textarea { min-height: 0; font-size: 14px; }
 @media (max-width: 980px) { .solve-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
-  .two { grid-template-columns: 1fr; }
+  .two { grid-template-columns: minmax(0, 1fr); }
   .continue { grid-template-columns: 1fr; } .continue-go { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 8px; }
   .mixed { flex-direction: column; align-items: flex-start; }
   .path-row { grid-template-columns: 30px 1fr; } .track { grid-column: 2; }

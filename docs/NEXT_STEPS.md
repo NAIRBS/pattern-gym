@@ -56,14 +56,16 @@ file whenever you change architecture, state shape, conventions or the to-do lis
 server.py          local HTTP server (stdlib): static files, /api/content, /api/run, /api/syntax, /api/state
 runner.py          runs code against a test spec; run(code, spec) / run_json() for Pyodide; main() for subprocess
 build_static.py    writes static/content.json + copies runner.py into static/ (both gitignored)
-validate.py        every reference solution AND brute-force version must pass; walkthrough/lesson completeness
+validate.py        every reference solution AND brute-force version must pass (and its sentence must give an
+                   O(...)); walkthrough/lesson completeness
 content/
   problems.py, problems_a/b/c.py   150 problems: statement, insight, catch, complexity, clarify, edges,
                                    solution (key lines marked `  # <<`), tests (F/D helpers)
   patterns.py      23 patterns: triggers, fill questions, skeleton
   study_patterns.py LESSONS per pattern (why, not_this, build line-by-line, bugs), METHOD, INPUT_SIZE
   study_problems.py WALK: per-problem brute-force sentence + pseudocode plan (all 150)
-  study_brute.py   BRUTE: runnable naive code for each pattern's worked-example problem (23, one per pattern)
+  study_brute.py   BRUTE: runnable naive code (44): each pattern's worked example (23) + every DP problem
+                   (plain recursion = the memo version minus the cache)
   sprint.py, syntax.py, interview.py   Sprint cards (150), Syntax Snap cards (34), clarify/talk-track/rubric
 static/
   app.js           everything UI: utilities, storage, runner client, SRS, daily plan, router, keyboard,
@@ -115,15 +117,23 @@ tests/             node tests: merge.test.js, edge-match.test.js
 1. Supabase free tier pauses after 7 days without use. If sync shows "☁ !", resume the project in the dashboard.
    Supabase Auth URLs (already set): Site URL `https://nairbs.github.io/pattern-gym/`; redirect URLs that
    URL, `http://localhost:8787/`, `http://localhost:8000/`. Update them if the site address ever changes.
-2. Brute-force code (`content/study_brute.py`) exists for the 23 worked examples only, and most other
-   problems don't need it. Add it only where a naive version is runnable, clearly slower, and teaches the
-   "find the repeated work" step: chiefly **DP** (plain recursion → memo → table) and the array/string
-   problems (nested loops → hash map / window / two pointers / binary search). Skip graphs, trees, linked
-   lists, design classes, backtracking and bit/math tricks, where the "brute force" is the same traversal
-   or a trivial non-answer; their walkthroughs already say so in the one-line `brute` text.
+2. Brute-force code (`content/study_brute.py`): the worked examples and **all 23 DP problems** are done.
+   Next: the array/string problems (nested loops → hash map / window / two pointers / binary search).
+   Add code only where a naive version is runnable, clearly slower, and teaches the "find the repeated
+   work" step. Skip graphs, trees, linked lists, design classes, backtracking and bit/math tricks, where the
+   "brute force" is the same traversal or a trivial non-answer; their walkthroughs already say so in the
+   one-line `brute` text. When adding code, the `brute` sentence in `study_problems.py` must describe
+   that code and contain a plain `O(...)` (validate checks this; the label and meter read it).
 
-Done 2026-11-18: both node test files printed their "N passed" line before the last tests ran, so the
-count was short. The summary line is now the last line of each file.
+Done 2026-11-18:
+- Node test summary lines moved to the end of each file (the count was short).
+- Brute-force code for the 21 remaining DP problems. Their `brute` sentences and 9 older ones were
+  rewritten to match the code shown and give a cost.
+- The walkthrough's complexity meter used to say "Brute force runs in O(n²)" whenever the sentence had no
+  `O(...)` (47 problems, including "No brute force" ones). It now shows "exponential" when the sentence
+  says so, otherwise the final cost with "No faster version needed".
+- `.two` grid columns are `minmax(0, 1fr)`, so long code lines scroll inside their block instead of
+  widening the page.
 
 ## Later ideas
 

@@ -1395,8 +1395,8 @@ const mixedPool = () => studyOrder().filter(p => lessonDone(p.id)).flatMap(p => 
 // Rough size of a complexity, for the shrinking meter in the walkthrough.
 function bigORank(s) {
   s = String(s).replace(/\s/g, '');
-  if (/2\^|!|k\^n|\^n/.test(s)) return 7;
-  if (/n³|n\^3/.test(s)) return 6;
+  if (/2\^|!|k\^n|\^n|expon/i.test(s)) return 7;
+  if (/n³|n\^3|²·?[a-zA-Z]/.test(s)) return 6;   // n³, or a squared term times another variable (m²·n², V²·E)
   if (/n²|n\^2|n\*m|m\*n|n·m|m·n|nm\)|mn\)|n\*k|k\*n|V\*E|E\*V/i.test(s)) return 5;
   if (/nlog|log\*n|n\*log|klog|Elog/i.test(s)) return 4;
   if (/^O\(1\)/.test(s)) return 1;
@@ -1576,7 +1576,10 @@ function studyWalk(app, pid, probId, params) {
     return;
   }
   const list = sortedProblems(p.pattern), i = list.findIndex(x => x.id === p.id), prev = list[i - 1], next = list[i + 1];
-  const bruteO = firstBigO(p.brute) || 'O(n²)', finalO = firstBigO(p.time) || p.time;
+  const finalO = firstBigO(p.time) || p.time;
+  // No O(...) in the brute sentence: either it says exponential, or the obvious way costs the same as the final one.
+  const bruteO = firstBigO(p.brute) || (/exponential|\^|n!/i.test(p.brute) ? 'exponential' : finalO);
+  const sameCost = bigORank(bruteO) === bigORank(finalO);
   const cues = cuesIn(p);
   const guided = role === 'guided';
   const steps = [
@@ -1615,7 +1618,7 @@ function studyWalk(app, pid, probId, params) {
   const meter = () => {
     const reached = open > 6 ? 'final' : open > 2 ? 'brute' : null;
     const w = reached === 'final' ? bigORank(finalO) : bigORank(bruteO);
-    $('#meter', app).innerHTML = reached ? `<span class="meter-label">${reached === 'final' ? `From ${esc(bruteO)} down to` : 'Brute force runs in'} <b>${esc(reached === 'final' ? finalO : bruteO)}</b></span>
+    $('#meter', app).innerHTML = reached ? `<span class="meter-label">${reached === 'final' ? (sameCost ? 'No faster version needed: still' : `From ${esc(bruteO)} down to`) : 'Brute force runs in'} <b>${esc(reached === 'final' ? finalO : bruteO)}</b></span>
       <span class="meter-bar"><i style="width:${Math.round(w / 7 * 100)}%" class="${reached}"></i></span>` : '';
   };
   const draw = () => {
