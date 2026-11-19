@@ -19,7 +19,8 @@ for p in c["problems"]:
         print("UNKNOWN PATTERN", p["id"], p["pattern"]); bad += 1
     if not p["key_lines"]:
         print("NO KEY LINES", p["id"]); bad += 1
-    r = run_code(p["solution"], p["tests"])
+    visible = {k: v for k, v in p["tests"].items() if k != "perf"}   # correctness here; speed is checked below
+    r = run_code(p["solution"], visible)
     if not r["ok"]:
         bad += 1
         print("FAIL", p["id"], r.get("error"), [x for x in r["results"] if not x["pass"]][:2])
@@ -33,7 +34,7 @@ for p in c["problems"]:
 
     # the naive version shown in the Study walkthrough must be correct too (just slow)
     if p.get("brute_code"):
-        rb = run_code(p["brute_code"], p["tests"])
+        rb = run_code(p["brute_code"], visible)
         if not rb["ok"]:
             bad += 1
             print("BRUTE FAIL", p["id"], rb.get("error"), [x for x in rb["results"] if not x["pass"]][:2])
@@ -50,6 +51,26 @@ for p in c["problems"]:
         if not closed:
             bad += 1
             print("BRUTE COST", p["id"], "brute sentence needs an O(...) cost:", b)
+
+# hidden large tests: the reference must pass them quickly, and a quadratic-or-worse brute force must not
+import concurrent.futures as _cf
+_PERF_REF_MS = 1500   # CPython; the browser (Pyodide) is ~2-3x slower and gets 6 s
+perf_probs = [p for p in c["problems"] if p["tests"].get("perf")]
+for p in perf_probs:
+    r = run_code(p["solution"], p["tests"])
+    if not r["ok"]:
+        bad += 1
+        print("PERF REF FAIL", p["id"], r.get("error"), [x for x in r["results"] if not x["pass"]][:1])
+    elif r.get("perf_ms", 0) > _PERF_REF_MS:
+        bad += 1
+        print("PERF REF SLOW", p["id"], f"{r['perf_ms']} ms > {_PERF_REF_MS} ms")
+def _brute(p):
+    return p["id"], run_code(p["brute_code"], p["tests"])
+with _cf.ThreadPoolExecutor(max_workers=6) as pool:
+    for pid, r in pool.map(_brute, [p for p in perf_probs if p.get("brute_code")]):
+        if r["ok"]:
+            bad += 1
+            print("PERF WEAK", pid, "the brute force passes the hidden tests, so they don't test speed")
 
 for s in c["sprint"]:
     if s["pattern"] not in pids:

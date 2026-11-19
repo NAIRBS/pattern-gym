@@ -42,13 +42,32 @@ def run_code(code, tests_spec, timeout=6):
         if not out:
             return {"ok": False, "error": (proc.stderr or "No output from runner")[-2000:], "results": []}
         return json.loads(out[-1])
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": f"Time limit exceeded ({timeout}s). Infinite loop or too slow?", "results": []}
+    except subprocess.TimeoutExpired as e:
+        return timeout_result(e.stdout, timeout)
     finally:
         try:
             os.unlink(path)
         except OSError:
             pass
+
+
+def timeout_result(stdout, timeout):
+    """A run hit the time limit. If the runner had reached the hidden large tests, every visible example
+    passed and the code is simply too slow; say which test it was."""
+    out = stdout.decode("utf-8", "replace") if isinstance(stdout, bytes) else (stdout or "")
+    last = None
+    for line in out.splitlines():
+        if line.startswith("PROGRESS "):
+            last = line[len("PROGRESS "):]
+    if last:
+        info = json.loads(last)
+        return {"ok": False, "slow": True, "results": [
+            {"pass": True, "input": f"All {info.get('visible', 0)} examples passed"},
+            {"pass": False, "input": info["perf"], "hidden": True,
+             "error": f"Too slow: still running after {timeout} s"}],
+            "error": f"Correct on every example, but too slow on {info['perf'][0].lower() + info['perf'][1:]}. "
+                     "Look for repeated work, like an inner loop or recomputing the same thing, and aim for the target complexity."}
+    return {"ok": False, "error": f"Time limit exceeded ({timeout}s). Infinite loop or too slow?", "results": []}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -102,7 +121,8 @@ class Handler(BaseHTTPRequestHandler):
             p = PROBLEMS.get(body.get("id"))
             if not p:
                 return self._send(404, {"error": "unknown problem"})
-            return self._send(200, run_code(body.get("code", ""), p["tests"]))
+            spec = p["tests"] if body.get("hidden", True) else {k: v for k, v in p["tests"].items() if k != "perf"}
+            return self._send(200, run_code(body.get("code", ""), spec))
         if path == "/api/syntax":
             c = SYNTAX.get(body.get("id"))
             if not c:

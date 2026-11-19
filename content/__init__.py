@@ -11,6 +11,7 @@ from .interview import CLARIFY_GENERIC, THINK_ALOUD, RUBRIC, COMPLEXITIES
 from .study_patterns import LESSONS, METHOD, INPUT_SIZE
 from .study_problems import WALK
 from .study_brute import BRUTE
+from .perf import PERF
 
 
 def _strip_marks(code):
@@ -45,6 +46,9 @@ def load_all():
         brute, plan = WALK.get(p["id"], ("", []))
         p["brute"], p["plan"] = brute, plan
         p["brute_code"] = BRUTE.get(p["id"], "")
+        if p["id"] in PERF:   # hidden large tests: expected answers come from the reference at run time
+            size, gen = PERF[p["id"]]
+            p["tests"] = {**p["tests"], "perf": {"size": size, "gen": gen.strip("\n"), "ref": p["solution"]}}
         problems.append(p)
     patterns = []
     for pt in PATTERNS:

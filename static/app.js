@@ -62,15 +62,30 @@ async function runPy(code, spec, timeoutMs) {
   catch (e) { pyWorker.terminate(); pyWorker = null; return { ok: false, results: [], error: `Couldn’t load Python in the browser (${e.message}). Check your connection and try again.` }; }
   const w = pyWorker;
   return new Promise(resolve => {
+    let progress = null;
     const t = setTimeout(() => {
       w.terminate(); startPy();  // the only way to stop an infinite loop in a worker
-      resolve({ ok: false, results: [], error: `Time limit exceeded (${timeoutMs / 1000}s). Infinite loop or too slow?` });
+      resolve(progress ? slowResult(progress, timeoutMs / 1000)
+        : { ok: false, results: [], error: `Time limit exceeded (${timeoutMs / 1000}s). Infinite loop or too slow?` });
     }, timeoutMs);
-    w.onmessage = e => { clearTimeout(t); if (e.data.fatal) { w.terminate(); startPy(); } resolve(e.data.result); };
+    w.onmessage = e => {
+      if (e.data.progress) { progress = e.data.progress; return; }
+      clearTimeout(t); if (e.data.fatal) { w.terminate(); startPy(); } resolve(e.data.result);
+    };
     w.postMessage({ code, spec });
   });
 }
-const runTests = (p, code) => SERVER ? api('/api/run', { id: p.id, code }) : runPy(code, p.tests, 6000);
+// Same message as server.py's timeout_result: the visible examples passed, a large hidden test timed out.
+function slowResult(pr, secs) {
+  return { ok: false, slow: true, error: `Correct on every example, but too slow on ${pr.perf.charAt(0).toLowerCase() + pr.perf.slice(1)}. Look for repeated work, like an inner loop or recomputing the same thing, and aim for the target complexity.`,
+    results: [{ pass: true, input: `All ${pr.visible} examples passed` }, { pass: false, hidden: true, input: pr.perf, error: `Too slow: still running after ${secs} s` }] };
+}
+// Hidden large tests run after the examples (OA, cold solve, mock). Line Up and Fill the Gap skip them:
+// there the structure is the reference's, so they would only add waiting time.
+const runTests = (p, code, { hidden = true } = {}) => {
+  const spec = hidden ? p.tests : { ...p.tests, perf: undefined };
+  return SERVER ? api('/api/run', { id: p.id, code, hidden }) : runPy(code, spec, 6000);
+};
 const runSyntax = (s, code) => SERVER ? api('/api/syntax', { id: s.id, code })
   : runPy(code, { kind: 'snippet', setup: s.setup, check: s.check }, 4000);
 
@@ -521,7 +536,8 @@ function resultsHtml(r) {
     h += `<div class="res ${x.pass ? '' : 'fail'}">${x.pass ? '✓' : '✗'} ${esc(x.input || '')}${x.pass ? '' :
       `\n   expected ${esc(x.expected ?? '')}\n   got      ${esc(x.got ?? '')}${x.error ? '\n   ' + esc(x.error) : ''}`}</div>`;
   }
-  if (r.ok) h = `<div class="res">✓ All ${r.results.length} tests passed${r.ms != null ? ` (${r.ms} ms)` : ''}</div>`;
+  const hidden = (r.results || []).filter(x => x.hidden).length, shown = (r.results || []).length - hidden;
+  if (r.ok) h = `<div class="res">✓ All ${shown} example${shown === 1 ? '' : 's'} passed${hidden ? ` and ${hidden} large hidden test${hidden === 1 ? '' : 's'} (fast enough)` : ''}${r.ms != null ? ` · ${r.ms} ms` : ''}</div>`;
   return `<div class="results">${h}</div>`;
 }
 function gradeButtons(onGrade, suggested) {
@@ -778,7 +794,7 @@ GAMES.lineup = {
       if (finished) return;
       if (pool.length) { toast(`Place all lines first (${pool.length} left)`); return; }
       tries++;
-      const r = await runTests(p, built.map(l => l.t).join('\n'));
+      const r = await runTests(p, built.map(l => l.t).join('\n'), { hidden: false });
       $('#out', el).innerHTML = resultsHtml(r);
       if (r.ok) {
         finished = true; timer.stop();
@@ -840,7 +856,7 @@ GAMES.fill = {
     const check = async () => {
       if (finished) return; tries++;
       const code = lines.map((l, i) => key.has(i) ? l.match(/^ */)[0] + el.querySelector(`input[data-i="${i}"]`).value.trim() : l).join('\n');
-      const r = await runTests(p, code);
+      const r = await runTests(p, code, { hidden: false });
       $('#out', el).innerHTML = resultsHtml(r);
       if (r.ok) {
         finished = true; timer.stop();

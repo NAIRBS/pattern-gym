@@ -150,7 +150,75 @@ def get_callable(ns, name):
     raise NameError(f"Couldn't find function '{name}' (as a top-level def or a Solution method)")
 
 
-def run(code, spec):
+def call_one(ns, spec, kind, args):
+    """Run one input through a function or design class in namespace ns; return the normalised output.
+    Used for the hidden large tests, on both the reference and your code, so they're treated identically."""
+    if kind == "design":
+        ops, a = args
+        cls = ns.get(spec["cls"])
+        if cls is None:
+            raise NameError(f"Class '{spec['cls']}' not defined")
+        obj, out = None, []
+        for op, x in zip(ops, a):
+            if op == spec["cls"]:
+                obj = cls(*x)
+                out.append(None)
+            else:
+                out.append(norm(getattr(obj, op)(*x)))
+        return out
+    fn = get_callable(ns, spec["fn"])
+    types = spec.get("arg_types") or [None] * len(args)
+    conv = [convert_in(ns, t, v) for t, v in zip(types, args)]
+    ret = fn(*conv)
+    if spec.get("inplace") is not None:
+        i = spec["inplace"]
+        return norm(convert_out(types[i], conv[i]))
+    return norm(convert_out(spec.get("ret_type"), ret))
+
+
+def run_perf(ns, spec, kind, visible, progress=None):
+    """Hidden large tests (spec["perf"]): inputs from a seeded generator, expected answers from the
+    reference solution. Returns result rows; stops at the first failure."""
+    import copy
+    import random
+    perf = spec["perf"]
+    gen = {}
+    exec(PRELUDE, gen)
+    exec(perf["gen"], gen)
+    cases = gen["make"](random.Random(perf.get("seed", 7)))
+    ref = {"__name__": "__reference__"}
+    exec(PRELUDE, ref)
+    if spec.get("prelude"):
+        exec(spec["prelude"], ref)
+    exec(perf["ref"], ref)
+    rows, total = [], 0.0
+    for k, args in enumerate(cases):
+        label = f"Large hidden test {k + 1} of {len(cases)}" + (f" ({perf['size']})" if perf.get("size") else "")
+        if progress:   # lets a time-out still say which test was too slow
+            progress(json.dumps({"perf": label, "visible": visible}))
+        want = call_one(ref, spec, kind, copy.deepcopy(args))
+        t = time.perf_counter()
+        try:
+            got = call_one(ns, spec, kind, copy.deepcopy(args))
+        except Exception as e:
+            tb = traceback.extract_tb(e.__traceback__)
+            line = next((fr.lineno for fr in reversed(tb) if fr.filename == "<your code>"), None)
+            rows.append({"pass": False, "input": label, "hidden": True,
+                         "error": f"{type(e).__name__}: {e}" + (f" (line {line})" if line else "")})
+            break
+        ms = (time.perf_counter() - t) * 1000
+        total += ms
+        ok = got == want if kind == "design" else same(got, want, spec.get("compare"))
+        row = {"pass": ok, "input": f"{label}: {ms:.0f} ms", "hidden": True}
+        if not ok:
+            row.update(got=short(got, 120), expected=short(want, 120))
+        rows.append(row)
+        if not ok:
+            break
+    return rows, round(total, 1)
+
+
+def run(code, spec, progress=None):
     """Run code against spec and return the result dict. Also used in the browser (Pyodide worker)."""
     ns = {"__name__": "__solution__"}
     result = {"ok": False, "results": [], "error": None}
@@ -181,16 +249,7 @@ def run(code, spec):
         r = {"pass": False}
         try:
             if kind == "design":
-                cls = ns.get(spec["cls"])
-                if cls is None:
-                    raise NameError(f"Class '{spec['cls']}' not defined")
-                obj, got = None, []
-                for op, a in zip(case["ops"], case["args"]):
-                    if op == spec["cls"]:
-                        obj = cls(*a)
-                        got.append(None)
-                    else:
-                        got.append(norm(getattr(obj, op)(*a)))
+                got = call_one(ns, spec, kind, (case["ops"], case["args"]))
                 r["input"] = short(case["ops"]) + " " + short(case["args"])
                 r["got"], r["expected"] = short(got), short(case["expected"])
                 r["pass"] = got == case["expected"]
@@ -206,18 +265,9 @@ def run(code, spec):
                 r["got"], r["expected"] = short(got), short(case["expected"])
                 r["pass"] = same(got, case["expected"], spec.get("compare"))
             else:
-                fn = get_callable(ns, spec["fn"])
-                types = spec.get("arg_types") or [None] * len(case["args"])
-                args = [convert_in(ns, t, v) for t, v in zip(types, case["args"])]
-                ret = fn(*args)
-                if spec.get("inplace") is not None:
-                    i = spec["inplace"]
-                    ret = args[i]
-                    got = convert_out(types[i], ret)
-                else:
-                    got = convert_out(spec.get("ret_type"), ret)
+                got = call_one(ns, spec, kind, case["args"])
                 r["input"] = ", ".join(short(a, 120) for a in case["args"])
-                r["got"], r["expected"] = short(norm(got)), short(case["expected"])
+                r["got"], r["expected"] = short(got), short(case["expected"])
                 r["pass"] = same(got, case["expected"], spec.get("compare"))
         except Exception as e:
             tb = traceback.extract_tb(e.__traceback__)
@@ -225,21 +275,33 @@ def run(code, spec):
             r["error"] = f"{type(e).__name__}: {e}" + (f" (line {line})" if line else "")
         all_ok &= r["pass"]
         result["results"].append(r)
-    result["ok"] = all_ok
     result["ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    # hidden large tests only once every visible example passes
+    if all_ok and spec.get("perf"):
+        try:
+            rows, perf_ms = run_perf(ns, spec, kind, len(result["results"]), progress)
+        except Exception as e:   # a broken generator is our bug, not yours
+            rows, perf_ms = [{"pass": False, "input": "Large hidden tests", "error": f"Test setup error: {type(e).__name__}: {e}"}], 0
+        result["results"].extend(rows)
+        result["perf_ms"] = perf_ms
+        all_ok = all(r["pass"] for r in rows)
+        if not all_ok:
+            result["slow_or_wrong"] = True
+    result["ok"] = all_ok
     return result
 
 
-def run_json(payload):
-    """Browser entry point: JSON {code, spec} in, JSON result out."""
+def run_json(payload, progress=None):
+    """Browser entry point: JSON {code, spec} in, JSON result out. progress(str) is a JS callback."""
     data = json.loads(payload)
-    return json.dumps(run(data["code"], data["spec"]))
+    return json.dumps(run(data["code"], data["spec"], progress))
 
 
 def main():
     with open(sys.argv[1], encoding="utf-8") as f:
         data = json.load(f)
-    print(json.dumps(run(data["code"], data["spec"])))
+    # progress lines let server.py explain a time-out ("too slow on large hidden test 1")
+    print(json.dumps(run(data["code"], data["spec"], lambda s: print("PROGRESS " + s, flush=True))))
 
 
 if __name__ == "__main__":

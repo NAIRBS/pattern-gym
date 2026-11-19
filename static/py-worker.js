@@ -26,7 +26,8 @@ let runJson = null;
 onmessage = e => {
   const { code, spec } = e.data;
   try {
-    postMessage({ result: JSON.parse(runJson(JSON.stringify({ code, spec }))) });
+    // progress notes ("now on large hidden test 1") let the page explain a time-out as "too slow"
+    postMessage({ result: JSON.parse(runJson(JSON.stringify({ code, spec }), s => postMessage({ progress: JSON.parse(s) }))) });
   } catch (err) {
     // Python exceptions are caught inside runner.run(); anything reaching here (e.g. a stack
     // overflow from very deep recursion) can leave the interpreter broken, so ask for a fresh worker.
