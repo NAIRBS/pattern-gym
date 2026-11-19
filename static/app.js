@@ -74,37 +74,98 @@ const runTests = (p, code) => SERVER ? api('/api/run', { id: p.id, code }) : run
 const runSyntax = (s, code) => SERVER ? api('/api/syntax', { id: s.id, code })
   : runPy(code, { kind: 'snippet', setup: s.setup, check: s.check }, 4000);
 
-// Editor niceties: Tab = 4 spaces, Shift+Tab dedent, Enter keeps indent (+4 after ':'), Ctrl+Enter = submit
+// Code editor: a plain textarea plus
+//  - optional syntax colours: a highlighted copy sits behind the transparent text, kept in sync on every change
+//    (no autocomplete; the toggle sits on the editor itself and is remembered in Settings)
+//  - Python-friendly indentation: Tab / Shift+Tab indent or dedent the line or every selected line,
+//    Backspace in leading spaces deletes back to the previous 4-space stop, Enter keeps the indent
+//    (+4 after ':' , -4 after return/break/continue/pass/raise), pasted tabs become 4 spaces.
+//    Edits go through insertText so Ctrl+Z still works.
+const hlOn = () => S?.settings?.highlight !== false;
+function edInsert(ta, text, s, e) {
+  ta.focus(); ta.setSelectionRange(s, e);
+  let ok = false; try { ok = document.execCommand('insertText', false, text); } catch (er) {}
+  if (!ok || ta.value.slice(s, s + text.length) !== text) { ta.setRangeText(text, s, e, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); }
+}
 function enhanceEditor(ta, { onSubmit, autoIndent = true } = {}) {
-  ta.spellcheck = false;
+  ta.spellcheck = false; ta.setAttribute('wrap', 'off'); ta.setAttribute('autocapitalize', 'off'); ta.setAttribute('autocomplete', 'off');
+  // wrap: toolbar + colour layer behind the textarea
+  const wrap = document.createElement('div'); wrap.className = 'ed';
+  wrap.innerHTML = `<div class="ed-bar"><label class="ed-toggle"><input type="checkbox" ${hlOn() ? 'checked' : ''}> Syntax colours</label>
+    <span class="ed-hint muted">Tab indents · Shift+Tab dedents · Esc leaves</span></div><div class="ed-area"><pre class="ed-hl" aria-hidden="true"></pre></div>`;
+  if (ta.classList.contains('snap')) wrap.classList.add('snap');
+  ta.replaceWith(wrap); $('.ed-area', wrap).append(ta);
+  const layer = $('.ed-hl', wrap), box = $('input', wrap);
+  const paint = () => {
+    wrap.classList.toggle('hl-on', hlOn());
+    if (hlOn()) layer.innerHTML = highlightCode(ta.value) + '\n ';   // trailing line keeps heights equal
+    layer.scrollTop = ta.scrollTop; layer.scrollLeft = ta.scrollLeft;
+  };
+  ta._paint = paint;
+  ta.addEventListener('input', paint);
+  ta.addEventListener('scroll', () => { layer.scrollTop = ta.scrollTop; layer.scrollLeft = ta.scrollLeft; });
+  box.addEventListener('change', () => { S.settings.highlight = box.checked; save(); repaintCode(); toast(box.checked ? 'Syntax colours on' : 'Syntax colours off'); });
+  // value set from code (starter, notes) after this call: paint on the next frame too
+  setTimeout(paint, 0); paint();
+
+  const lineStart = (v, i) => v.lastIndexOf('\n', i - 1) + 1;
+  const lineEnd = (v, i) => { const j = v.indexOf('\n', i); return j < 0 ? v.length : j; };
+  ta.addEventListener('paste', e => {
+    const t = e.clipboardData?.getData('text'); if (t == null || !t.includes('\t')) return;
+    e.preventDefault(); edInsert(ta, t.replace(/\t/g, '    '), ta.selectionStart, ta.selectionEnd);
+  });
   ta.addEventListener('keydown', e => {
     const { selectionStart: s, selectionEnd: en, value: v } = ta;
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onSubmit && onSubmit(); return; }
-    if (e.key === 'Tab') {
+    if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) {
       e.preventDefault();
-      const ls = v.lastIndexOf('\n', s - 1) + 1;
-      if (e.shiftKey) {
-        const m = v.slice(ls).match(/^ {1,4}/);
-        if (m) { ta.value = v.slice(0, ls) + v.slice(ls + m[0].length); ta.selectionStart = ta.selectionEnd = Math.max(ls, s - m[0].length); }
-      } else { ta.setRangeText('    ', s, en, 'end'); }
+      const multi = v.slice(s, en).includes('\n');
+      if (!e.shiftKey && !multi) {                       // soft tab to the next 4-space stop
+        const col = s - lineStart(v, s); edInsert(ta, ' '.repeat(4 - (col % 4)), s, en); return;
+      }
+      const a = lineStart(v, s), b = lineEnd(v, en > s && v[en - 1] === '\n' ? en - 1 : en);
+      const lines = v.slice(a, b).split('\n');
+      const out = lines.map(l => e.shiftKey ? l.replace(/^ {1,4}/, '') : (l.length ? '    ' + l : l));
+      const firstShift = (out[0].length - lines[0].length);
+      edInsert(ta, out.join('\n'), a, b);
+      if (multi) ta.setSelectionRange(a, a + out.join('\n').length);
+      else ta.setSelectionRange(Math.max(a, s + firstShift), Math.max(a, s + firstShift));
       return;
     }
-    if (e.key === 'Enter' && autoIndent) {
+    if (e.key === 'Backspace' && s === en && s > 0) {   // in leading spaces: back to the previous 4-space stop
+      const a = lineStart(v, s), before = v.slice(a, s);
+      if (before.length && /^ +$/.test(before)) { e.preventDefault(); const to = a + Math.floor((before.length - 1) / 4) * 4; edInsert(ta, '', to, s); return; }
+    }
+    if (e.key === 'Enter' && autoIndent && !e.shiftKey) {
       e.preventDefault();
-      const ls = v.lastIndexOf('\n', s - 1) + 1;
-      const line = v.slice(ls, s);
+      const line = v.slice(lineStart(v, s), s);
       let ind = line.match(/^ */)[0];
-      if (/:\s*$/.test(line)) ind += '    ';
-      ta.setRangeText('\n' + ind, s, en, 'end');
+      const code = line.replace(/#.*$/, '');   // a colon inside a comment does not open a block
+      if (/:\s*$/.test(code)) ind += '    ';
+      else if (/^\s*(return|break|continue|pass|raise)\b/.test(line)) ind = ind.slice(4);
+      edInsert(ta, '\n' + ind, s, en);
     }
   });
+}
+// Read-only code blocks (<pre class="code">) follow the same colour setting.
+function paintPre(pre) {
+  if (pre.dataset.src == null) pre.dataset.src = pre.textContent;
+  const src = pre.dataset.src, keys = new Set((pre.dataset.keys || '').split(',').filter(Boolean).map(Number));
+  const on = hlOn();
+  if (pre.dataset.painted === String(on)) return;
+  pre.dataset.painted = String(on);
+  pre.innerHTML = src.split('\n').map((l, i) => { const inner = on ? highlightLine(l) : esc(l); return keys.has(i) ? `<span class="hl">${inner}</span>` : inner; }).join('\n');
+}
+function repaintCode() {
+  $$('#app pre.code, .modal pre.code').forEach(pre => { if (!pre.closest('.ed')) { delete pre.dataset.painted; paintPre(pre); } });
+  $$('.ed').forEach(w => { const t = $('textarea', w); t?._paint?.(); const b = $('.ed-toggle input', w); if (b) b.checked = hlOn(); });
 }
 
 // ─────────────────────────── state ───────────────────────────
 let C = null;           // content from server
 let S = null;           // persisted state
 const DEFAULTS = {
-  settings: { interviewDate: addDays(today(), 14), minutes: 30, newPerDay: 4, sprintSeconds: 15, sprintNoLimit: false, edgeSeconds: 60, singleKeys: true,
+  settings: { interviewDate: addDays(today(), 14), minutes: 30, newPerDay: 4, sprintSeconds: 15, sprintNoLimit: false, edgeSeconds: 60, singleKeys: true, highlight: true,
               focus: { talk: true, clarify: true, complexity: true, noide: true } },
   items: {}, xp: 0, streak: { count: 0, last: null, best: 0 }, days: {}, mocks: [], plan: null,
   study: { lessons: {}, walks: {}, attempts: {} },
@@ -369,7 +430,7 @@ const EDITOR_SEL = '#app textarea:not([readonly]), #app .fill input:not([readonl
 let lastEditor = null;
 const editorOnPage = () => $$(EDITOR_SEL).filter(x => x.offsetParent);
 function focusEditor() {
-  const list = editorOnPage(); if (!list.length) return false;
+  const list = editorOnPage().sort((a, b) => b.classList.contains('code') - a.classList.contains('code')); if (!list.length) return false;
   const target = lastEditor && list.includes(lastEditor) ? lastEditor : list[0];
   target.focus(); return true;
 }
@@ -441,6 +502,9 @@ const paintEdBtn = () => { clearTimeout(paintEdBtn._t); paintEdBtn._t = setTimeo
 document.addEventListener('focusin', e => { if (e.target.matches?.(EDITOR_SEL.replaceAll('#app ', '')) && e.target.closest('#app')) lastEditor = e.target; paintEdBtn(); });
 document.addEventListener('focusout', () => setTimeout(paintEdBtn, 0));
 window.addEventListener('hashchange', () => { lastEditor = null; setTimeout(paintEdBtn, 50); });
+let preTimer = null;
+new MutationObserver(() => { clearTimeout(preTimer); preTimer = setTimeout(() => $$('#app pre.code').forEach(pre => { if (!pre.closest('.ed') && pre.dataset.painted == null) paintPre(pre); }), 0); })
+  .observe(document.getElementById('app'), { childList: true, subtree: true });
 new MutationObserver(() => paintEdBtn()).observe(document.getElementById('app'), { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
 
 // ─────────────────────────── shared game pieces ───────────────────────────
@@ -658,7 +722,7 @@ GAMES.lineup = {
       <div id="ans" hidden></div><div id="out" aria-live="polite"></div></div>`;
     const list = name => name === 'pool' ? pool : built;
     const draw = () => {
-      const row = (l, k, name) => `<div class="ln" role="option" data-id="${l.i}" tabindex="${cur.list === name && cur.pos === k ? 0 : -1}">${name === 'built' ? `<span class="num">${k + 1}</span>` : ''}${esc(l.t)}</div>`;
+      const row = (l, k, name) => `<div class="ln" role="option" data-id="${l.i}" tabindex="${cur.list === name && cur.pos === k ? 0 : -1}">${name === 'built' ? `<span class="num">${k + 1}</span>` : ''}${hlOn() ? highlightLine(l.t) : esc(l.t)}</div>`;
       $('#pool', el).innerHTML = pool.map((l, k) => row(l, k, 'pool')).join('') || '<div class="muted small empty">All lines placed. Run the tests.</div>';
       $('#built', el).innerHTML = built.map((l, k) => row(l, k, 'built')).join('') || '<div class="muted small empty">Drag or press Enter on a line to start. The function signature usually goes first.</div>';
       for (const name of ['pool', 'built']) if (!list(name).length) $('#' + name, el).tabIndex = cur.list === name ? 0 : -1; else $('#' + name, el).removeAttribute('tabindex');
@@ -748,7 +812,7 @@ GAMES.fill = {
       ${patternTag(p.pattern)}<span class="spacer"></span><button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button></div>
       <p>${esc(p.statement)}</p><div id="hintbox" aria-live="polite"></div>
       <div class="fill">${lines.map((l, i) => {
-        if (!key.has(i)) return `<div class="l">${esc(l) || ' '}</div>`;
+        if (!key.has(i)) return `<div class="l">${(hlOn() ? highlightLine(l) : esc(l)) || ' '}</div>`;
         const ind = l.match(/^ */)[0]; gapNo++;
         return `<div class="l"><input type="text" data-i="${i}" autocomplete="off" spellcheck="false" placeholder="gap ${gapNo}" aria-label="Gap ${gapNo}" style="margin-left:${ind.length}ch"></div>
           <div class="l gap-ans" data-for="${i}" hidden style="padding-left:${ind.length}ch"></div>`;
@@ -1365,6 +1429,25 @@ const APPROACH = [
   { t: 'Test it', d: 'Run the example by hand through your code, then the edge cases. State time and space.' },
 ];
 
+// The five jobs a line of a template can do. Labelling lines by job is stable across people;
+// the exact line order is not, which is why the lesson no longer asks you to guess the next line.
+const ROLES = [
+  { id: 'setup', name: 'Setup', q: 'the signature or a helper' },
+  { id: 'state', name: 'State', q: 'what you keep track of' },
+  { id: 'loop', name: 'Loop', q: 'how you walk the input' },
+  { id: 'decide', name: 'Decide', q: 'the condition that changes what happens' },
+  { id: 'update', name: 'Update', q: 'how the state changes each step' },
+  { id: 'answer', name: 'Answer', q: 'what you return or record' },
+];
+function lineRole(code, afterLoop) {
+  const t = code.trim();
+  if (/^(return|yield)\b/.test(t) || /^(res|ans|best|result)\b.*(append|=)/.test(t) && afterLoop && /append\(|max\(|min\(/.test(t)) return 'answer';
+  if (/^(def|class)\b/.test(t)) return 'setup';
+  if (/^(for|while)\b/.test(t)) return 'loop';
+  if (/^(if|elif|else)\b/.test(t)) return 'decide';
+  return afterLoop ? 'update' : 'state';
+}
+
 function courseOf(pid) {
   const all = sortedProblems(pid);
   const nG = all.length >= 5 ? 2 : all.length >= 2 ? 1 : 0;
@@ -1385,7 +1468,7 @@ function nextStep(pid) {
   const { c } = courseProgress(pid); const p = PAT(pid);
   if (!lessonDone(pid)) return { label: `Learn the idea behind ${p.name}`, href: `#/study/${pid}`, verb: 'Start the lesson' };
   if (c.learn && !walked(c.learn.id)) return { label: `Worked example: ${c.learn.title}, from brute force to the final answer`, href: `#/study/${pid}/${c.learn.id}`, verb: 'Open the walkthrough' };
-  const g = c.guided.find(x => !walked(x.id)); if (g) return { label: `Guided problem: ${g.title}`, href: `#/study/${pid}/${g.id}`, verb: 'Work through it' };
+  const g = c.guided.find(x => !walked(x.id)); if (g) return { label: `Guided problem: ${g.title}`, href: `#/study/guided/${g.id}`, verb: 'Work through it' };
   const s = c.solo.find(x => !attempted(x.id)); if (s) return { label: `Solve ${s.title} cold, before any explanation`, href: `#/study/solve/${s.id}`, verb: 'Solve it cold' };
   return null;
 }
@@ -1430,7 +1513,7 @@ function exampleHtml(p) {
 }
 function codeWithKeys(p) {
   const key = new Set(p.key_lines);
-  return `<pre class="code">${p.solution.split('\n').map((l, i) => key.has(i) ? `<span class="hl">${esc(l)}</span>` : esc(l)).join('\n')}</pre>`;
+  return `<pre class="code" data-keys="${[...key].join(',')}">${esc(p.solution)}</pre>`;
 }
 function drillButtons(pid) {
   return `<div class="row">
@@ -1449,6 +1532,7 @@ function cuesIn(p) {
 
 ROUTES.study = (app, [a, b], params) => {
   if (a === 'solve' && b) return studySolve(app, b, params);
+  if (a === 'guided' && b) return studyGuided(app, b);
   if (a === 'mixed') {
     const pool = mixedPool(); if (!pool.length) return studyHome(app);
     const fresh = pool.filter(p => !attempted(p.id));
@@ -1514,7 +1598,7 @@ function probRow(x, role) {
     <span class="status ${done ? 'done' : 'todo'}">${solo ? (done ? 'tried' : 'not tried') : (done ? 'done' : 'to do')}</span><span class="spacer"></span>
     ${solo ? `<a class="btn ${done ? '' : 'primary'}" href="#/study/solve/${x.id}" data-item>Solve cold</a>
         <a class="btn ghost" href="#/study/${x.pattern}/${x.id}" title="${locked ? 'Unlocks after you try it' : 'See the approach'}">${locked ? '🔒 ' : ''}Walkthrough</a>`
-      : `<a class="btn ${done ? '' : 'primary'}" href="#/study/${x.pattern}/${x.id}" data-item>${role === 'learn' ? 'Brute force to final answer' : 'Work through it'}</a>
+      : `<a class="btn ${done ? '' : 'primary'}" href="${role === 'learn' ? `#/study/${x.pattern}/${x.id}` : `#/study/guided/${x.id}`}" data-item>${role === 'learn' ? 'Brute force to final answer' : 'Work through it'}</a>
         <a class="btn ghost" href="#/study/solve/${x.id}">Solve cold</a>`}</div>`;
 }
 
@@ -1534,11 +1618,12 @@ function studyCourse(app, pid) {
       <p class="why">${esc(L.why)}</p>
       <div class="two"><div><h3>Reach for it when you see</h3><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
         <div><h3>It’s a different pattern when</h3><ul>${L.not_this.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></div>
-      <h3>The skeleton, one line at a time</h3>
-      <p class="muted small">Before each line appears, guess what it has to do.</p>
-      <div class="build" id="build"></div>
-      <div class="row" style="margin-top:10px"><button class="primary" id="nextl" data-key=" ">Next line <kbd>Space</kbd></button>
-        <button class="ghost" id="all">Show all</button><button class="ghost" id="reset">Restart</button></div>
+      <h3>The skeleton, and the job of each line</h3>
+      <p class="muted small">Every line does one of a handful of jobs. Different people write the same template in different orders, so learn the jobs,
+        not the line order. Then rebuild it from memory with <a href="#/play/skeleton?problem=${pid}">Skeleton Recall</a>, which checks the jobs, not the exact lines.</p>
+      <div class="roles-key">${ROLES.map(r => `<span class="role role-${r.id}">${r.name}</span><span class="muted small">${r.q}</span>`).join('')}</div>
+      <div class="build annotated">${L.build.map(([code, why], i, all) => { const r = lineRole(code, all.slice(0, i).some(([c]) => /^\s*(for|while)\b/.test(c)));
+        return `<div class="bl"><span class="role role-${r}">${ROLES.find(x => x.id === r).name}</span><code>${hlOn() ? highlightLine(code) : esc(code)}</code><div class="why">${esc(why) || '&nbsp;'}</div></div>`; }).join('')}</div>
       <h3>To make it fit a specific problem, answer</h3><ol>${p.fill.map(f => `<li>${esc(f)}</li>`).join('')}</ol>
       <h3>Bugs to avoid</h3><ul>${L.bugs.map(b => `<li>${esc(b)}</li>`).join('')}</ul>
       <div class="row"><button class="${lessonDone(pid) ? 'ghost' : 'good'}" id="mark">${lessonDone(pid) ? 'Mark as not learned' : '✓ I’ve got the idea'}</button></div></section>
@@ -1546,7 +1631,7 @@ function studyCourse(app, pid) {
       <p class="muted">One problem taken from the obvious slow answer to the final one, a decision at a time. Type a guess before each reveal.</p>
       ${probRow(c.learn, 'learn')}</section>
     ${c.guided.length ? `<section class="stage"><h2><span class="n">${n++}</span>Guided</h2>
-      <p class="muted">The same steps, but you write the plan and the code. The answer stays hidden until you’ve tried.</p>
+      <p class="muted">You make the decisions and the app checks each one: which pattern, how fast it has to be, then the key lines, run against the real tests.</p>
       ${c.guided.map(x => probRow(x, 'guided')).join('')}</section>` : ''}
     ${c.solo.length ? `<section class="stage"><h2><span class="n">${n++}</span>Solo, cold</h2>
       <p class="muted">Solve these from a blank editor first. Each walkthrough unlocks after a real attempt, so these stay problems you haven’t seen.</p>
@@ -1554,22 +1639,11 @@ function studyCourse(app, pid) {
     <section class="stage"><h2>Keep it fresh</h2><p class="muted small">Short drills on just this pattern.</p>${drillButtons(pid)}</section>
     <div class="row" style="margin-top:20px">${prev ? `<a class="btn ghost" href="#/study/${prev.id}">← ${esc(prev.name)}</a>` : ''}<span class="spacer"></span>
       ${next ? `<a class="btn" href="#/study/${next.id}">${esc(next.name)}</a>` : ''}</div></div>`;
-  let shown = 0;
-  const draw = () => {
-    $('#build', app).innerHTML = L.build.slice(0, shown).map(([code, why], i) =>
-      `<div class="bl ${i === shown - 1 ? 'cur' : ''}"><code>${esc(code)}</code><div class="why">${esc(why)}</div></div>`).join('') +
-      (shown < L.build.length ? `<div class="bl"><code class="muted">${shown === 0 ? '# press Next line to start' : '# what has to happen next?'}</code><div></div></div>` : '');
-    $('#nextl', app).disabled = shown >= L.build.length;
-  };
-  $('#nextl', app).onclick = () => { shown = Math.min(L.build.length, shown + 1); draw(); };
-  $('#all', app).onclick = () => { shown = L.build.length; draw(); };
-  $('#reset', app).onclick = () => { shown = 0; draw(); };
   $('#mark', app).onclick = () => {
     if (lessonDone(pid)) delete S.study.lessons[pid];
     else { S.study.lessons[pid] = today(); addXP(10); toast('📖 Idea learned +10 XP'); }
     save(); studyCourse((app.innerHTML = '', app), pid);
   };
-  draw();
 }
 
 // Walkthrough: the approach applied to one problem, from the naive brute force to the final answer.
@@ -1661,6 +1735,63 @@ function studyWalk(app, pid, probId, params) {
   draw();
 }
 
+// Guided: you make each decision and it's checked straight away (a completion problem), instead of comparing
+// your own answer with a written explanation. 1) which pattern  2) how fast it can be  3) the key lines, run against the tests.
+function studyGuided(app, id) {
+  const p = PROB(id); if (!p) return studyHome(app);
+  const pat = PAT(p.pattern), L = pat.lesson || {};
+  const pOpts = shuffle([pat, ...pick(studyOrder().filter(x => x.id !== p.pattern), 3)]);
+  const cOpts = shuffle([p.time, ...pick(C.complexities.filter(c => c !== p.time), 3)]);
+  const got = {};
+  app.innerHTML = `<div class="study guided"><a href="#/study/${p.pattern}" class="crumb">← ${esc(pat.name)}</a>
+    <div class="walk-head"><h1>${esc(p.title)}</h1><span class="tag ${p.diff}">${p.diff}</span><span class="muted">#${p.num}</span></div>
+    <p class="muted">Three decisions, each checked as you make it. Then compare with the full approach.</p>
+    <div class="card statement-card"><p class="statement">${esc(p.statement)}</p><div class="muted small">Examples</div>${exampleHtml(p)}</div>
+    <ol class="ladder" id="gsteps"></ol><div id="gend"></div></div>`;
+  const list = $('#gsteps', app);
+  const rung = (k, title) => { list.insertAdjacentHTML('beforeend', `<li class="rung current" id="g${k}"><div class="rung-h"><span class="n">${k}</span>${esc(title)}</div><div class="rung-b"></div></li>`);
+    const li = $('#g' + k, app); li.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return $('.rung-b', li); };
+  const done = k => { const li = $('#g' + k, app); li.classList.remove('current'); li.classList.add('done'); };
+  const choose = (body, prompt, opts, label, right, after) => {
+    body.innerHTML = `<p class="think">${prompt}</p><div class="options">${opts.map((o, k) =>
+      `<button type="button" data-v="${esc(o.id || o)}" data-key="${k + 1}" data-kgroup="pick an answer"><kbd>${k + 1}</kbd> ${esc(label(o))}</button>`).join('')}</div><div class="gfb" aria-live="polite"></div>`;
+    body.querySelector('.options').onclick = e => {
+      const b = e.target.closest('button'); if (!b || b.disabled) return;
+      const ok = b.dataset.v === right;
+      $$('.options button', body).forEach(x => { x.disabled = true; x.removeAttribute('data-key'); if (x.dataset.v === right) x.classList.add('right'); else if (x === b) x.classList.add('wrong'); });
+      after(ok, $('.gfb', body));
+    };
+  };
+  const step1 = rung(1, 'Which pattern fits?');
+  choose(step1, 'Read the statement. Which tool removes the slow part of the obvious solution?', pOpts, x => x.name, pat.id, (ok, fb) => {
+    got.pattern = ok;
+    const cues = cuesIn(p);
+    fb.innerHTML = `<div class="reveal">${ok ? '✓ Right.' : `Not quite. It's ${patternTag(pat.id)}.`} ${esc(p.insight)}
+      ${cues.length ? `<div class="muted small">Cues in the statement: ${cues.map(c => `<mark>${esc(c)}</mark>`).join(' ')}</div>` : `<div class="muted small">Reach for it when: ${esc(pat.triggers[0])}</div>`}</div>`;
+    done(1);
+    const step2 = rung(2, 'How fast can it be?');
+    choose(step2, `The obvious way: ${esc(p.brute)} What time complexity should the final solution reach?`, cOpts, c => c, p.time, (ok2, fb2) => {
+      got.time = ok2;
+      fb2.innerHTML = `<div class="reveal">${ok2 ? '✓ Right.' : `Not quite. It's <b>${esc(p.time)}</b>.`} ${esc(firstSentence(L.why || ''))}</div>`;
+      done(2);
+      const step3 = rung(3, 'Write the key lines');
+      step3.innerHTML = `<p class="think">The skeleton is filled in. Write the lines that make it solve this problem; the real tests decide.</p><span id="gclock" hidden></span><div id="gfill"></div>`;
+      GAMES.fill.render($('#gfill', app), p, q => {
+        review('fill', p.id, q); got.code = q;
+        if (!walked(p.id)) { S.study.walks[p.id] = today(); save(); }
+        done(3);
+        const mark = v => v ? '✓' : '✗';
+        $('#gend', app).innerHTML = `<div class="card end-card"><h2>Done</h2>
+          <p>Pattern ${mark(got.pattern)} · Speed ${mark(got.time)} · Code ${q > 0 ? '✓ passed' : '✗ needed the answer'}</p>
+          <p class="muted">Now read the full approach for this problem and see where your thinking differed.</p>
+          <div class="row"><a class="btn primary" href="#/study/${p.pattern}/${p.id}?peek=1" data-key="w">Full approach <kbd>W</kbd></a>
+            <a class="btn" href="#/study/${p.pattern}" data-key="n">Back to the course <kbd>N</kbd></a></div></div>`;
+        $('#gend', app).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }, { clock: $('#gclock', app) });
+    });
+  });
+}
+
 // Solve cold: statement + blank editor, an optional approach coach that fades with practice,
 // and a hint ladder. Mixed practice hides the title and pattern until you're done.
 function studySolve(app, probId, params) {
@@ -1682,9 +1813,7 @@ function studySolve(app, probId, params) {
     <div class="solve-grid">
       <div class="solve-left">
         <div class="card"><p class="statement">${esc(p.statement)}</p><div class="muted small">Examples</div>${exampleHtml(p)}</div>
-        <details class="coach card" ${coachOpen ? 'open' : ''}><summary>Approach coach <span class="muted small">(optional notes, step by step)</span></summary>
-          ${APPROACH.slice(0, 6).map((a, k) => `<label class="coach-step"><span><b>${k + 1}. ${esc(a.t)}</b><span class="muted small">${esc(a.d)}</span></span>
-            <textarea rows="2" aria-label="${esc(a.t)}"></textarea></label>`).join('')}</details>
+        <section class="coach card" id="coach" aria-label="Approach coach"></section>
         <div id="hintbox" aria-live="polite"></div>
       </div>
       <div class="solve-right">
@@ -1697,6 +1826,32 @@ function studySolve(app, probId, params) {
   const ed = $('#ed', app); ed.value = p.starter; enhanceEditor(ed, { onSubmit: () => run() });
   ed.focus(); ed.selectionStart = ed.selectionEnd = ed.value.length - 1;
   const timer = startTimer($('#clock', app), 0, null, { countUp: true });
+  // Approach coach: one step at a time with its own notes box. Open for your first few cold solves, then tucked away.
+  const coach = $('#coach', app); const notes = []; let ci = 0, coachShown = coachOpen;
+  const drawCoach = () => {
+    if (!coachShown) {
+      coach.innerHTML = `<div class="coach-head"><b>Approach coach</b><span class="muted small">6 steps, optional</span><span class="spacer"></span>
+        <button type="button" class="ghost" id="cshow" aria-expanded="false">Show</button></div>`;
+      $('#cshow', coach).onclick = () => { coachShown = true; drawCoach(); $('#cn', coach).focus(); };
+      return;
+    }
+    const a = APPROACH[ci];
+    coach.innerHTML = `<div class="coach-head"><b>Approach coach</b><span class="muted small">Step ${ci + 1} of 6</span><span class="spacer"></span>
+        <button type="button" class="ghost" id="chide" aria-expanded="true">Hide</button></div>
+      <ol class="coach-steps">${APPROACH.slice(0, 6).map((x, k) => `<li><button type="button" class="${k === ci ? 'on' : notes[k] ? 'done' : ''}" data-ci="${k}"
+        title="${esc(x.t)}" aria-label="Step ${k + 1}: ${esc(x.t)}" ${k === ci ? 'aria-current="step"' : ''}>${k + 1}</button></li>`).join('')}</ol>
+      <label class="coach-body" for="cn"><b>${esc(a.t)}</b><span class="muted small">${esc(a.d)}</span></label>
+      <textarea id="cn" rows="3" placeholder="Your notes for this step (optional)">${esc(notes[ci] || '')}</textarea>
+      <div class="row coach-nav"><button type="button" class="ghost" id="cprev" ${ci ? '' : 'disabled'}>Back</button><span class="spacer"></span>
+        <button type="button" id="cnext">${ci < 5 ? 'Next step' : 'Done, write the code'}</button></div>`;
+    const ta = $('#cn', coach); ta.oninput = () => { notes[ci] = ta.value; };
+    const go = k => { ci = k; drawCoach(); $('#cn', coach).focus(); };
+    $$('[data-ci]', coach).forEach(b => b.onclick = () => go(+b.dataset.ci));
+    $('#cprev', coach).onclick = () => go(ci - 1);
+    $('#cnext', coach).onclick = () => (ci < 5 ? go(ci + 1) : ed.focus());
+    $('#chide', coach).onclick = () => { coachShown = false; drawCoach(); };
+  };
+  drawCoach();
   const markAttempt = () => { if (!attempted(p.id)) { S.study.attempts[p.id] = today(); save(); } };
   const reveal = () => mystery ? `<div class="reveal">It was <b>${esc(p.title)}</b>, a ${patternTag(p.pattern)} problem.</div>` : '';
   const after = () => {

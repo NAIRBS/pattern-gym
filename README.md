@@ -51,9 +51,9 @@ and having a method for when you don't recognise it, does. So each pattern is a 
 
 | Stage | What you do |
 |---|---|
-| **1 · The idea** | Why the pattern exists, the cues that point to it, when it's a *different* pattern, and its skeleton built line by line |
+| **1 · The idea** | Why the pattern exists, the cues that point to it, when it's a *different* pattern, and its skeleton with the job of each line (state, loop, decide, update, answer) |
 | **2 · Worked example** | One problem taken from the **naive brute force** (real code that passes the tests) **to the final answer** |
-| **3 · Guided** | The same steps, but you write the plan and the code before the answer shows |
+| **3 · Guided** | Three decisions, each checked as you make it: which pattern, how fast it must be, then the key lines run against the tests |
 | **4 · Solo, cold** | Solve from a blank editor first; the walkthrough unlocks only after a real attempt |
 
 Then **mixed practice** picks a problem from the patterns you've studied and **hides its name and pattern**: the closest
@@ -97,6 +97,7 @@ The cold-solve page has an **approach coach** (open for your first few attempts,
 - **Problems page:** search all 150 and solve any of them against the real tests.
 - **Answers:** "Show answer" toggles, so you can hide it and keep working, but seeing it once records the round as missed.
 - **← Previous** reopens the last question and undoes the grade you gave it.
+- **Code editors** have optional syntax colours (toggle on the editor itself, no autocomplete) and Python-friendly indentation: Tab / Shift+Tab indent or dedent the selection, Backspace removes 4 leading spaces, Enter keeps the indent.
 
 <p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and highlighted matches" width="680"></p>
 
