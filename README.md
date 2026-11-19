@@ -21,7 +21,7 @@ Runs in your browser (your code runs there too) · or locally with `python serve
 ## Contents
 
 - [What's inside](#whats-inside)
-- [The grind guide](#the-grind-guide)
+- [The Starter Guide](#the-starter-guide)
 - [The Study tab](#the-study-tab)
 - [The games](#the-games)
 - [Keyboard](#keyboard)
@@ -43,14 +43,14 @@ Runs in your browser (your code runs there too) · or locally with `python serve
 | 🎮 **9 games** | From spotting a pattern in seconds to a full mock interview |
 | 🔁 **Spaced repetition** | Nailed items come back after 1, 3, 7, 14, 30… days; blanked ones tomorrow. A full solve you passed comes back as a *different* problem of the same pattern |
 | 🔗 **Out-links** | Every problem links to LeetCode (slugs checked against LeetCode's API) and to NeetCode's video |
-| 🗺️ **The grind guide** | One page: the 8-week plan, a daily routine, and which outside resource is best for what |
+| 🗺️ **The Starter Guide** | First three steps, the 8-week plan as a timeline, a daily routine, and a table of which outside resource does what. New users land on it first |
 | ⏰ **Interview date** | Within 14 days, urgent mode packs reviews closer so everything gets reps |
 | ⌨️ **Keyboard-first** | The bar at the bottom always shows the keys for the screen you're on |
 | ☁️ **Optional sync** | Sign in with an email link; progress from every device is combined, never overwritten |
 
-## The grind guide
+## The Starter Guide
 
-The app is one piece of getting good at coding interviews. The **Guide** tab (<kbd>G</kbd> <kbd>U</kbd>) is the rest of the map;
+The app is one piece of getting good at coding interviews. The **Starter Guide** tab (<kbd>G</kbd> <kbd>U</kbd>) is the rest of the map;
 here is the short version.
 
 **Five rules.** Learn patterns, not problems. Attempt before you read (25–40 minutes cold). Re-solve what you failed,
@@ -206,7 +206,7 @@ pattern-gym/
 ├── content/               problems, twists, hidden-test generators (perf.py), LeetCode links, lessons, walkthroughs
 ├── static/                the whole app, which is what gets published
 │   ├── app.js             pages, games, Study, keyboard
-│   ├── guide.js           the grind guide page
+│   ├── guide.js           the Starter Guide page
 │   ├── py-worker.js       Python in the browser
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring

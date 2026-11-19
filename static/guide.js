@@ -1,4 +1,4 @@
-// The grind guide: one page that says what to do each day, which outside resource is best for what,
+// The Starter Guide: one page that says what to do each day, which outside resource is best for what,
 // and where to look when stuck. Loaded after app.js; uses its helpers (esc, md, ROUTES, C).
 'use strict';
 
@@ -10,30 +10,31 @@ const GUIDE_RULES = [
   ['Practise out loud, under a clock.', 'Knowing the answer and producing it in 30 minutes while talking are different skills. Train the second one too.'],
 ];
 
-// [weeks, title, here, elsewhere]
+// [when, title, in this app, elsewhere, start week, end week]  (weeks 0-8; drawn as a timeline)
 const GUIDE_PLAN = [
   ['Days 1–3', 'Python fluency',
     'Syntax Snap until Counter, defaultdict, heapq, deque, sort keys and slicing come without thinking. Set your interview date in Settings so the plan paces itself.',
-    'The Python cheat sheet on the Study tab; LeetCode’s editor, to get used to its class-based signatures.'],
+    'The Python cheat sheet on the Study tab; LeetCode’s editor, to get used to its class-based signatures.', 0, 0.43],
   ['Weeks 1–4', 'Patterns',
     'One Study course every day or two, in the path order: the idea, the worked example, guided problems, solo problems cold, then the transfer check. Do the Today plan’s reviews every day.',
-    'After each cold solve, submit the same problem on LeetCode (the link is on the problem) to meet its judge and hidden tests. Watch the NeetCode video only after a real attempt.'],
+    'After each cold solve, submit the same problem on LeetCode (the link is on the problem). Watch the NeetCode video only after a real attempt.', 0.43, 4],
   ['Weeks 3–8', 'Volume',
     'Keep the daily reviews. OA Mode on problems the plan brings back.',
-    'Work through Grind 75 (or the NeetCode 150) on LeetCode with a timer: 25 min for Easy, 40 for Medium. Log each miss and re-solve it here later.'],
-  ['Weeks 6–8', 'Speed and pressure',
-    'Mixed practice (names hidden) and OA Mode with the hidden large tests on.',
-    'A LeetCode weekly contest every week. If you have Premium, the company-tagged lists for your target companies in the last two weeks.'],
+    'Grind 75 (or the NeetCode 150) on LeetCode with a timer: 25 min for Easy, 40 for Medium. Log each miss and re-solve it here later.', 2, 8],
   ['From week 4', 'Talking',
     'Mock Interview once a week: clarify, plan out loud, code, state complexity, test.',
-    'Peer mocks on Pramp, paid mocks with engineers on interviewing.io, and its public recordings. Behavioural answers and your resume from the Tech Interview Handbook a week before you apply.'],
+    'Peer mocks on Pramp, paid mocks on interviewing.io, and its public recordings. Behavioural answers and your resume from the Tech Interview Handbook a week before you apply.', 3, 8],
+  ['Weeks 6–8', 'Speed and pressure',
+    'Mixed practice (names hidden) and OA Mode with the hidden large tests on.',
+    'A LeetCode weekly contest every week. With Premium, the company-tagged lists for your target companies in the last two weeks.', 5, 8],
 ];
 
+// [time, step, what, minutes (sizes the bar)]
 const GUIDE_DAY = [
-  ['10–20 min', 'Reviews', 'Today’s plan, top to bottom. Due items first; they’re what you’re about to forget.'],
-  ['25–45 min', 'One new problem, cold', 'A Study cold solve, a mystery problem, or the next Grind 75 problem on LeetCode. Timer on.'],
-  ['10–15 min', 'Close the loop', 'If you missed it: read the walkthrough or watch the video, close it, and write the solution from a blank editor.'],
-  ['2 min', 'One line', 'Write down the signal you should have spotted (“sorted input + pair → two pointers”). That sentence is the thing you’re really learning.'],
+  ['10–20 min', 'Reviews', 'Today’s plan, top to bottom. Due items first; they’re what you’re about to forget.', 15],
+  ['25–45 min', 'One new problem, cold', 'A Study cold solve, a mystery problem, or the next Grind 75 problem on LeetCode. Timer on.', 35],
+  ['10–15 min', 'Close the loop', 'If you missed it: read the walkthrough or watch the video, close it, and write the solution from a blank editor.', 12],
+  ['2 min', 'One line', 'Write down the signal you should have spotted (“sorted input + pair → two pointers”). That sentence is the thing you’re really learning.', 3],
 ];
 
 const GUIDE_STUCK = [
@@ -84,48 +85,104 @@ const GUIDE_RES = [
     'Optional, after the patterns. A weekly LeetCode contest is usually enough for interviews.'],
 ];
 
-ROUTES.guide = app => {
+// Who does what: 2 = yes, 1 = partly, 0 = no. Columns match GUIDE_CAPS.
+const GUIDE_CAPS = ['Problems + judge', 'Explanations', 'Videos', 'Study path', 'Real people', 'Behavioural, resume', 'Contests'];
+const GUIDE_MATRIX = {
+  'Pattern Gym (here)':        ['Free', [2, 2, 0, 2, 0, 0, 0]],
+  'LeetCode':                  ['Free / Premium', [2, 1, 0, 1, 0, 0, 2]],
+  'NeetCode':                  ['Free / Pro', [1, 2, 2, 2, 0, 0, 0]],
+  'Tech Interview Handbook':   ['Free', [0, 1, 0, 2, 0, 2, 0]],
+  'USACO Guide':               ['Free', [1, 2, 1, 2, 0, 0, 1]],
+  'AlgoMonster / Grokking':    ['Paid', [1, 2, 0, 2, 0, 0, 0]],
+  'interviewing.io and Pramp': ['Paid / Free', [0, 0, 1, 0, 2, 1, 0]],
+  'Contest sites':             ['Free', [2, 1, 0, 0, 0, 0, 2]],
+};
+const GUIDE_TABS = [['start', 'Start here'], ['plan', '8-week plan'], ['day', 'Daily routine'], ['stuck', 'When stuck'], ['where', 'Where to look'], ['resources', 'Resources']];
+
+ROUTES.guide = (app, [tab]) => {
+  if (!GUIDE_TABS.some(([id]) => id === tab)) tab = 'start';
+  try { localStorage.setItem('pg-guide-seen', '1'); } catch (e) {}
   const nP = C.problems.length, nT = C.twists.length, nPat = C.patterns.length;
-  const link = ([label, href]) => href.startsWith('#') ? `<a href="${href}">${esc(label)}</a>` : `<a href="${href}" target="_blank" rel="noopener">${esc(label)} ↗</a>`;
+  const link = ([label, href]) => href.startsWith('#') ? `<a class="gchip in" href="${href}">${esc(label)}</a>`
+    : `<a class="gchip" href="${href}" target="_blank" rel="noopener">${esc(label)} <span aria-hidden="true">↗</span></a>`;
+  const mark = v => v === 2 ? '<span class="gm yes" role="img" aria-label="Yes">●</span>' : v === 1 ? '<span class="gm part" role="img" aria-label="Partly">◐</span>' : '<span class="gm no" role="img" aria-label="No">–</span>';
+  const resUrl = n => (GUIDE_RES.find(r => r[0] === n) || [])[1];
+  const body = {
+    start: () => `
+      <section><h2>Your first three steps</h2>
+        <ol class="gsteps">
+          <li><a class="card" href="#/settings"><span class="gn">1</span><b>Set your interview date</b><span class="muted">The daily plan paces itself to it. No date is fine too.</span><span class="go">Settings →</span></a></li>
+          <li><a class="card" href="#/play/syntax"><span class="gn">2</span><b>Warm up your Python</b><span class="muted">A few rounds of Syntax Snap: Counter, heapq, deque, slicing.</span><span class="go">Syntax Snap →</span></a></li>
+          <li><a class="card" href="#/study"><span class="gn">3</span><b>Start the first course</b><span class="muted">Then come back to Today every day for your plan and reviews.</span><span class="go">Study →</span></a></li>
+        </ol></section>
+      <section><h2>Five rules</h2>
+        <ol class="grules">${GUIDE_RULES.map(([b, t], i) => `<li><span class="gn">${i + 1}</span><div><b>${esc(b)}</b><p class="muted">${esc(t)}</p></div></li>`).join('')}</ol></section>
+      <section><h2>What this app covers</h2>
+        <div class="gtwo">
+          <div class="card"><h3>Here</h3><ul>
+            <li>${nPat} pattern courses, from the idea to problems you solve cold, then a twist you haven’t seen.</li>
+            <li>${nP} NeetCode 150 problems and ${nT} twists, with real tests and large hidden tests.</li>
+            <li>Short drills for each layer: spotting the pattern, structure, syntax, complexity, edge cases.</li>
+            <li>Spaced reviews that bring each pattern back just before you’d forget it.</li></ul></div>
+          <div class="card"><h3>Elsewhere</h3><ul>
+            <li>Volume: LeetCode has thousands of problems; ${nP + nT} is a core.</li>
+            <li>Languages other than Python.</li>
+            <li>Contests, company-tagged lists and practice with real people.</li>
+            <li>Behavioural interviews, resumes, offers, system design.</li></ul>
+            <a href="#/guide/resources">See which resource does what →</a></div>
+        </div></section>`,
+    plan: () => `
+      <section><p class="muted">About 8 weeks at 60–90 minutes a day. Phases overlap on purpose. With 4 weeks, halve each phase; with less, the Today plan switches to urgent mode.</p>
+        <div class="gantt" role="img" aria-label="Timeline: Python fluency days 1 to 3, patterns weeks 1 to 4, volume weeks 3 to 8, talking from week 4, speed and pressure weeks 6 to 8">
+          <div class="gantt-row gantt-head"><span></span><div class="gantt-track">${Array.from({ length: 8 }, (_, w) => `<span>W${w + 1}</span>`).join('')}</div></div>
+          ${GUIDE_PLAN.map(([w, t, , , a, b], i) => `<div class="gantt-row"><span class="gantt-label">${esc(t)}</span><div class="gantt-track">
+            <i class="gantt-bar c${i}${b - a < 1 ? ' narrow' : ''}" style="left:${a / 8 * 100}%;width:${(b - a) / 8 * 100}%"><span>${esc(w)}</span></i></div></div>`).join('')}
+        </div></section>
+      <section><table class="gtbl"><thead><tr><th>Phase</th><th>In Pattern Gym</th><th>Elsewhere</th></tr></thead><tbody>
+        ${GUIDE_PLAN.map(([w, t, here, out], i) => `<tr><td data-label="Phase"><span class="gdot c${i}"></span><b>${esc(t)}</b><div class="muted small mono">${esc(w)}</div></td>
+          <td data-label="In Pattern Gym">${esc(here)}</td><td data-label="Elsewhere">${esc(out)}</td></tr>`).join('')}
+      </tbody></table></section>`,
+    day: () => `
+      <section><p class="muted">60–90 minutes, in this order: reviews first, because they protect what you already know.</p>
+        <div class="daybar" aria-hidden="true">${GUIDE_DAY.map(([t, w, , m], i) => `<span class="c${i}" style="flex:${m}"><b>${esc(w)}</b><i>${esc(t)}</i></span>`).join('')}</div>
+        <ol class="gday">${GUIDE_DAY.map(([t, w, d], i) => `<li class="card"><span class="gn c${i}">${i + 1}</span><div><div class="gday-h"><b>${esc(w)}</b><span class="mono small muted">${esc(t)}</span></div><p class="muted">${esc(d)}</p></div></li>`).join('')}</ol>
+        <div class="row" style="margin-top:16px"><a class="btn primary" href="#/today" data-key="t">Open today’s plan <kbd>T</kbd></a>
+          <a class="btn" href="#/study" data-key="s">Study <kbd>S</kbd></a></div></section>`,
+    stuck: () => `
+      <section><p class="muted">A clock for one problem. Move to the next step only when its time is up.</p>
+        <ol class="gladder">${GUIDE_STUCK.map(([t, d], i) => `<li><span class="gladder-t mono">${esc(t)}</span><span class="gladder-dot c${i}"></span><p>${esc(d)}</p></li>`).join('')}</ol>
+        <p class="muted small">The cold-solve page has these hints built in, in this order. Copying an answer you haven’t understood never counts as solving it.</p></section>`,
+    where: () => `
+      <section><table class="gtbl where"><thead><tr><th>If…</th><th>Go to</th></tr></thead><tbody>
+        ${GUIDE_WHERE.map(([q, ls]) => `<tr><td data-label="If…"><b>${esc(q)}</b></td><td data-label="Go to"><div class="gchips">${ls.map(link).join('')}</div></td></tr>`).join('')}
+      </tbody></table>
+      <p class="muted small" style="margin-top:12px"><span class="gchip in" aria-hidden="true">Green</span> links stay in this app; the others open LeetCode, NeetCode and so on in a new tab.</p></section>`,
+    resources: () => `
+      <section><h2>Who does what</h2>
+        <div class="gscroll"><table class="gmatrix"><thead><tr><th>Resource</th><th>Cost</th>${GUIDE_CAPS.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>
+          ${Object.entries(GUIDE_MATRIX).map(([n, [cost, v]]) => `<tr class="${n.startsWith('Pattern Gym') ? 'self' : ''}"><th scope="row">${resUrl(n) ? `<a href="${resUrl(n)}" target="_blank" rel="noopener">${esc(n)} ↗</a>` : esc(n)}</th>
+            <td class="small">${esc(cost)}</td>${v.map(x => `<td>${mark(x)}</td>`).join('')}</tr>`).join('')}
+        </tbody></table></div>
+        <p class="muted small">${mark(2)} yes · ${mark(1)} partly · ${mark(0)} no</p></section>
+      <section><h2>How to use each</h2>
+        <table class="gtbl"><thead><tr><th>Resource</th><th>Best at</th><th>How to use it</th></tr></thead><tbody>
+          ${GUIDE_RES.map(([n, url, cost, best, how]) => `<tr><td data-label="Resource"><a href="${url}" target="_blank" rel="noopener"><b>${esc(n)}</b> ↗</a><div class="muted small">${esc(cost)}</div></td>
+            <td data-label="Best at">${esc(best)}</td><td data-label="How to use it">${esc(how)}</td></tr>`).join('')}
+        </tbody></table></section>`,
+  };
   app.innerHTML = `<div class="guide">
-    <div class="study-head"><h1>The grind guide</h1>
-      <p class="lede">Everything you need to get good at coding interviews quickly: what to do each day, which outside resource is best for what,
-        and where to look when you’re stuck. This app is one piece of it. The rest is below, with what each is best at.</p></div>
-
-    <section><h2>The short version</h2><ol class="rules">${GUIDE_RULES.map(([b, t]) => `<li><b>${esc(b)}</b> ${esc(t)}</li>`).join('')}</ol></section>
-
-    <section><h2>The plan</h2>
-      <p class="muted small">For about 8 weeks at 60–90 minutes a day. With 4 weeks, halve each phase and do Grind 75’s shortest schedule; with less, see the Today plan’s urgent mode.</p>
-      <ol class="phases">${GUIDE_PLAN.map(([w, t, here, out]) => `<li><div class="ph-when">${esc(w)}</div><div><h3>${esc(t)}</h3>
-        <p><span class="ph-k">Here</span>${esc(here)}</p><p><span class="ph-k">Elsewhere</span>${esc(out)}</p></div></li>`).join('')}</ol></section>
-
-    <section><h2>A day</h2>
-      <table class="gtable"><tbody>${GUIDE_DAY.map(([t, w, d]) => `<tr><td class="mono nowrap">${esc(t)}</td><td><b>${esc(w)}</b><br><span class="muted">${esc(d)}</span></td></tr>`).join('')}</tbody></table>
-      <div class="row" style="margin-top:12px"><a class="btn primary" href="#/today" data-key="t">Open today’s plan <kbd>T</kbd></a>
-        <a class="btn" href="#/study" data-key="s">Study <kbd>S</kbd></a></div></section>
-
-    <section><h2>When you’re stuck on a problem</h2>
-      <table class="gtable"><tbody>${GUIDE_STUCK.map(([t, d]) => `<tr><td class="mono nowrap">${esc(t)}</td><td>${esc(d)}</td></tr>`).join('')}</tbody></table>
-      <p class="muted small">The cold-solve page has these hints built in, in this order. Copying an answer you haven’t understood never counts as solving it.</p></section>
-
-    <section><h2>Where to look</h2>
-      <table class="gtable where"><tbody>${GUIDE_WHERE.map(([q, ls]) => `<tr><td>${esc(q)}</td><td>${ls.map(link).join(' · ')}</td></tr>`).join('')}</tbody></table></section>
-
-    <section><h2>The resources, and what each is best at</h2>
-      <div class="res-grid">${GUIDE_RES.map(([n, url, cost, best, how]) => `<article class="gres card">
-        <div class="res-head"><h3><a href="${url}" target="_blank" rel="noopener">${esc(n)} ↗</a></h3><span class="tag">${esc(cost)}</span></div>
-        <p>${esc(best)}</p><p class="muted"><b>How to use it:</b> ${esc(how)}</p></article>`).join('')}</div></section>
-
-    <section><h2>What this app does, and what it leaves to the others</h2>
-      <div class="two"><div><h3>Here</h3><ul>
-        <li>${nPat} pattern courses that go from the idea to problems you solve cold, then a twist you haven’t seen.</li>
-        <li>${nP} NeetCode 150 problems and ${nT} twists, run in your browser against real tests, including large hidden tests that fail correct but slow code.</li>
-        <li>Short drills for each layer of a solution: spotting the pattern, structure, syntax, complexity, edge cases.</li>
-        <li>Spaced repetition that brings each problem back just before you’d forget it, and swaps in a sibling problem so you review the pattern, not one answer.</li></ul></div>
-      <div><h3>Elsewhere</h3><ul>
-        <li>Volume and breadth: LeetCode has thousands of problems; ${nP + nT} is a core, not the whole field.</li>
-        <li>Languages other than Python.</li>
-        <li>Contests, company-tagged lists and real people: LeetCode, Pramp, interviewing.io.</li>
-        <li>Behavioural interviews, resumes, offers and system design: the Tech Interview Handbook and the System Design Primer.</li></ul></div></div></section>
+    <div class="study-head"><h1>Starter Guide</h1>
+      <p class="lede">Everything you need to get good at coding interviews quickly: what to do each day, where to look when you’re stuck,
+        and which outside resource is best for what.</p></div>
+    <div class="gtabs" role="tablist" aria-label="Guide sections">${GUIDE_TABS.map(([id, label], i) =>
+      `<a role="tab" href="#/guide/${id}" aria-selected="${id === tab}" tabindex="${id === tab ? 0 : -1}" class="${id === tab ? 'on' : ''}"
+        data-key="${i + 1}" data-kgroup="switch section">${esc(label)} <kbd>${i + 1}</kbd></a>`).join('')}</div>
+    <div role="tabpanel" aria-label="${esc(GUIDE_TABS.find(([id]) => id === tab)[1])}" class="gpanel">${body[tab]()}</div>
   </div>`;
+  const tabs = $$('.gtabs [role=tab]', app);
+  $('.gtabs', app).addEventListener('keydown', e => {
+    const k = tabs.indexOf(document.activeElement); if (k < 0) return;
+    const j = e.key === 'ArrowRight' ? k + 1 : e.key === 'ArrowLeft' ? k - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
+    if (j === null) return; e.preventDefault(); e.stopPropagation(); tabs[(j + tabs.length) % tabs.length].focus();
+  });
 };
