@@ -93,6 +93,12 @@ for pt in c["patterns"]:
 ids = [p["id"] for p in c["problems"]]
 if len(ids) != len(set(ids)):
     print("DUPLICATE IDS"); bad += 1
+# twist problems: each points at a real problem of the same pattern
+byid = {p["id"]: p for p in c["problems"]}
+for p in c["problems"]:
+    t = p.get("twist_of")
+    if t and (t not in byid or byid[t]["pattern"] != p["pattern"] or byid[t].get("twist_of")):
+        print("BAD TWIST_OF", p["id"], t); bad += 1
 
 print(f"{len(c['problems'])} problems, {len(c['sprint'])} sprint, {len(c['syntax'])} syntax, "
       f"{len(c['patterns'])} patterns -> {'ALL OK' if not bad else str(bad) + ' problem(s)'}")

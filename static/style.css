@@ -105,6 +105,7 @@ pre.code { background: var(--code-bg); border: 1px solid var(--line); border-rad
 .tag { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
   background: var(--panel2); color: var(--muted); letter-spacing: .02em; }
 .tag.Easy { color: var(--good); } .tag.Medium { color: var(--shaky-text); } .tag.Hard { color: var(--bad); }
+.tag.twist { color: var(--accent); }
 
 /* Game shell */
 .gamehead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -579,3 +580,46 @@ body.keys-off .skbd-idle, body.keys-off .kbd-tip { display: none; }
 .guided .options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .gfb .reveal { margin-top: 10px; }
 .ed-area textarea { display: block; }
+.rotated { margin: -6px 0 12px; }
+
+/* out-links to LeetCode / NeetCode */
+.exts { display: inline-flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.walk-head .exts { margin-left: auto; }
+.ext { font-size: 13px; color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; white-space: nowrap; }
+.ext:hover, .ext:focus-visible { color: var(--text); border-bottom-color: currentColor; }
+.pext { font-family: var(--mono, ui-monospace, monospace); font-size: 12px; }
+
+/* grind guide */
+.guide { max-width: 980px; }
+.guide section { margin-top: 34px; }
+.guide .rules { padding-left: 1.3em; display: grid; gap: 8px; }
+.guide .rules b { color: var(--text); }
+.phases { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.phases li { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+.phases li:last-child { border-bottom: 1px solid var(--line); }
+.phases h3 { margin: 0 0 6px; }
+.phases p { margin: 4px 0; }
+.ph-when { font-family: var(--mono); font-size: 13px; color: var(--muted); padding-top: 2px; }
+.ph-k { display: inline-block; min-width: 82px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.gtable { width: 100%; }
+.gtable td { vertical-align: top; padding: 9px 12px 9px 0; }
+.gtable .nowrap { white-space: nowrap; }
+.gtable.where td:first-child { width: 38%; font-weight: 600; }
+.res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.gres h3 { margin: 0; font-size: 17px; }
+.gres h3 a { color: var(--text); text-decoration: none; }
+.gres h3 a:hover { text-decoration: underline; }
+.res-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.gres p { margin: 6px 0; font-size: 14.5px; }
+.guide-cta { display: block; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md, 10px); color: var(--muted); text-decoration: none; }
+.guide-cta:hover, .guide-cta:focus-visible { color: var(--text); border-color: var(--accent); }
+.guide-cta b { color: var(--text); }
+@media (max-width: 640px) { .phases li { grid-template-columns: 1fr; gap: 4px; } .gtable.where td:first-child { width: auto; } }
+/* eight tabs: tighten the header between 821px and 1150px so it stays on one line */
+@media (min-width: 821px) and (max-width: 1150px) {
+  .topbar { gap: 10px; }
+  nav { gap: 0; }
+  nav a { padding-left: 6px; padding-right: 6px; }
+  .hud { gap: 4px; font-size: 13px; }
+  .hud .pill { padding: 4px 8px; }
+}

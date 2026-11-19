@@ -4,7 +4,8 @@ from .problems import PROBLEMS as _P0
 from .problems_a import PROBLEMS_A
 from .problems_b import PROBLEMS_B
 from .problems_c import PROBLEMS_C
-PROBLEMS = sorted(_P0 + PROBLEMS_A + PROBLEMS_B + PROBLEMS_C, key=lambda p: p["num"])
+from .problems_twist import PROBLEMS_TWIST, PERF_TWIST
+PROBLEMS = sorted(_P0 + PROBLEMS_A + PROBLEMS_B + PROBLEMS_C + PROBLEMS_TWIST, key=lambda p: p["num"])
 from .sprint import SPRINT
 from .syntax import SYNTAX
 from .interview import CLARIFY_GENERIC, THINK_ALOUD, RUBRIC, COMPLEXITIES
@@ -12,6 +13,8 @@ from .study_patterns import LESSONS, METHOD, INPUT_SIZE
 from .study_problems import WALK
 from .study_brute import BRUTE
 from .perf import PERF
+from .links import LEETCODE
+PERF = {**PERF, **PERF_TWIST}
 
 
 def _strip_marks(code):
@@ -43,9 +46,12 @@ def load_all():
         p["key_lines"] = _key_lines(raw)
         p["solution"] = _strip_marks(raw)
         p["starter"] = _starter(p["solution"])
-        brute, plan = WALK.get(p["id"], ("", []))
-        p["brute"], p["plan"] = brute, plan
-        p["brute_code"] = BRUTE.get(p["id"], "")
+        brute, plan = WALK.get(p["id"], p.pop("walk", ("", [])))   # twist problems carry their own
+        p["brute"], p["plan"] = brute, list(plan)
+        p["brute_code"] = BRUTE.get(p["id"], p.get("brute_code", ""))
+        if p["id"] in LEETCODE:
+            slug, num, title, paid = LEETCODE[p["id"]]
+            p["lc"] = {"slug": slug, "num": num, "title": title, "paid": paid}
         if p["id"] in PERF:   # hidden large tests: expected answers come from the reference at run time
             size, gen = PERF[p["id"]]
             p["tests"] = {**p["tests"], "perf": {"size": size, "gen": gen.strip("\n"), "ref": p["solution"]}}
