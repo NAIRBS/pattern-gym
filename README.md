@@ -2,7 +2,7 @@
 
 # `{}` Pattern Gym
 
-**Daily drills for coding interviews in Python: learn the approach, not 150 memorised answers.**
+**Spaced practice for coding interviews in Python. It drills the parts of a solution people forget (spotting the pattern, the code skeleton, the edge cases, the complexity) and brings each one back just before you would forget it.**
 
 [![Deploy](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml/badge.svg)](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab)
@@ -16,6 +16,10 @@ Runs in your browser (your code runs there too) · or locally with `python serve
 
 </div>
 
+**Who it's for:** you've done some LeetCode, but under pressure you can't recall which pattern fits, or you blank on the code.
+Pattern Gym sits next to LeetCode and NeetCode rather than replacing them: use them for volume and explanations, and use
+this for the daily recall that makes 150 problems stick. Free, no sign-up, and your code runs in your browser.
+
 ---
 
 ## Contents
@@ -27,7 +31,7 @@ Runs in your browser (your code runs there too) · or locally with `python serve
 - [Keyboard](#keyboard)
 - [Online or local](#online-or-local)
 - [Accounts and sync](#accounts-and-sync)
-- [Project layout](#project-layout)
+- [Project layout](#project-layout) · [Architecture](docs/ARCHITECTURE.md)
 - [Adding a problem](#adding-a-problem)
 - [Deploying](#deploying)
 
@@ -211,8 +215,13 @@ pattern-gym/
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring
 ├── tests/                 node tests for merge and edge matching
-└── docs/NEXT_STEPS.md     project context: architecture, conventions, what's verified, to-dos
+└── docs/
+    ├── ARCHITECTURE.md    how it all fits together: content, judge, app, progress, sync, CI
+    └── NEXT_STEPS.md      project context: conventions, what's verified, to-dos
 ```
+
+For how the pieces work together (build time vs run time, the test-spec format, hidden tests, the merge rules, the
+trade-offs), see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ## Adding a problem
 

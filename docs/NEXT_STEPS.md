@@ -1,8 +1,9 @@
 # Pattern Gym: project context
 
 **Updated 2026-11-19.** If you're Claude starting a new session: read this file, then
-`README.md`, then the parts of `static/app.js` you need (it's sectioned with `// ───` banners). Update this
-file whenever you change architecture, state shape, conventions or the to-do list.
+`docs/ARCHITECTURE.md` and `README.md`, then the parts of `static/app.js` you need (it's sectioned with `// ───` banners). Update this
+file whenever you change architecture, state shape, conventions or the to-do list, and update
+`docs/ARCHITECTURE.md` (its checklist says when) in the same commit.
 
 ## Status
 
