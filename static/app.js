@@ -993,7 +993,7 @@ GAMES.fill = {
       <div class="fill">${lines.map((l, i) => {
         if (!key.has(i)) return `<div class="l">${(hlOn() ? highlightLine(l) : esc(l)) || ' '}</div>`;
         const ind = l.match(/^ */)[0]; gapNo++;
-        return `<div class="l"><input type="text" data-i="${i}" autocomplete="off" spellcheck="false" placeholder="gap ${gapNo}" aria-label="Gap ${gapNo}" style="margin-left:${ind.length}ch"></div>
+        return `<div class="l in"><input type="text" data-i="${i}" autocomplete="off" spellcheck="false" placeholder="gap ${gapNo}" aria-label="Gap ${gapNo}" style="margin-left:${ind.length}ch"></div>
           <div class="l gap-ans" data-for="${i}" hidden style="padding-left:${ind.length}ch"></div>`;
       }).join('')}</div>
       <div class="row" style="margin-top:12px"><button class="primary" id="check" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
