@@ -290,6 +290,11 @@ dialog.modal h4 { margin: 14px 0 4px; font-size: 13px; color: var(--muted); text
 table.keys td { padding: 4px 8px 4px 0; border: 0; vertical-align: top; }
 table.keys td:first-child { white-space: nowrap; width: 1%; }
 @media (max-width: 820px) { .keys-btn { display: none; } }
+dialog.modal.quit { width: min(420px, calc(100% - 32px)); }
+dialog.modal.quit p { margin: 6px 0 18px; }
+.quit-actions { justify-content: flex-end; gap: 10px; }
+.quit-actions .danger { border-color: var(--bad); color: var(--bad); }
+.quit-actions .danger:hover, .quit-actions .danger:focus-visible { background: var(--bad); color: var(--bad-ink); }
 /* header fits one line: below 1150px the brand shows only its logo */
 @media (max-width: 1150px) { .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 

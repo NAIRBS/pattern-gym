@@ -425,6 +425,36 @@ function showKeys() {
   }
   dlg.showModal();
 }
+// Leaving mid-round: any control with data-exit-confirm="<what is lost>" asks first.
+// Q (or Enter on Quit) confirms; Esc, a click outside, or "Keep going" stays.
+function confirmQuit(msg) {
+  return new Promise(resolve => {
+    let dlg = document.getElementById('quit-dialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog'); dlg.id = 'quit-dialog'; dlg.className = 'modal quit';
+      dlg.setAttribute('aria-labelledby', 'quit-title'); dlg.setAttribute('aria-describedby', 'quit-msg');
+      dlg.innerHTML = `<h3 id="quit-title">Quit now?</h3><p id="quit-msg" class="muted"></p>
+        <div class="row quit-actions"><button type="button" class="primary" data-a="stay">Keep going <kbd>Esc</kbd></button>
+        <button type="button" class="danger" data-a="quit">Quit <kbd>Q</kbd></button></div>`;
+      dlg.addEventListener('click', e => {
+        if (e.target === dlg) dlg.close('stay');
+        const a = e.target.closest('[data-a]'); if (a) dlg.close(a.dataset.a);
+      });
+      dlg.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); dlg.close('quit'); } });
+      document.body.append(dlg);
+    }
+    $('#quit-msg', dlg).textContent = msg;
+    dlg.returnValue = '';
+    dlg.onclose = () => { dlg.onclose = null; resolve(dlg.returnValue === 'quit'); setTimeout(paintKeybar, 0); };
+    dlg.showModal(); $('[data-a="stay"]', dlg).focus();
+  });
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest?.('[data-exit-confirm]');
+  if (!el || el._quitOk) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  confirmQuit(el.dataset.exitConfirm).then(ok => { if (ok) { el._quitOk = true; el.click(); el._quitOk = false; } });
+}, true);
 let gAt = 0;
 document.addEventListener('keydown', e => {
   if (e.defaultPrevented) return;
@@ -747,7 +777,9 @@ function runSession(app, game, n, fromPlan, filter) {
     if (i >= queue.length) return summary();
     const head = document.createElement('div');
     head.className = 'gamehead';
-    head.innerHTML = `<a href="${exitHref}" class="btn ghost" data-key="q" title="Exit (Q)">← Exit <kbd>Q</kbd></a>
+    const lost = i ? `Your grades for the ${i} question${i > 1 ? 's' : ''} you finished are saved, but question ${i + 1} and the rest of the round are not.`
+      : 'Nothing from this round has been saved yet. Your answer to this question will be lost.';
+    head.innerHTML = `<a href="${exitHref}" class="btn ghost" data-key="q" title="Exit (Q)" data-exit-confirm="${esc(lost)}">← Exit <kbd>Q</kbd></a>
       <button class="ghost" id="prev" data-key="[" ${i ? '' : 'disabled'} title="Go back to the previous question (its grade is undone)">← Previous <kbd>[</kbd></button>
       <h1>${g.icon} ${g.name}</h1>${filter ? ` ${patternTag(filter)}` : ''}
       <div class="progress"><i style="width:${i / queue.length * 100}%"></i></div><span class="muted">${i + 1}/${queue.length}</span>
@@ -1363,7 +1395,7 @@ function PROBLEM_OR_ITEM(game, id) {
 function runFixed(app, game, o) {
   const g = GAMES[game]; const shell = document.createElement('div'); app.append(shell);
   const back = () => history.length > 1 ? history.back() : (location.hash = `#/patterns/${o.pattern}`);
-  shell.innerHTML = `<div class="gamehead"><button class="ghost" id="bk" data-key="q" title="Exit (Q)">← Exit <kbd>Q</kbd></button><h1>${g.icon} ${g.name}</h1><span class="spacer"></span><span class="timer" id="clock"></span></div><div id="b"></div>`;
+  shell.innerHTML = `<div class="gamehead"><button class="ghost" id="bk" data-key="q" title="Exit (Q)" data-exit-confirm="Your answer to this problem is not saved and won’t count toward your reviews.">← Exit <kbd>Q</kbd></button><h1>${g.icon} ${g.name}</h1><span class="spacer"></span><span class="timer" id="clock"></span></div><div id="b"></div>`;
   $('#bk', shell).onclick = back;
   g.render($('#b', shell), o, q => { const x = review(game, o.id, q); toast(`+${x} XP`); back(); }, { clock: $('#clock', shell) });
 }
@@ -1969,7 +2001,7 @@ function studySolve(app, probId, params) {
     () => `<b>The plan:</b><ol class="plan">${p.plan.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`,
   ];
   app.innerHTML = `<div class="study solve">
-    <div class="gamehead"><a class="btn ghost" href="${back}" data-key="q">← Exit <kbd>Q</kbd></a>
+    <div class="gamehead"><a class="btn ghost" href="${back}" data-key="q" id="exit" data-exit-confirm="The code in your editor is not saved, and this attempt won’t be graded.">← Exit <kbd>Q</kbd></a>
       <h1>${mystery ? '🎲 Mystery problem' : esc(p.title)}</h1><span class="tag ${p.diff}">${p.diff}</span>${mystery ? '' : patternTag(p.pattern)}
       <span class="spacer"></span><span class="timer" id="clock"></span></div>
     ${mystery ? '<p class="muted small">The name and pattern are hidden. Work out the approach from the statement alone.</p>' : ''}
@@ -2020,6 +2052,7 @@ function studySolve(app, probId, params) {
   const reveal = () => mystery ? `<div class="reveal">It was <b>${esc(p.title)}</b>, a ${patternTag(p.pattern)} problem.${twistNote}</div>`
     : twistNote ? `<div class="reveal">${twistNote.trim()}</div>` : '';
   const after = () => {
+    $('#exit', app)?.removeAttribute('data-exit-confirm');   // graded: nothing left to lose
     $('#out', app).insertAdjacentHTML('beforeend', `${reveal()}<div class="row" style="margin-top:10px">
       <a class="btn" href="#/study/${p.pattern}/${p.id}" data-key="w">See the approach, brute force to final <kbd>W</kbd></a>${extLinks(p)}
       ${mystery ? `<a class="btn primary" href="#/study/mixed" data-key="n">Next mystery <kbd>N</kbd></a>` : `<a class="btn primary" href="${back}" data-key="n">Back to the course <kbd>N</kbd></a>`}</div>`);
