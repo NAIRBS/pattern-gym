@@ -30,7 +30,7 @@ file whenever you change architecture, state shape, conventions or the to-do lis
 | | Online (GitHub Pages) | Local (`server.py`) |
 |---|---|---|
 | Content | `static/content.json`, built by `build_static.py` | `/api/content`, built from `content/*.py` at startup |
-| Running code | `static/py-worker.js`: Pyodide 0.26.4 runs `runner.py` (copied into `static/` by the build) | `/api/run` + `/api/syntax`: `runner.py` in a subprocess |
+| Running code | `static/py-worker.js`: Pyodide 0.26.4 runs `runner.py` (copied into `static/` by the build) | `/api/run` + `/api/syntax` + `/api/script`: `runner.py` in a subprocess |
 | Progress | localStorage key `pattern-gym-state` (+ `navigator.storage.persist()`) | `/api/state` → `progress.json` |
 | Cloud sync | Optional Supabase (`sync.js`) on top of either | same |
 
@@ -54,7 +54,7 @@ file whenever you change architecture, state shape, conventions or the to-do lis
 ## Codebase map
 
 ```text
-server.py          local HTTP server (stdlib): static files, /api/content, /api/run, /api/syntax, /api/state
+server.py          local HTTP server (stdlib): static files, /api/content, /api/run, /api/syntax, /api/script, /api/state
 runner.py          runs code against a test spec; run(code, spec) / run_json() for Pyodide; main() for subprocess
 build_static.py    writes static/content.json + copies runner.py into static/ (both gitignored)
 validate.py        every reference solution AND brute-force version must pass (and its sentence must give an
@@ -74,9 +74,11 @@ content/
   study_brute.py   BRUTE: runnable naive code (84): worked examples, every DP problem (plain recursion =
                    the memo version minus the cache), and the array/string/search/heap/greedy ones
   sprint.py, syntax.py, interview.py   Sprint cards (150), Syntax Snap cards (34), clarify/talk-track/rubric
+  python_course.py  the Python tab (C.python): 6 sections, 43 lessons, 75 Predict/Write tasks; validate runs them all
 static/
   guide.js         the grind guide page (ROUTES.guide), loaded after app.js
   cheatsheet.js    the Cheatsheet page (ROUTES.cheatsheet): every game question + answer, read-only
+  python.js        the Python tab (ROUTES.python): lessons, runnable examples (runScript), Predict/Write quizzes
   app.js           everything UI: utilities, storage, runner client, SRS, daily plan, router, keyboard,
                    games (GAMES.*), pages (ROUTES.*), Study (courses, walkthroughs, cold solve)
   py-worker.js     Pyodide worker
@@ -102,7 +104,7 @@ tests/             node tests: merge.test.js, edge-match.test.js
 - **Review rotation** (`rotate()` in `chooseItems('oa')`): a due full solve whose last grade was a pass is
   replaced by the same-pattern sibling with the fewest reps (`_dueFor`); grading it reschedules both, and
   Previous undoes both.
-- **Routes:** today, study, games, play, problems, patterns, cheatsheet, guide, stats, settings (hash router; `onLeave` cleanup).
+- **Routes:** today, study, games, play, problems, patterns, python, cheatsheet, guide, stats, settings (hash router; `onLeave` cleanup).
 - **Games** (`GAMES.*`): sprint, lineup (SortableJS drag/drop + keyboard), skeleton (structural check,
   hint ladder), fill, syntax, bigo, edge (auto-scored via edge-match.js), oa, mock.
   "Show answer" toggles but counts as missed; "Previous" reopens the last question and undoes its grade.
@@ -144,6 +146,7 @@ tests/             node tests: merge.test.js, edge-match.test.js
    contain an `O(...)` (validate checks this; the code label and the meter read it).
 
 Done 2026-11-22:
+- Python tab (`G` `Y`): intro to Python for coding problems (USACO General topics + how to read the solutions' one-liners); runner kind `script` runs whole programs with stdin. Header: level pill hidden at 821–1300px, compact nav up to 1440px.
 - Cheatsheet tab (`G` `C`): every game question with its answer, filter, hide-answers quiz mode, print.
 - Confirm dialog before quitting a round (`confirmQuit`, `data-exit-confirm`).
 - Highlighted code lines must not sit in a flex box (flex drops whitespace-only text between spans).

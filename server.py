@@ -129,6 +129,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "unknown card"})
             spec = {"kind": "snippet", "setup": c["setup"], "check": c["check"]}
             return self._send(200, run_code(body.get("code", ""), spec, timeout=4))
+        if path == "/api/script":   # Python tab: run a whole program on the given stdin (local only)
+            cases = [{k: c[k] for k in ("stdin", "expected", "files", "outfile") if k in c} for c in body.get("cases", [])][:10]
+            return self._send(200, run_code(body.get("code", ""), {"kind": "script", "cases": cases}, timeout=4))
         return self._send(404, {"error": "not found"})
 
 

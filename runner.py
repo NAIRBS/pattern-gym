@@ -4,6 +4,9 @@ Spec kinds:
   function : {"fn", "cases": [{"args": [...], "expected": ...}], "arg_types", "ret_type", "compare", "inplace"}
   design   : {"cls", "cases": [{"ops": [...], "args": [[...]], "expected": [...]}]}
   snippet  : {"setup": str, "check": str}   (user code runs after setup; check is an expression that must be True)
+  script   : {"cases": [{"stdin": str, "expected": str?, "files": {name: text}?, "outfile": name?}]}
+             a whole program, run once per case with stdin as its input; what it prints (or writes to
+             outfile) is returned, and compared with expected when given. No prelude: imports are yours.
 """
 import json
 import sys
@@ -218,8 +221,87 @@ def run_perf(ns, spec, kind, visible, progress=None):
     return rows, round(total, 1)
 
 
+def _norm_out(s):
+    """Trailing spaces on each line and trailing blank lines don't count (most judges agree)."""
+    return "\n".join(l.rstrip() for l in s.replace("\r\n", "\n").rstrip("\n").split("\n")).rstrip("\n")
+
+
+def _err_line(e):
+    tb = traceback.extract_tb(e.__traceback__)
+    line = next((fr.lineno for fr in reversed(tb) if fr.filename == "<your code>"), None)
+    return f"{type(e).__name__}: {e}" + (f" (line {line})" if line else "")
+
+
+def run_script(code, spec):
+    import contextlib
+    import io
+    import os
+    import tempfile
+    result = {"ok": False, "results": [], "error": None}
+    try:
+        compiled = compile(code, "<your code>", "exec")
+    except SyntaxError as e:
+        result["error"] = f"SyntaxError: {e.msg} (line {e.lineno})"
+        return result
+    all_ok = True
+    for case in spec.get("cases") or [{"stdin": ""}]:
+        row = {"stdin": case.get("stdin", ""), "pass": False}
+        here, tmp = os.getcwd(), None
+        if case.get("files") or case.get("outfile"):   # file I/O exercises get a fresh folder
+            tmp = tempfile.mkdtemp()
+            os.chdir(tmp)
+            for name, text in (case.get("files") or {}).items():
+                with open(name, "w", encoding="utf-8") as f:
+                    f.write(text)
+        out, real_in, real_out = io.StringIO(), sys.stdin, sys.stdout
+        sys.stdin = io.StringIO(case.get("stdin", ""))
+        err = None
+        t0 = time.perf_counter()
+        try:
+            with contextlib.redirect_stdout(out):
+                exec(compiled, {"__name__": "__main__"})
+                if sys.stdout is not out:        # the program pointed sys.stdout at a file: flush it
+                    try:
+                        sys.stdout.flush()
+                        sys.stdout.close()
+                    except Exception:
+                        pass
+        except SystemExit:
+            pass
+        except EOFError as e:
+            err = _err_line(e) + " (input() ran out of input lines)"
+        except Exception as e:
+            err = _err_line(e)
+        finally:
+            sys.stdin, sys.stdout = real_in, real_out
+        row["ms"] = round((time.perf_counter() - t0) * 1000, 1)
+        got = out.getvalue()
+        if case.get("outfile"):
+            try:
+                with open(case["outfile"], encoding="utf-8") as f:
+                    got = f.read()
+            except OSError:
+                err = err or f"Your program didn't create {case['outfile']}"
+        if tmp:
+            os.chdir(here)
+        row["got"] = got[:20000] + ("\n... (output cut at 20,000 characters)" if len(got) > 20000 else "")
+        if err:
+            row["error"] = err
+        if "expected" in case:
+            row["expected"] = case["expected"]
+            row["pass"] = not err and _norm_out(got) == _norm_out(case["expected"])
+        else:
+            row["pass"] = not err
+        all_ok &= row["pass"]
+        result["results"].append(row)
+    result["ok"] = all_ok
+    return result
+
+
 def run(code, spec, progress=None):
     """Run code against spec and return the result dict. Also used in the browser (Pyodide worker)."""
+    if spec.get("kind") == "script":
+        return run_script(code, spec)
     ns = {"__name__": "__solution__"}
     result = {"ok": False, "results": [], "error": None}
     try:

@@ -28,6 +28,7 @@ this for the daily recall that makes 150 problems stick. Free, no sign-up, and y
 - [The Starter Guide](#the-starter-guide)
 - [The Study tab](#the-study-tab)
 - [The games](#the-games)
+- [The Python tab](#the-python-tab)
 - [The Cheatsheet](#the-cheatsheet)
 - [Keyboard](#keyboard)
 - [Online or local](#online-or-local)
@@ -147,6 +148,17 @@ The cold-solve page has an **approach coach** (open for your first few attempts,
 
 <p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and highlighted matches" width="680"></p>
 
+## The Python tab
+
+The **Python** tab (<kbd>G</kbd> <kbd>Y</kbd>) is an intro to the Python you need before the patterns, in six sections: how a
+program runs, data types, input and output (the topics of the USACO Guide's General section: `input()`, `split`/`map`,
+`sys.stdin` for fast input, `print` options, f-strings, USACO file I/O), loops and functions, the containers, and **reading
+one-liners**: comprehensions, generator expressions, `any`/`all`, `''.join`, `max(..., default=)`, `zip`, short-circuit
+guards, `setdefault`, `iter`/`next` and bit tricks, each taken apart piece by piece, written out as a plain loop, and linked
+to the solution lines that use it. Every example is editable and runs in the browser (with its own stdin), and each lesson
+ends in quizzes that run: **Predict** (type what the code prints) and **Write** (a program checked against several inputs).
+Progress there is kept in your browser only and doesn't touch your reviews.
+
 ## The Cheatsheet
 
 The **Cheatsheet** tab (<kbd>G</kbd> <kbd>C</kbd>) lists every question the games ask, with its answer, to read through without playing:
@@ -163,7 +175,7 @@ The bar at the bottom of every screen lists the keys that work right there, and 
 |---|---|---|---|
 | <kbd>?</kbd> | all shortcuts | <kbd>E</kbd> / <kbd>Esc</kbd> | into / out of the editor |
 | <kbd>/</kbd> | search problems | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | run / check |
-| <kbd>G</kbd> then <kbd>T</kbd> <kbd>S</kbd> <kbd>G</kbd> <kbd>P</kbd> <kbd>A</kbd> <kbd>C</kbd> <kbd>U</kbd> <kbd>X</kbd> <kbd>,</kbd> | go to a page | <kbd>H</kbd> · <kbd>A</kbd> | hint · show / hide answer |
+| <kbd>G</kbd> then <kbd>T</kbd> <kbd>S</kbd> <kbd>G</kbd> <kbd>P</kbd> <kbd>A</kbd> <kbd>Y</kbd> <kbd>C</kbd> <kbd>U</kbd> <kbd>X</kbd> <kbd>,</kbd> | go to a page | <kbd>H</kbd> · <kbd>A</kbd> | hint · show / hide answer |
 | <kbd>C</kbd> | continue studying | <kbd>N</kbd> · <kbd>[</kbd> | next · previous question |
 | <kbd>M</kbd> | mystery problem | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | grade: blanked / shaky / nailed |
 | <kbd>Space</kbd> | reveal the next step | <kbd>Q</kbd> | exit the game |
@@ -221,6 +233,7 @@ pattern-gym/
 │   ├── app.js             pages, games, Study, keyboard
 │   ├── guide.js           the Starter Guide page
 │   ├── cheatsheet.js      the Cheatsheet page: every game question with its answer
+│   ├── python.js          the Python tab: lessons, runnable examples, Predict and Write quizzes
 │   ├── py-worker.js       Python in the browser
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring

@@ -82,6 +82,38 @@ for s in c["syntax"]:
         bad += 1
         print("SYNTAX FAIL", s["id"], r.get("error"))
 
+# Python tab: every example runs cleanly, every Predict answer matches, every Write solution passes,
+# and every "Where you'll see it" pattern finds at least one line in the reference solutions.
+import re as _re
+from runner import _norm_out
+_sol_lines = [l for p in c["problems"] for l in p["solution"].split("\n")] + [l for pt in c["patterns"] for l in pt["skeleton"].split("\n")]
+_ids, n_py = set(), 0
+for sec in c["python"]:
+    for les in sec["lessons"]:
+        case = {"stdin": les["stdin"]}
+        if les.get("files"):
+            case.update(files=les["files"], outfile=les["outfile"])
+        r = run_code(les["code"], {"kind": "script", "cases": [case]}, timeout=4)
+        if not r["ok"]:
+            bad += 1
+            print("PY EXAMPLE FAIL", les["id"], r.get("error") or r["results"][0].get("error"))
+        if les["find"] and not any(_re.search(les["find"], l) for l in _sol_lines):
+            bad += 1
+            print("PY FIND MATCHES NOTHING", les["id"], les["find"])
+        for t in les["tasks"]:
+            n_py += 1
+            if t["id"] in _ids:
+                bad += 1
+                print("PY DUPLICATE TASK", t["id"])
+            _ids.add(t["id"])
+            if t["kind"] == "predict":
+                r = run_code(t["code"], {"kind": "script", "cases": [{"stdin": t["stdin"], "expected": t["answer"]}]}, timeout=4)
+            else:
+                r = run_code(t["solution"], {"kind": "script", "cases": t["cases"]}, timeout=4)
+            if not r["ok"]:
+                bad += 1
+                print("PY TASK FAIL", t["id"], r.get("error"), [(x.get("got"), x.get("expected"), x.get("error")) for x in r["results"] if not x["pass"]][:2])
+
 for p in c["problems"]:
     if not p["brute"] or len(p["plan"]) < 2:
         print("NO WALKTHROUGH", p["id"]); bad += 1

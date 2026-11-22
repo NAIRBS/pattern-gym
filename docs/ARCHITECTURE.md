@@ -38,7 +38,7 @@ flowchart LR
     B --> R2["static/runner.py"]
   end
   subgraph Browser["Run time (your browser)"]
-    UI["app.js + guide.js + cheatsheet.js<br/>router, pages, games"] -->|code + test spec| W["py-worker.js<br/>Pyodide (CPython in WebAssembly)"]
+    UI["app.js + guide.js + cheatsheet.js + python.js<br/>router, pages, games"] -->|code + test spec| W["py-worker.js<br/>Pyodide (CPython in WebAssembly)"]
     W -->|runs| R3["runner.py"]
     UI <--> LS[("localStorage")]
     UI <--> SY["sync.js + merge.js"]
@@ -53,7 +53,7 @@ flowchart LR
 | Content | `content/*.py` | Every problem, test, walkthrough, lesson, drill card and hidden-test generator, as Python data |
 | Build | `validate.py`, `build_static.py` | Check all content by running it, then compile it to `static/content.json` |
 | Judge | `runner.py`, `static/py-worker.js` | Run untrusted code against a test spec, with a time limit |
-| App | `static/app.js`, `static/guide.js`, `static/cheatsheet.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer |
+| App | `static/app.js`, `static/guide.js`, `static/cheatsheet.js`, `static/python.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer |
 | Helpers | `static/highlight.js`, `static/edge-match.js` | Syntax colouring; matching typed edge cases to the expected ones |
 | Progress | `static/merge.js`, `static/sync.js`, `static/config.js` | Local state, merging two copies, optional cloud sync |
 | Local mode | `server.py`, `start.bat` | Same app served from your machine, code run in a subprocess, progress in `progress.json` |
@@ -76,7 +76,7 @@ flowchart LR
 
 **Run time** is entirely in the browser:
 
-1. `index.html` loads `app.js`, then `guide.js` and `cheatsheet.js`. On boot, `loadContent()` tries `GET /api/content` (local
+1. `index.html` loads `app.js`, then `guide.js`, `cheatsheet.js` and `python.js`. On boot, `loadContent()` tries `GET /api/content` (local
    mode); if that fails it fetches `content.json` (static mode) and sets `SERVER = false`.
 2. Progress is read from `localStorage` (`pattern-gym-state`), normalised, and held in one object `S`.
 3. The hash router renders the page for the current `#/route`.
@@ -97,6 +97,7 @@ flowchart LR
 | `patterns.py`, `study_patterns.py` | The patterns: skeleton, triggers, lesson content |
 | `study_problems.py`, `study_brute.py` | Walkthrough plans and brute-force code |
 | `sprint.py`, `syntax.py`, `interview.py` | Pattern Sprint cards, Syntax Snap drills, the interview rubric and method |
+| `python_course.py` | The Python tab: sections → lessons (body, runnable example with stdin/files, how-to-read rows, the loop it stands for, a `find` regex for solution lines) → Predict and Write tasks |
 | `__init__.py` | `load_all()`: merges all of the above into the shape the app reads |
 
 ### The problem record
@@ -125,13 +126,14 @@ After `load_all()`, each problem in `content.json` looks like this (trimmed):
 
 ### Test specs
 
-`runner.py` understands three kinds:
+`runner.py` understands four kinds:
 
 | Kind | Shape | Used for |
 |---|---|---|
 | `function` | `fn`, `cases[{args, expected}]` | Most problems |
 | `design` | `cls`, `cases[{ops, args, expected}]` | Class problems (Min Stack, LRU Cache…), LeetCode's op-list format |
 | `snippet` | `setup`, `check` | Syntax Snap: your line runs after `setup`; `check` must be true |
+| `script` | `cases[{stdin, expected?, files?, outfile?}]` | The Python tab: a whole program, run once per case with `stdin` as its input and stdout captured (or `outfile` read back). Trailing spaces and blank lines don't count. No prelude, so imports are the program's own. Locally it goes through `POST /api/script` |
 
 Options on `function` specs:
 
@@ -191,6 +193,7 @@ also triggers a fresh worker. `print()` output is discarded in both modes.
 | Games | A registry `GAMES[id] = { name, pool(), gate(), render(el, item, done, ctx) }`. Every game plugs into one session runner (`runSession`), which handles the queue, grading, Previous/undo, XP and the end screen. Each game only renders a question and calls `done(grade)` |
 | Study | Courses per pattern: lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages; `nextStep()` picks what's next |
 | Starter Guide | `guide.js` registers `ROUTES.guide`, a page with six sections addressed as `#/guide/<section>` |
+| Python tab | `python.js` registers `ROUTES.python` (`#/python/<section>`: start, types, io, flow, data, pythonic) from `C.python`. Examples and quizzes run through `runScript()` (the `script` kind). A Predict task compares your typed output with what the code actually prints, line by line; a Write task runs every case. Finished tasks are kept in localStorage `pg-py-done`, outside the synced state, and never touch reviews or XP. "Where you'll see it" applies each lesson's `find` regex to every reference solution at render time |
 | Cheatsheet | `cheatsheet.js` registers `ROUTES.cheatsheet`: every game question with its answer, read-only, in six sections (`#/cheatsheet/<section>`: sprint, skeletons, syntax, solutions, bigo, edges). It reads the same `C.sprint`, `C.patterns`, `C.syntax` and `C.problems` the games draw from, so it never goes stale. A filter, a pattern menu, a Hide answers mode (blurred until clicked) and print styles; nothing on it is graded or scheduled |
 | Keyboard layer | Any button with `data-key="x"` gets that shortcut. One global `keydown` handler clicks the visible match. The key bar (`paintKeybar`) lists exactly the keys that work on the current screen |
 | Problem panel | `problemPanel(p)` renders statement, examples, typed signature and constraints from the test spec |
@@ -266,6 +269,8 @@ Sync is optional. With no values in `config.js`, the app is fully local.
 | `PERF WEAK` | The brute force passes the hidden test, so the test can't catch slow code |
 | `NO WALKTHROUGH` / `INCOMPLETE LESSON` | Study content is missing |
 | `SYNTAX FAIL` | A Syntax Snap answer fails its check |
+| `PY EXAMPLE FAIL` / `PY TASK FAIL` | A Python-tab example raises, a Predict answer isn't what the code prints, or a Write solution fails a case |
+| `PY FIND MATCHES NOTHING` / `PY DUPLICATE TASK` | A lesson's `find` regex matches no solution line, or two tasks share an id |
 | `DUPLICATE IDS` | Two records share an id |
 | `BAD TWIST_OF` | A twist points to a missing problem, another pattern, or another twist |
 

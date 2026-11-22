@@ -88,6 +88,9 @@ const runTests = (p, code, { hidden = true } = {}) => {
 };
 const runSyntax = (s, code) => SERVER ? api('/api/syntax', { id: s.id, code })
   : runPy(code, { kind: 'snippet', setup: s.setup, check: s.check }, 4000);
+// A whole program (Python tab): run once per case on its stdin; returns what it printed for each.
+const runScript = (code, cases) => SERVER ? api('/api/script', { code, cases })
+  : runPy(code, { kind: 'script', cases }, 4000);
 
 // Code editor: a plain textarea plus
 //  - optional syntax colours: a highlighted copy sits behind the transparent text, kept in sync on every change
@@ -366,7 +369,7 @@ function renderHud() {
   $('#hud').innerHTML = `
     <span class="pill ${u.mode}" title="Set in Settings">${esc(u.label)}</span>
     <span class="pill" title="Streak (best ${S.streak.best || 0})">🔥 ${S.streak.last === today() || S.streak.last === addDays(today(), -1) ? S.streak.count : 0}</span>
-    <span class="pill" title="${into}/${span} XP to next level">Lv ${l} · ${S.xp} XP</span>${Cloud.pill()}`;
+    <span class="pill hud-lv" title="${into}/${span} XP to next level">Lv ${l} · ${S.xp} XP</span>${Cloud.pill()}`;
 }
 const ROUTES = {};
 // Brand new here: no attempts, no XP, and the Starter Guide never opened.
@@ -399,9 +402,9 @@ document.getElementById('skip')?.addEventListener('click', () => $('#app').focus
 // Single keys work whenever you're not typing; Esc leaves a text box so they work again.
 // "g" then a letter jumps to a page. Buttons opt in with data-key="x" (shown as <kbd>X</kbd>).
 const NAV_KEYS = { t: ['today', 'Today'], s: ['study', 'Study'], g: ['games', 'Games'], p: ['problems', 'Problems'],
-  a: ['patterns', 'Patterns'], c: ['cheatsheet', 'Cheatsheet'], u: ['guide', 'Starter Guide'], x: ['stats', 'Stats'], ',': ['settings', 'Settings'] };
+  a: ['patterns', 'Patterns'], y: ['python', 'Python'], c: ['cheatsheet', 'Cheatsheet'], u: ['guide', 'Starter Guide'], x: ['stats', 'Stats'], ',': ['settings', 'Settings'] };
 const KEY_HELP = [
-  ['Anywhere', [['?', 'This list'], ['/', 'Search problems'], ['g then t s g p a c u x ,', 'Go to Today, Study, Games, Problems, Patterns, Cheatsheet, Starter Guide, Stats, Settings'],
+  ['Anywhere', [['?', 'This list'], ['/', 'Search problems'], ['g then t s g p a y c u x ,', 'Go to Today, Study, Games, Problems, Patterns, Python, Cheatsheet, Starter Guide, Stats, Settings'],
     ['E', 'Jump into the code editor / answer box'], ['Esc', 'Leave the editor (then single keys work)'], ['Q', 'Exit the game'], ['Tab', 'Next control']]],
   ['In a game', [['Ctrl+Enter', 'Run / check / score'], ['R', 'Run / check (when not typing)'], ['H', 'Hint'], ['A', 'Show / hide the answer'],
     ['N', 'Next question / next game when a round ends'], ['R', 'Another round (end of a round)'], ['[', 'Previous question (undoes its grade)'], ['1 2 3', 'Grade: Blanked / Shaky / Nailed'], ['1-4', 'Pick an option (Sprint, Big-O)']]],

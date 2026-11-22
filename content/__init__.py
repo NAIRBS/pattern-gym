@@ -14,6 +14,7 @@ from .study_problems import WALK
 from .study_brute import BRUTE
 from .perf import PERF
 from .links import LEETCODE
+from .python_course import PYTHON
 PERF = {**PERF, **PERF_TWIST}
 
 
@@ -74,4 +75,5 @@ def load_all():
         "complexities": COMPLEXITIES,
         "method": [{"title": t, "points": pts} for t, pts in METHOD],
         "input_size": [list(r) for r in INPUT_SIZE],
+        "python": PYTHON,
     }
