@@ -89,8 +89,8 @@ ROUTES.python = (app, [tab]) => {
 
   app.innerHTML = `<div class="guide py">
     <div class="guide-head"><h1>Python</h1>
-      <p class="lede">The Python you need before the patterns: how programs read input and print output, the data types and containers, and how to read the dense one-liners in the solutions. Every example runs, and every quiz is checked by running the code.</p>
-      <p class="muted small">${allDone} of ${allT.length} quiz questions done. Progress is kept in this browser only and doesn’t affect your reviews. Topics follow the USACO Guide’s <a href="https://usaco.guide/general/input-output?lang=py" target="_blank" rel="noopener">General section ↗</a> for Python.</p></div>
+      <p class="lede">The Python you need for online assessments and for live interviews on a blank page: writing the whole program yourself, reading input and printing output, the data types and containers, and how to read the dense one-liners in the solutions. Every example runs, and every quiz is checked by running the code.</p>
+      <p class="muted small">${allDone} of ${allT.length} quiz questions done. Progress is kept in this browser only and doesn’t affect your reviews. The input and output material follows the <a href="https://usaco.guide/general/input-output?lang=py" target="_blank" rel="noopener">USACO Guide ↗</a>.</p></div>
     <div class="gtabs" role="tablist" aria-label="Python sections">${secs.map((s, i) => { const [d, n] = count(s);
       return `<a role="tab" href="#/python/${s.id}" aria-selected="${s === sec}" tabindex="${s === sec ? 0 : -1}" class="${s === sec ? 'on' : ''}"
         data-key="${i + 1}" data-kgroup="switch section">${esc(s.title)} <span class="py-cnt${d === n && n ? ' all' : ''}">${d}/${n}</span> <kbd>${i + 1}</kbd></a>`; }).join('')}</div>

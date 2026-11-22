@@ -7,7 +7,11 @@ const CHEAT_TABS = [
   ['solutions', '🧩 Solutions', 'Line Up · Fill the Gap · OA Mode · Mock Interview'],
   ['bigo', '⏱️ Big-O', 'Big-O Call'],
   ['edges', '🔍 Edge cases', 'Edge Hunter'],
+  ['costs', '📊 Costs', ''],
+  ['method', '🧭 Method', ''],
 ];
+const CHEAT_NOUN = { sprint: 'questions', syntax: 'questions', skeletons: 'patterns', costs: 'entries', method: 'entries' };
+const cheatCx = s => s === '—' ? '<span class="muted">—</span>' : `<span class="mono cs-cx">${esc(s)}</span>`;
 const cheatMd = s => esc(s || '').replace(/`([^`]+)`/g, '<code>$1</code>');
 const cheatOrder = () => new Map(C.patterns.map((p, i) => [p.id, i]));
 // Problems grouped by pattern, in course order, numbered as in the games.
@@ -82,17 +86,44 @@ ROUTES.cheatsheet = (app, [tab], params) => {
           <td data-label="Ask the interviewer"><ul class="ans">${(p.clarify || []).map(q => `<li>${esc(q)}</li>`).join('')}</ul></td>
           <td data-label="Edge cases"><ul class="ans">${(p.edges || []).map(q => `<li>${esc(q)}</li>`).join('')}</ul></td></tr>`).join('')}
         </tbody></table></section>`).join('')}`,
+    costs: () => { const R = C.references;
+      return `<p class="muted">What each tool costs, so you can pick the one that makes your most frequent operation cheap. Average case.</p>
+      <section class="cs-sec" data-p=""><h2 class="cs-group">Read the constraints first</h2>
+        <p class="muted small">The input size tells you the runtime you need. Python manages roughly 10⁷ simple steps a second.</p>
+        <table class="gtbl cs-tbl cs-cost"><thead><tr><th>Input size</th><th>Aim for</th><th>Usually means</th></tr></thead><tbody>
+        ${C.input_size.map(r => `<tr class="cs-item" data-s="${cheatKey(r)}"><td data-label="Input size" class="mono">${esc(r[0])}</td>
+          <td data-label="Aim for"><span class="ans">${cheatCx(r[1])}</span></td><td data-label="Usually means"><span class="ans">${esc(r[2])}</span></td></tr>`).join('')}</tbody></table></section>
+      <section class="cs-sec" data-p=""><h2 class="cs-group">Data structures</h2>
+        <table class="gtbl cs-tbl cs-cost"><thead><tr><th>Structure</th><th>Access</th><th>Search</th><th>Insert</th><th>Delete</th><th>Notes</th></tr></thead><tbody>
+        ${R.ds_costs.map(r => `<tr class="cs-item" data-s="${cheatKey(r)}"><td data-label="Structure"><b>${esc(r[0])}</b></td>
+          ${['Access', 'Search', 'Insert', 'Delete'].map((h, i) => `<td data-label="${h}"><span class="ans">${cheatCx(r[i + 1])}</span></td>`).join('')}
+          <td data-label="Notes" class="small">${cheatMd(r[5])}</td></tr>`).join('')}</tbody></table></section>
+      <section class="cs-sec" data-p=""><h2 class="cs-group">Algorithms</h2>
+        <p class="muted small">V = vertices, E = edges, k = the value range, m = the second input's length.</p>
+        <table class="gtbl cs-tbl cs-cost"><thead><tr><th>Algorithm</th><th>Time</th><th>Extra space</th><th>Notes</th></tr></thead><tbody>
+        ${R.algo_costs.map(r => `<tr class="cs-item" data-s="${cheatKey(r)}"><td data-label="Algorithm"><b>${esc(r[0])}</b></td>
+          <td data-label="Time"><span class="ans">${cheatCx(r[1])}</span></td><td data-label="Extra space"><span class="ans">${cheatCx(r[2])}</span></td>
+          <td data-label="Notes" class="small">${cheatMd(r[3])}</td></tr>`).join('')}</tbody></table></section>`; },
+    method: () => { const R = C.references;
+      return `<p class="muted">How to go from a problem you’ve never seen to a tested program, in an online assessment or live on a blank page. Say each step out loud in a live interview. The Study tab’s <a href="#/study">four questions from problem to pseudocode</a> fit inside steps 2 to 5.</p>
+      <section class="cs-sec" data-p=""><h2 class="cs-group">The seven steps</h2>
+        <ol class="cs-steps">${R.steps.map(([t, d], i) => `<li class="card cs-item" data-s="${cheatKey(t, d)}"><span class="gn">${i + 1}</span><div><b>${esc(t)}</b><div class="ans">${cheatMd(d)}</div></div></li>`).join('')}</ol></section>
+      <section class="cs-sec" data-p=""><h2 class="cs-group">When the brute force is too slow</h2>
+        <p class="muted small">Start with the first three: bottlenecks, unnecessary work and duplicated work. Then try the others.</p>
+        <table class="gtbl cs-tbl"><thead><tr><th>Technique</th><th>What to do</th></tr></thead><tbody>
+        ${R.optimize.map(([t, d]) => `<tr class="cs-item" data-s="${cheatKey(t, d)}"><td data-label="Technique"><b>${esc(t)}</b></td><td data-label="What to do"><span class="ans">${cheatMd(d)}</span></td></tr>`).join('')}
+        </tbody></table></section>`; },
   };
   const cur = CHEAT_TABS.find(([id]) => id === tab);
-  const usesPattern = tab !== 'syntax';
+  const usesPattern = !['syntax', 'costs', 'method'].includes(tab);
   app.innerHTML = `<div class="guide cheat${hide ? ' quiz' : ''}">
     <div class="guide-head"><h1>Cheatsheet</h1>
-      <p class="lede">Every question from the games with its answer, to read through without playing. Nothing here counts toward your reviews.</p></div>
+      <p class="lede">Every question from the games with its answer, to read through without playing, plus what each data structure and algorithm costs and the interview method. Nothing here counts toward your reviews.</p></div>
     <div class="gtabs" role="tablist" aria-label="Cheatsheet sections">${CHEAT_TABS.map(([id, label], i) =>
       `<a role="tab" href="#/cheatsheet/${id}" aria-selected="${id === tab}" tabindex="${id === tab ? 0 : -1}" class="${id === tab ? 'on' : ''}"
         data-key="${i + 1}" data-kgroup="switch section">${esc(label)} <kbd>${i + 1}</kbd></a>`).join('')}</div>
     <div class="cs-bar">
-      <span class="muted small">From <b>${esc(cur[2])}</b></span><span class="spacer"></span>
+      ${cur[2] ? `<span class="muted small">From <b>${esc(cur[2])}</b></span>` : ''}<span class="spacer"></span>
       <input type="search" id="cs-q" placeholder="Filter this section" aria-label="Filter this section" autocomplete="off" spellcheck="false" value="${esc(params.q || '')}">
       ${usesPattern ? `<select id="cs-p" aria-label="Pattern"><option value="">All patterns</option>${C.patterns.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>` : ''}
       <button type="button" class="ghost" id="cs-hide" data-key="h" aria-pressed="${hide}">${hide ? 'Show answers' : 'Hide answers'} <kbd>H</kbd></button>
@@ -112,7 +143,7 @@ ROUTES.cheatsheet = (app, [tab], params) => {
       it.hidden = !ok; if (ok) n++;
     }
     for (const s of $$('.cs-sec', app)) s.hidden = !$$('.cs-item', s).some(i => !i.hidden);
-    count.textContent = n === total ? `${total} ${tab === 'skeletons' ? 'patterns' : ['sprint', 'syntax'].includes(tab) ? 'questions' : 'problems'}` : `Showing ${n} of ${total}`;
+    count.textContent = n === total ? `${total} ${CHEAT_NOUN[tab] || 'problems'}` : `Showing ${n} of ${total}`;
   };
   q.addEventListener('input', filter); ps?.addEventListener('change', filter); filter();
   $('#cs-hide', app).onclick = e => {

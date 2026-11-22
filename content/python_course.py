@@ -1,7 +1,8 @@
 """The Python tab: an intro to Python for coding problems, with code you can run and quizzes that run.
 
-Sections cover what USACO Guide's "General" prerequisites cover for Python (running code, data types,
-input and output, expected knowledge, fast I/O) plus the dense idioms the reference solutions use.
+Aimed at both online assessments (stdin/stdout judges) and live blank-page interviews (CoderPad): running a
+whole program, data types, input and output, fast I/O, the core language, plus the dense idioms the reference
+solutions use. The input/output material follows the USACO Guide (credited on the page).
 
 Lesson fields
   body   : paragraphs; a line starting with "- " is a bullet. `code` and **bold** are styled.
@@ -48,11 +49,12 @@ def S(id, title, intro, lessons):
 
 PYTHON = [
 # ───────────────────────────── 1. Start here ─────────────────────────────
-S("start", "▶️ Start here", "How a Python program runs, and the two shapes coding problems come in.", [
-L("two_shapes", "Two kinds of problem", [
-    "Coding problems come in two shapes, and they want different code.",
-    "- **Function problems** (LeetCode, most interviews): you write a function. The input arrives as arguments and you `return` the answer. You never call `input()` or `print()` the answer.",
-    "- **Program problems** (USACO, Codeforces, CSES, many online assessments such as HackerRank): you write a whole program. It reads the input as text from *standard input* (stdin) and prints the answer to *standard output* (stdout). The judge compares what you print, character for character.",
+S("start", "▶️ Start here", "How a Python program runs, the three settings you'll code in, and writing the whole program yourself on a blank page.", [
+L("two_shapes", "Three settings, three kinds of code", [
+    "Where you code decides what you have to write.",
+    "- **Function problems** (LeetCode, many OAs on LeetCode-style platforms): you fill in a function. The input arrives as arguments and you `return` the answer. A hidden harness calls it and checks the result.",
+    "- **Program problems** (HackerRank and Codeforces-style OAs): you write a whole program. It reads the input as text from *standard input* (stdin) and prints the answer to *standard output* (stdout). The judge compares what you print, character for character.",
+    "- **Blank-page interviews** (CoderPad or a shared editor, live): usually a function, but nothing around it exists. You write the imports, any `ListNode` or `TreeNode` class, the function, and the calls that test it. The next lessons cover this.",
     "The rest of this app uses function problems. This tab mostly writes programs, because reading input and printing output is a skill of its own, and because a program is the easiest way to see what a line of Python does: print it.",
     "Press **Run** to run the example. The box under the code is its stdin: change the numbers and run it again.",
 ], r'''
@@ -89,6 +91,127 @@ print(x, y)
 y = y + x
 print(y)
 ''', "10 6\n16", "`y = x * 3` used the value `x` had then (2). Changing `x` afterwards doesn't change `y`."),
+]),
+L("blank_page", "A blank page: the whole program", [
+    "In a live interview on CoderPad there's no harness: nothing calls your function and nothing checks it. If you only write the function, running it does nothing. Write the whole file, top to bottom:",
+    "- **Imports** you'll need: `from collections import Counter, defaultdict, deque`, `import heapq`. Nothing is pre-imported.",
+    "- **Helper classes** the problem assumes, such as `ListNode` or `TreeNode` (next lesson).",
+    "- **The solution** as a plain function. A `class Solution` with `self` is only needed if they gave you that signature.",
+    "- **Tests** at the bottom, written from the examples you agreed on, plus the edge cases: empty, one element, duplicates. Run after every change.",
+    "`assert got == want` stops with an error the moment a test fails; add `, (got, want)` after it so the error shows both values. Finish with one `print` so you can see the run reached the end.",
+    "Writing the tests first, out loud, is also how you show the interviewer you've understood the problem.",
+], r'''
+from collections import Counter
+
+def is_anagram(a, b):
+    return Counter(a) == Counter(b)
+
+# tests: run after every change
+tests = [
+    (("listen", "silent"), True),
+    (("rat", "car"), False),
+    (("", ""), True),          # edge: empty
+    (("a", "aa"), False),      # edge: different lengths
+]
+for args, want in tests:
+    got = is_anagram(*args)
+    assert got == want, (args, got, want)
+print("all", len(tests), "tests pass")
+''', tasks=[
+    Pr(r'''
+def last(nums):
+    return nums[-1]
+
+tests = [([1, 2, 3], 3), ([7], 7), ([], None)]
+for nums, want in tests:
+    try:
+        got = last(nums)
+    except IndexError:
+        got = "crash"
+    print(nums, "ok" if got == want else f"FAIL got {got}")
+''', "[1, 2, 3] ok\n[7] ok\n[] FAIL got crash", "The empty list is the edge case that breaks `nums[-1]`. That's exactly why edge cases belong in your test list: the code looked right on the two normal examples."),
+    Wr("Write `is_anagram(a, b)` and use it: each input line holds two words; print `True` or `False` for each line. (On a blank page you write both the function and the code that feeds it.)",
+       "def is_anagram(a, b):\n    pass\n\n",
+       "import sys\nfrom collections import Counter\n\ndef is_anagram(a, b):\n    return Counter(a) == Counter(b)\n\nfor line in sys.stdin:\n    if line.strip():\n        a, b = line.split()\n        print(is_anagram(a, b))",
+       [("listen silent\nrat car\n", "True\nFalse"), ("ab ba\naab abb\nx x\n", "True\nFalse\nTrue")]),
+]),
+L("build_structures", "Build ListNode, TreeNode and graphs yourself", [
+    "Linked-list, tree and graph problems assume these exist. On a blank page you write them, plus a way to build test inputs from a plain list and to print the result. This is a few lines each; practise until you can type them without thinking.",
+    "- `build_list([1, 2, 3])` makes the linked list, and `to_list(head)` turns it back into a Python list you can `assert` on or print.",
+    "- `build_tree([3, 9, 20, None, None, 15, 7])` reads the level-order list format LeetCode uses for trees, with `None` for a missing child.",
+    "- A graph is usually given as an edge list. Turn it into an adjacency list with `defaultdict(list)`, adding both directions if it's undirected.",
+], r'''
+from collections import defaultdict, deque
+
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def build_list(vals):
+    dummy = tail = ListNode()
+    for v in vals:
+        tail.next = ListNode(v)
+        tail = tail.next
+    return dummy.next
+
+def to_list(head):
+    out = []
+    while head:
+        out.append(head.val)
+        head = head.next
+    return out
+
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+def build_tree(vals):               # level order, None = no child
+    if not vals or vals[0] is None:
+        return None
+    root = TreeNode(vals[0])
+    q = deque([root])
+    i = 1
+    while q and i < len(vals):
+        node = q.popleft()
+        if i < len(vals) and vals[i] is not None:
+            node.left = TreeNode(vals[i])
+            q.append(node.left)
+        i += 1
+        if i < len(vals) and vals[i] is not None:
+            node.right = TreeNode(vals[i])
+            q.append(node.right)
+        i += 1
+    return root
+
+def max_depth(node):
+    return 0 if not node else 1 + max(max_depth(node.left), max_depth(node.right))
+
+head = build_list([1, 2, 3])
+print(to_list(head))
+print(max_depth(build_tree([3, 9, 20, None, None, 15, 7])))
+
+edges = [(0, 1), (1, 2), (0, 2), (2, 3)]
+graph = defaultdict(list)
+for u, v in edges:              # undirected: add both ways
+    graph[u].append(v)
+    graph[v].append(u)
+print(dict(graph))
+''', tasks=[
+    Wr("Read a line of integers, build a linked list from them with your own `ListNode`, reverse it, and print the values in their new order. (Print an empty line for empty input.)",
+       "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\n",
+       "class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef build_list(vals):\n    dummy = tail = ListNode()\n    for v in vals:\n        tail.next = ListNode(v)\n        tail = tail.next\n    return dummy.next\n\ndef reverse(head):\n    prev = None\n    while head:\n        nxt = head.next\n        head.next = prev\n        prev = head\n        head = nxt\n    return prev\n\nhead = reverse(build_list(list(map(int, input().split()))))\nout = []\nwhile head:\n    out.append(head.val)\n    head = head.next\nprint(*out)",
+       [("1 2 3 4\n", "4 3 2 1"), ("7\n", "7"), ("\n", "")]),
+    Wr("A tree arrives on one line in level order, with `null` for a missing child (`3 9 20 null null 15 7`). Build it with your own `TreeNode` and print its maximum depth (0 for an empty tree, written as just `null`).",
+       "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\n",
+       "from collections import deque\n\nclass TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef build_tree(vals):\n    if not vals or vals[0] is None:\n        return None\n    root = TreeNode(vals[0])\n    q = deque([root])\n    i = 1\n    while q and i < len(vals):\n        node = q.popleft()\n        if i < len(vals) and vals[i] is not None:\n            node.left = TreeNode(vals[i])\n            q.append(node.left)\n        i += 1\n        if i < len(vals) and vals[i] is not None:\n            node.right = TreeNode(vals[i])\n            q.append(node.right)\n        i += 1\n    return root\n\ndef depth(node):\n    return 0 if not node else 1 + max(depth(node.left), depth(node.right))\n\nvals = [None if t == 'null' else int(t) for t in input().split()]\nprint(depth(build_tree(vals)))",
+       [("3 9 20 null null 15 7\n", "3"), ("1 null 2 null 3\n", "3"), ("null\n", "0")]),
+    Wr("Line 1 is `n m` (nodes `0..n-1`, `m` undirected edges), then `m` lines `u v`. Print how many connected groups there are. Build an adjacency list, then search from every unvisited node.",
+       "from collections import defaultdict\n\n",
+       "from collections import defaultdict\n\nn, m = map(int, input().split())\ngraph = defaultdict(list)\nfor _ in range(m):\n    u, v = map(int, input().split())\n    graph[u].append(v)\n    graph[v].append(u)\nseen = set()\ngroups = 0\nfor start in range(n):\n    if start in seen:\n        continue\n    groups += 1\n    stack = [start]\n    seen.add(start)\n    while stack:\n        u = stack.pop()\n        for v in graph[u]:\n            if v not in seen:\n                seen.add(v)\n                stack.append(v)\nprint(groups)",
+       [("5 3\n0 1\n1 2\n3 4\n", "2"), ("4 0\n", "4"), ("3 3\n0 1\n1 2\n2 0\n", "1")]),
 ]),
 ]),
 
@@ -256,7 +379,7 @@ L("fast_input", "Fast input with sys.stdin", [
     "`input()` is slow when there are hundreds of thousands of lines, slow enough to time out on its own. Two faster ways:",
     "- `sys.stdin.readline()` reads one line, like `input()`, but **keeps the trailing newline**. `int()` doesn't mind it, but strings need `.strip()` (or `.rstrip('\\n')`). Many people write `input = sys.stdin.readline` at the top so the rest of the code doesn't change.",
     "- `sys.stdin.read().split()` reads the whole input at once and splits it into tokens, ignoring where the lines break. Then walk the list with an index, or with `next()` on an iterator.",
-    "You don't need this for small inputs or for USACO Bronze, but it's the first thing to try if a correct program times out reading 10^5+ lines.",
+    "You don't need this for small inputs, but it's the first thing to try if a correct program times out reading 10^5+ lines.",
 ], r'''
 import sys
 data = sys.stdin.read().split()   # every token in the whole input
@@ -323,8 +446,8 @@ print(f"[{x:>3}][{x:<3}][{x:03d}]")
        "", "name, score = input().split()\nprint(f\"{name}: {float(score):.1f}\")",
        [("ada 91.27\n", "ada: 91.3"), ("bob 7\n", "bob: 7.0")]),
 ]),
-L("file_io", "File input and output (USACO)", [
-    "USACO contests before December 2020 read from a file named after the problem (`paint.in`) and write to another (`paint.out`) instead of stdin and stdout. There are two ways to do it.",
+L("file_io", "File input and output", [
+    "Some judges (older USACO problems, a few OAs) read from a file named after the problem (`paint.in`) and write to another (`paint.out`) instead of stdin and stdout. There are two ways to do it.",
     "- **Redirect**: put `sys.stdin = open('paint.in')` and `sys.stdout = open('paint.out', 'w')` at the top. After that, `input()` and `print()` use the files and the rest of the program doesn't change.",
     "- **Open the files**: `with open('paint.in') as f:` then `f.readline()` or `f.read().split()`. To write, `open(name, 'w')` and `f.write(text)`. `write` adds no newline and only takes a string, so write `f'{ans}\\n'`.",
     "`with` closes the file at the end of its block. An output file that isn't closed (or flushed) may come out empty.",
@@ -343,7 +466,7 @@ with open("paint.out", "w") as fout:
 ]),
 
 # ───────────────────────────── 4. Control flow ─────────────────────────────
-S("flow", "🔁 Loops & functions", "Branches, loops and functions: everything USACO calls expected knowledge, plus the Python quirks.", [
+S("flow", "🔁 Loops & functions", "Branches, loops and functions: what every problem assumes you know, plus the Python quirks.", [
 L("if_elif", "if, elif, else", [
     "`if` runs its block when the condition is truthy. `elif` (else if) checks another condition only when the ones above were false, and `else` catches everything left.",
     "- Comparisons chain: `10 <= n < 20` means `10 <= n and n < 20`.",

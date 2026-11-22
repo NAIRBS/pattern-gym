@@ -15,6 +15,7 @@ from .study_brute import BRUTE
 from .perf import PERF
 from .links import LEETCODE
 from .python_course import PYTHON
+from .references import DS_COSTS, ALGO_COSTS, STEPS, OPTIMIZE
 PERF = {**PERF, **PERF_TWIST}
 
 
@@ -76,4 +77,10 @@ def load_all():
         "method": [{"title": t, "points": pts} for t, pts in METHOD],
         "input_size": [list(r) for r in INPUT_SIZE],
         "python": PYTHON,
+        "references": {
+            "ds_costs": [list(r) for r in DS_COSTS],
+            "algo_costs": [list(r) for r in ALGO_COSTS],
+            "steps": [list(r) for r in STEPS],
+            "optimize": [list(r) for r in OPTIMIZE],
+        },
     }

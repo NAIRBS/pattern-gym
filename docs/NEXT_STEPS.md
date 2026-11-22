@@ -74,7 +74,8 @@ content/
   study_brute.py   BRUTE: runnable naive code (84): worked examples, every DP problem (plain recursion =
                    the memo version minus the cache), and the array/string/search/heap/greedy ones
   sprint.py, syntax.py, interview.py   Sprint cards (150), Syntax Snap cards (34), clarify/talk-track/rubric
-  python_course.py  the Python tab (C.python): 6 sections, 43 lessons, 75 Predict/Write tasks; validate runs them all
+  references.py     Cheatsheet Costs and Method tables (C.references); no source attributions shown, by design
+  python_course.py  the Python tab (C.python): 6 sections, 45 lessons, 80 Predict/Write tasks; validate runs them all
 static/
   guide.js         the grind guide page (ROUTES.guide), loaded after app.js
   cheatsheet.js    the Cheatsheet page (ROUTES.cheatsheet): every game question + answer, read-only
@@ -146,7 +147,8 @@ tests/             node tests: merge.test.js, edge-match.test.js
    contain an `O(...)` (validate checks this; the code label and the meter read it).
 
 Done 2026-11-22:
-- Python tab (`G` `Y`): intro to Python for coding problems (USACO General topics + how to read the solutions' one-liners); runner kind `script` runs whole programs with stdin. Header: level pill hidden at 821–1300px, compact nav up to 1440px.
+- Cheatsheet sections Costs and Method (keys 7-8). The site doesn't name books it draws on (keep the substance, drop the citation); the USACO Guide is credited where its material is used.
+- Python tab (`G` `Y`): Python for OAs and blank-page interviews (whole-program structure, own ListNode/TreeNode/graph builders, I/O, how to read the solutions' one-liners); runner kind `script` runs whole programs with stdin. Header: level pill hidden at 821–1300px, compact nav up to 1440px.
 - Cheatsheet tab (`G` `C`): every game question with its answer, filter, hide-answers quiz mode, print.
 - Confirm dialog before quitting a round (`confirmQuit`, `data-exit-confirm`).
 - Highlighted code lines must not sit in a flex box (flex drops whitespace-only text between spans).

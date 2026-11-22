@@ -97,6 +97,7 @@ flowchart LR
 | `patterns.py`, `study_patterns.py` | The patterns: skeleton, triggers, lesson content |
 | `study_problems.py`, `study_brute.py` | Walkthrough plans and brute-force code |
 | `sprint.py`, `syntax.py`, `interview.py` | Pattern Sprint cards, Syntax Snap drills, the interview rubric and method |
+| `references.py` | Cheatsheet reference tables: data-structure and algorithm costs (Python notes), the seven-step interview method and the optimizing techniques. Sent as `C.references` |
 | `python_course.py` | The Python tab: sections → lessons (body, runnable example with stdin/files, how-to-read rows, the loop it stands for, a `find` regex for solution lines) → Predict and Write tasks |
 | `__init__.py` | `load_all()`: merges all of the above into the shape the app reads |
 
@@ -194,7 +195,7 @@ also triggers a fresh worker. `print()` output is discarded in both modes.
 | Study | Courses per pattern: lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages; `nextStep()` picks what's next |
 | Starter Guide | `guide.js` registers `ROUTES.guide`, a page with six sections addressed as `#/guide/<section>` |
 | Python tab | `python.js` registers `ROUTES.python` (`#/python/<section>`: start, types, io, flow, data, pythonic) from `C.python`. Examples and quizzes run through `runScript()` (the `script` kind). A Predict task compares your typed output with what the code actually prints, line by line; a Write task runs every case. Finished tasks are kept in localStorage `pg-py-done`, outside the synced state, and never touch reviews or XP. "Where you'll see it" applies each lesson's `find` regex to every reference solution at render time |
-| Cheatsheet | `cheatsheet.js` registers `ROUTES.cheatsheet`: every game question with its answer, read-only, in six sections (`#/cheatsheet/<section>`: sprint, skeletons, syntax, solutions, bigo, edges). It reads the same `C.sprint`, `C.patterns`, `C.syntax` and `C.problems` the games draw from, so it never goes stale. A filter, a pattern menu, a Hide answers mode (blurred until clicked) and print styles; nothing on it is graded or scheduled |
+| Cheatsheet | `cheatsheet.js` registers `ROUTES.cheatsheet`: every game question with its answer, read-only, in eight sections (`#/cheatsheet/<section>`: sprint, skeletons, syntax, solutions, bigo, edges, costs, method). The first six read the same `C.sprint`, `C.patterns`, `C.syntax` and `C.problems` the games draw from, so they never go stale; costs and method read `C.references` and `C.input_size`. A filter, a pattern menu, a Hide answers mode (blurred until clicked) and print styles; nothing on it is graded or scheduled |
 | Keyboard layer | Any button with `data-key="x"` gets that shortcut. One global `keydown` handler clicks the visible match. The key bar (`paintKeybar`) lists exactly the keys that work on the current screen |
 | Problem panel | `problemPanel(p)` renders statement, examples, typed signature and constraints from the test spec |
 | Editor | A `<textarea>` with a syntax-colour overlay (`highlight.js`), auto-indent and Tab handling (`enhanceEditor`) |

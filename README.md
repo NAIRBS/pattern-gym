@@ -150,10 +150,10 @@ The cold-solve page has an **approach coach** (open for your first few attempts,
 
 ## The Python tab
 
-The **Python** tab (<kbd>G</kbd> <kbd>Y</kbd>) is an intro to the Python you need before the patterns, in six sections: how a
-program runs, data types, input and output (the topics of the USACO Guide's General section: `input()`, `split`/`map`,
-`sys.stdin` for fast input, `print` options, f-strings, USACO file I/O), loops and functions, the containers, and **reading
-one-liners**: comprehensions, generator expressions, `any`/`all`, `''.join`, `max(..., default=)`, `zip`, short-circuit
+The **Python** tab (<kbd>G</kbd> <kbd>Y</kbd>) is the Python you need for both online assessments and live blank-page interviews
+(CoderPad), in six sections: how a program runs and how to write the whole thing yourself (imports, your own `ListNode` /
+`TreeNode` / adjacency list, tests with `assert`), data types, input and output (`input()`, `split`/`map`, `sys.stdin` for fast
+input, `print` options, f-strings, file I/O, following the [USACO Guide](https://usaco.guide/general/input-output?lang=py)), loops and functions, the containers, and **reading one-liners**: comprehensions, generator expressions, `any`/`all`, `''.join`, `max(..., default=)`, `zip`, short-circuit
 guards, `setdefault`, `iter`/`next` and bit tricks, each taken apart piece by piece, written out as a plain loop, and linked
 to the solution lines that use it. Every example is editable and runs in the browser (with its own stdin), and each lesson
 ends in quizzes that run: **Predict** (type what the code prints) and **Write** (a program checked against several inputs).
@@ -164,7 +164,9 @@ Progress there is kept in your browser only and doesn't touch your reviews.
 The **Cheatsheet** tab (<kbd>G</kbd> <kbd>C</kbd>) lists every question the games ask, with its answer, to read through without playing:
 the 150 Pattern Sprint prompts with their pattern and key move, the 23 pattern skeletons, the 34 Syntax Snap idioms, and for
 all 150 problems the reference solution (the lines Fill the Gap blanks are highlighted), its Big-O, and its clarifying questions and
-edge cases. Filter by text or pattern, press <kbd>H</kbd> to blur the answers and quiz yourself, or <kbd>P</kbd> to print it. Reading it
+edge cases. Two reference sections round it out: **Costs** (input size to target runtime, and what each data structure and
+algorithm costs, with Python notes) and **Method** (seven steps from an unseen problem to a tested program, and what to try when
+the brute force is too slow). Filter by text or pattern, press <kbd>H</kbd> to blur the answers and quiz yourself, or <kbd>P</kbd> to print it. Reading it
 doesn't count toward your reviews; the games are still where recall gets trained.
 
 ## Keyboard
