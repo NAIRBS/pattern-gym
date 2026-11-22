@@ -80,7 +80,7 @@ ROUTES.python = (app, [tab]) => {
   const lesson = (les, i) => `<article class="card py-les" id="py-${les.id}">
       <h2 class="h3"><span class="py-n">${i + 1}</span>${esc(les.title)}</h2>
       <div class="py-body">${pyBody(les.body)}</div>
-      ${les.read.length ? `<h3 class="cs-h">How to read it</h3><table class="gtbl py-read"><tbody>${les.read.map(([a, b]) => `<tr><td><code>${esc(a)}</code></td><td>${pyMd(b)}</td></tr>`).join('')}</tbody></table>` : ''}
+      ${les.read.length ? `<h3 class="cs-h">How to read it</h3><table class="gtbl py-read"><tbody>${les.read.map(([a, b]) => `<tr><td><code class="hlc">${esc(a)}</code></td><td>${pyMd(b)}</td></tr>`).join('')}</tbody></table>` : ''}
       ${les.loop ? `<h3 class="cs-h">The same thing, written out</h3><pre class="code">${esc(les.loop)}</pre>` : ''}
       ${example(les)}
       ${pySeen(les)}

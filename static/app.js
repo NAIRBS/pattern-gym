@@ -82,9 +82,11 @@ function slowResult(pr, secs) {
 }
 // Hidden large tests run after the examples (OA, cold solve, mock). Line Up and Fill the Gap skip them:
 // there the structure is the reference's, so they would only add waiting time.
-const runTests = (p, code, { hidden = true } = {}) => {
-  const spec = hidden ? p.tests : { ...p.tests, perf: undefined };
-  return SERVER ? api('/api/run', { id: p.id, code, hidden }) : runPy(code, spec, 6000);
+// blank: CoderPad mode, nothing pre-imported or predefined (runner's "blank" spec flag)
+const runTests = (p, code, { hidden = true, blank = false } = {}) => {
+  let spec = hidden ? p.tests : { ...p.tests, perf: undefined };
+  if (blank) spec = { ...spec, blank: true };
+  return SERVER ? api('/api/run', { id: p.id, code, hidden, blank }) : runPy(code, spec, 6000);
 };
 const runSyntax = (s, code) => SERVER ? api('/api/syntax', { id: s.id, code })
   : runPy(code, { kind: 'snippet', setup: s.setup, check: s.check }, 4000);
@@ -165,7 +167,24 @@ function enhanceEditor(ta, { onSubmit, autoIndent = true } = {}) {
     }
   });
 }
-// Read-only code blocks (<pre class="code">) follow the same colour setting.
+// One-line inputs that hold code (Fill the Gap's gaps): the same colour layer as the editor, behind a
+// transparent input. The layer's text slides with the input's horizontal scroll.
+function hlInput(inp) {
+  const box = document.createElement('span'); box.className = 'hin';
+  box.style.marginLeft = inp.style.marginLeft; inp.style.marginLeft = '';
+  box.innerHTML = '<span class="hin-hl" aria-hidden="true"><span></span></span>';
+  inp.replaceWith(box); box.append(inp);
+  const layer = $('.hin-hl > span', box);
+  const paint = () => {
+    box.classList.toggle('hl-on', hlOn());
+    if (hlOn()) layer.innerHTML = highlightLine(inp.value) || '';
+    layer.style.transform = `translateX(${-inp.scrollLeft}px)`;
+  };
+  inp._paint = paint;
+  ['input', 'scroll', 'keyup', 'click', 'select', 'focus'].forEach(ev => inp.addEventListener(ev, paint));
+  paint();
+}
+// Read-only code blocks (<pre class="code">, and inline <code class="hlc">) follow the same colour setting.
 function paintPre(pre) {
   if (pre.dataset.src == null) pre.dataset.src = pre.textContent;
   const src = pre.dataset.src, keys = new Set((pre.dataset.keys || '').split(',').filter(Boolean).map(Number));
@@ -175,8 +194,9 @@ function paintPre(pre) {
   pre.innerHTML = src.split('\n').map((l, i) => { const inner = on ? highlightLine(l) : esc(l); return keys.has(i) ? `<span class="hl">${inner}</span>` : inner; }).join('\n');
 }
 function repaintCode() {
-  $$('#app pre.code, .modal pre.code').forEach(pre => { if (!pre.closest('.ed')) { delete pre.dataset.painted; paintPre(pre); } });
+  $$('#app pre.code, .modal pre.code, #app code.hlc').forEach(pre => { if (!pre.closest('.ed')) { delete pre.dataset.painted; paintPre(pre); } });
   $$('.ed').forEach(w => { const t = $('textarea', w); t?._paint?.(); const b = $('.ed-toggle input', w); if (b) b.checked = hlOn(); });
+  $$('.hin input').forEach(i => i._paint?.());
 }
 
 // ─────────────────────────── state ───────────────────────────
@@ -224,7 +244,7 @@ function urgency() {
 // box 0..7. good: box+1, next due after INTERVALS[box-1] days (capped by urgency). shaky: back in 1-2 days. fail: box 0, tomorrow.
 const INTERVALS = [1, 3, 7, 14, 30, 60, 120];
 const LEVEL_NAMES = ['New', 'Seen', 'Learning', 'Learning', 'Solid', 'Solid', 'Locked', 'Locked', 'Locked'];
-const XP = { sprint: 2, syntax: 3, bigo: 3, edge: 4, lineup: 6, fill: 8, skeleton: 6, oa: 30, mock: 45 };
+const XP = { sprint: 2, syntax: 3, bigo: 3, edge: 4, lineup: 6, fill: 8, skeleton: 6, bughunt: 8, oa: 30, mock: 45 };
 function item(game, id) { return S.items[game + ':' + id]; }
 function review(game, id, q) {
   const k = game + ':' + id, t = today();
@@ -578,7 +598,7 @@ document.addEventListener('focusin', e => { if (e.target.matches?.(EDITOR_SEL.re
 document.addEventListener('focusout', () => setTimeout(paintEdBtn, 0));
 window.addEventListener('hashchange', () => { lastEditor = null; setTimeout(paintEdBtn, 50); });
 let preTimer = null;
-new MutationObserver(() => { clearTimeout(preTimer); preTimer = setTimeout(() => $$('#app pre.code').forEach(pre => { if (!pre.closest('.ed') && pre.dataset.painted == null) paintPre(pre); }), 0); })
+new MutationObserver(() => { clearTimeout(preTimer); preTimer = setTimeout(() => $$('#app pre.code, #app code.hlc').forEach(pre => { if (!pre.closest('.ed') && pre.dataset.painted == null) paintPre(pre); }), 0); })
   .observe(document.getElementById('app'), { childList: true, subtree: true });
 new MutationObserver(() => paintEdBtn()).observe(document.getElementById('app'), { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
 
@@ -693,8 +713,66 @@ function resultsHtml(r) {
   }
   const hidden = (r.results || []).filter(x => x.hidden).length, shown = (r.results || []).length - hidden;
   if (r.ok) h = `<div class="res">✓ All ${shown} example${shown === 1 ? '' : 's'} passed${hidden ? ` and ${hidden} large hidden test${hidden === 1 ? '' : 's'} (fast enough)` : ''}${r.ms != null ? ` · ${r.ms} ms` : ''}${hidden && r.perf_ms != null ? `, hidden tests ${Math.round(r.perf_ms)} ms` : ''}</div>`;
+  if (r.stdout) h += `<div class="py-io printed"><span class="muted small">What your code printed</span><pre class="py-out">${esc(r.stdout.replace(/\n$/, ''))}</pre></div>`;
   return `<div class="results">${h}</div>`;
 }
+// ── CoderPad mode ──
+// 'leetcode': starter code, imports and ListNode/TreeNode given (the default).
+// 'fn': blank page, function style. Nothing is predefined; the tests still call your function.
+// 'prog': blank page, program style. Read stdin, print the answer; checked like a HackerRank OA.
+const PAD_MODES = [['leetcode', 'LeetCode (starter given)'], ['fn', 'Blank page: function'], ['prog', 'Blank page: program (stdin)']];
+const padMode = p => { const m = S.settings.pad || 'leetcode'; return m === 'prog' && !p.stdio ? 'fn' : m; };
+function padBar(p, id = 'pad') {
+  const cur = padMode(p);
+  return `<label class="pad-bar"><span class="muted small">Editor</span><select id="${id}" aria-label="Editor mode">${PAD_MODES.map(([v, l]) =>
+    `<option value="${v}" ${v === cur ? 'selected' : ''} ${v === 'prog' && !p.stdio ? 'disabled' : ''}>${esc(l)}${v === 'prog' && !p.stdio ? ' (not for this problem)' : ''}</option>`).join('')}</select></label>`;
+}
+function padStarter(p, mode) {
+  if (mode === 'fn') return `# Blank page: nothing is imported or defined for you.\n# Write the imports, any helper class (ListNode, TreeNode), def ${p.tests.fn || p.tests.cls}(...), and tests that print.\n\n`;
+  if (mode === 'prog') return `# Blank page, program style: read the input from stdin and print the answer.\n# The input and output format is under the problem statement.\n\n`;
+  return p.starter;
+}
+// The input/output format for program style, with the first test as a sample.
+function padFormat(p) {
+  const s = p.stdio; if (!s) return '';
+  const c = s.cases[0];
+  return `<section class="pad-format"><h3 class="pdesc-h">Input (stdin)</h3><ol>${s.input.map(x => `<li>${pyMdLite(x)}</li>`).join('')}</ol>
+    <h3 class="pdesc-h">Output (stdout)</h3><p>${pyMdLite(s.output)}.</p>
+    <div class="pad-sample"><div><span class="pex-k">Sample input</span><pre class="py-out">${esc(c.stdin.replace(/\n$/, ''))}</pre></div>
+    <div><span class="pex-k">Sample output</span><pre class="py-out">${esc(c.expected) || '<span class="muted">(empty)</span>'}</pre></div></div></section>`;
+}
+const pyMdLite = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+// Same text as content/stdio.py reference_program().
+function padReference(p) {
+  const L = C.stdio_lib, s = p.stdio;
+  const classes = s.needs.filter(k => k === 'ListNode' || k === 'TreeNode').map(k => L[k]);
+  const helpers = s.needs.filter(k => k !== 'ListNode' && k !== 'TreeNode').map(k => L[k]);
+  return [L.header, ...classes, p.solution, L.read, ...helpers, s.driver].join('\n\n') + '\n';
+}
+// A complete blank-page answer in function style: imports, the node classes it uses, the solution.
+function padFnSolution(p) {
+  const L = C.stdio_lib, types = p.tests.arg_types || [], uses = [...types, p.tests.ret_type].filter(Boolean).join(' ');
+  return [L.header.replace('sys.setrecursionlimit(20000)', '').trim(), ...(/linked/.test(uses) ? [L.ListNode] : []), ...(/tree/.test(uses) ? [L.TreeNode] : []), p.solution].join('\n\n') + '\n';
+}
+const padSolution = (p, mode) => mode === 'prog' ? padReference(p) : mode === 'fn' ? padFnSolution(p) : p.solution;
+async function padRun(p, mode, code, opts = {}) {
+  if (mode === 'prog') return runScript(code, p.stdio.cases);
+  return runTests(p, code, { ...opts, blank: mode === 'fn' });
+}
+// Results for program style: each failing test with its input, what was expected and what was printed.
+function scriptResultsHtml(r) {
+  if (!r) return '';
+  if (r.error && !r.results?.length) return `<div class="results"><div class="err">${esc(r.error)}</div></div>`;
+  const rs = r.results || [];
+  if (r.ok) return `<div class="results"><div class="res">✓ All ${rs.length} tests pass (program style checks correctness only)</div></div>`;
+  const box = (k, v) => `<div class="py-io"><span class="muted small">${k}</span><pre class="py-out">${v === '' ? '<span class="muted">(nothing)</span>' : esc(v)}</pre></div>`;
+  const bad = rs.map((x, i) => [x, i]).filter(([x]) => !x.pass);
+  return `<div class="results"><div class="res fail">✗ ${bad.length} of ${rs.length} tests fail</div>
+    ${bad.slice(0, 3).map(([x, i]) => `<div class="py-case fail"><b>Test ${i + 1}</b><div class="py-ios">${box('Input', x.stdin.replace(/\n$/, ''))}${box('Expected', x.expected)}${box('You printed', (x.got || '').replace(/\n$/, ''))}</div>
+      ${x.error ? `<div class="err">${esc(x.error)}</div>` : ''}</div>`).join('')}
+    ${bad.length > 3 ? `<p class="muted small">and ${bad.length - 3} more failing</p>` : ''}</div>`;
+}
+const padResultsHtml = (mode, r) => mode === 'prog' ? scriptResultsHtml(r) : resultsHtml(r);
 function gradeButtons(onGrade, suggested) {
   const el = document.createElement('div');
   el.className = 'gradebar';
@@ -1001,7 +1079,8 @@ GAMES.fill = {
       }).join('')}</div>
       <div class="row" style="margin-top:12px"><button class="primary" id="check" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
       <button class="ghost" id="giveup"></button><span id="moveon"></span></div><div id="out" aria-live="polite"></div></div>`;
-    const inputs = $$('input', el);
+    const inputs = $$('.fill input', el);
+    inputs.forEach(hlInput);
     inputs[0]?.focus();
     inputs.forEach((inp, k) => inp.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.ctrlKey) { e.preventDefault(); (inputs[k + 1] || inp).focus(); }
@@ -1014,7 +1093,7 @@ GAMES.fill = {
       $$('.gap-ans', el).forEach(div => {
         const want = lines[+div.dataset.for].trim(), mine = $(`input[data-i="${div.dataset.for}"]`, el).value.trim();
         div.hidden = !open;
-        div.innerHTML = `<span class="gap-tag">${same(mine, want) ? '✓ yours matches' : 'answer'}</span> ${esc(want)}`;
+        div.innerHTML = `<span class="gap-tag">${same(mine, want) ? '✓ yours matches' : 'answer'}</span> ${hlOn() ? highlightLine(want) : esc(want)}`;
         div.classList.toggle('ok', same(mine, want));
       });
       if (open) $('#hintbox', el).innerHTML = `<div class="reveal">${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div>`;
@@ -1225,26 +1304,83 @@ GAMES.edge = {
   },
 };
 
+// Bug Hunt — a working solution with one planted bug: run it, find the bug, fix it.
+const applyBug = (solution, b) => { const ls = solution.split('\n'); if (b.buggy == null) ls.splice(b.line, 1); else ls[b.line] = b.buggy; return ls.join('\n'); };
+GAMES.bughunt = {
+  name: 'Bug Hunt', icon: '🐞', layer: 'Full solve', cost: 4, defaultN: 3,
+  desc: 'A working solution with one realistic bug planted in it: an off-by-one, a shared list, a missing update, a broken guard. Run it, read the failures (and your prints), and fix it.',
+  pool: () => C.problems.flatMap(p => (p.bugs || []).map(b => ({ ...b, pattern: p.pattern, num: p.num, diff: p.diff, title: p.title }))),
+  render(el, b, done, { clock }) {
+    const p = PROB(b.problem), K = C.bug_kinds[b.kind] || ['Bug', '', ''];
+    const timer = startTimer(clock, 0, null, { countUp: true });
+    let runs = 0, hints = 0, finished = false, shown = false;
+    el.innerHTML = `<div class="solve-grid"><div class="solve-left"><div class="card pcard">${problemPanel(p)}</div></div>
+      <div class="solve-right"><p class="bh-intro">This solution has <b>one bug</b>. Run it, work out what’s wrong from the failing tests (add <code>print</code>s if it helps), and fix it.</p>
+      <div class="ed-head"><span>Python 3</span><span class="spacer"></span><span class="muted">one bug</span></div>
+      <textarea class="code" id="ed" aria-label="The buggy solution">${esc(applyBug(p.solution, b))}</textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="run" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
+        <button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button><button class="ghost" id="show">Show the bug</button>
+        <span id="moveon"></span><span class="spacer"></span><span class="muted small" id="rc"></span></div>
+      <div id="hints"></div><div id="out" aria-live="polite"></div></div></div>`;
+    const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => run() });
+    const lineNo = b.line + 1, src = p.solution.split('\n');
+    const where = b.buggy == null ? `Something is missing right after <code class="hlc">${esc((src[b.line - 1] || '').trim())}</code>.`
+      : `Look closely at <code class="hlc">${esc(b.buggy.trim())}</code>.`;
+    const reveal = () => `<div class="reveal"><b>${esc(K[0])}.</b> ${b.buggy == null ? `Line ${lineNo} was deleted:` : `Line ${lineNo}:`}
+      ${b.buggy == null ? '' : `<pre class="code cs-one bh-bad">${esc(b.buggy.trim())}</pre>should be`}<pre class="code cs-one">${esc(b.fixed.trim())}</pre>
+      <p class="small" style="margin:6px 0 0">${pyMdLite(K[2])}</p></div>`;
+    $('#hint', el).onclick = () => {
+      if (finished || hints >= 2) return; hints++;
+      $('#hints', el).insertAdjacentHTML('beforeend', `<p class="bh-hint">💡 ${hints === 1 ? pyMdLite(K[1]) : where}</p>`);
+      if (hints >= 2) $('#hint', el).disabled = true;
+    };
+    $('#show', el).onclick = () => {
+      if (shown) return; shown = true; $('#show', el).disabled = true;
+      $('#hints', el).insertAdjacentHTML('beforeend', reveal());
+      if (!finished) $('#moveon', el).append(missedBar(done));
+    };
+    const run = async () => {
+      if (finished) return; runs++; $('#rc', el).textContent = `${runs} run${runs > 1 ? 's' : ''}`;
+      const r = await runTests(p, ed.value, { hidden: false });
+      $('#out', el).innerHTML = resultsHtml(r);
+      if (r.ok) {
+        finished = true; timer.stop();
+        if (!shown) $('#out', el).insertAdjacentHTML('beforeend', reveal());
+        if (shown) { $('#moveon', el).innerHTML = ''; $('#out', el).append(missedBar(done, true)); }
+        else $('#out', el).append(gradeButtons(done, hints === 0 && runs <= 3 ? 2 : 1));
+      }
+    };
+    $('#run', el).onclick = run;
+  },
+};
+
 // 8. OA Mode — write the whole thing from a blank editor against the clock.
 GAMES.oa = {
   name: 'OA Mode', icon: '💻', layer: 'Full solve', cost: 20, defaultN: 1,
-  desc: 'Online-assessment conditions: a statement, a signature, a timer and a run button. No hints unless you give up.',
+  desc: 'Online-assessment conditions: a statement, a signature, a timer and a run button. No hints unless you give up. Switch the editor to a blank page (function or stdin program) to practise CoderPad and HackerRank conditions.',
   pool: () => C.problems,
   gate: p => (item('fill', p.id)?.box || 0) >= 1,
   render(el, p, done, { clock }) {
     const mins = { Easy: 15, Medium: 25, Hard: 40 }[p.diff] || 25;
     let runs = 0, finished = false;
-    el.innerHTML = `<div class="solve-grid"><div class="solve-left"><div class="card pcard">${problemPanel(p)}</div></div>
-      <div class="solve-right"><div class="ed-head"><span>Python 3</span><span class="spacer"></span><span>${mins} min budget</span></div>
+    let mode = padMode(p); const drafts = {};
+    el.innerHTML = `<div class="solve-grid"><div class="solve-left"><div class="card pcard">${problemPanel(p)}<div id="fmt"></div></div></div>
+      <div class="solve-right"><div class="ed-head"><span>Python 3</span>${padBar(p)}<span class="spacer"></span><span>${mins} min budget</span></div>
       <textarea class="code" id="ed" aria-label="Your solution"></textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="run" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
       <button class="ghost" id="give"></button><span id="moveon"></span><span class="spacer"></span><span class="muted small" id="rc"></span></div>
       <div id="sol" hidden></div><div id="out" aria-live="polite"></div></div></div>`;
-    const ed = $('#ed', el); ed.value = p.starter; enhanceEditor(ed, { onSubmit: () => run() }); ed.focus();
-    ed.selectionStart = ed.selectionEnd = ed.value.length - 1;
+    const ed = $('#ed', el); ed.value = padStarter(p, mode); enhanceEditor(ed, { onSubmit: () => run() }); ed.focus();
+    ed.selectionStart = ed.selectionEnd = ed.value.length - (mode === 'leetcode' ? 1 : 0);
+    const showFmt = () => { $('#fmt', el).innerHTML = mode === 'prog' ? padFormat(p) : ''; };
+    showFmt();
+    $('#pad', el).onchange = e => {
+      drafts[mode] = ed.value; mode = e.target.value; S.settings.pad = mode; save();
+      ed.value = drafts[mode] ?? padStarter(p, mode); ed._paint?.(); showFmt(); $('#out', el).innerHTML = ''; ed.focus();
+    };
     const timer = startTimer(clock, mins * 60, () => toast('⏰ Time budget used: finish up or look at the solution'));
     const sol = answerToggle($('#give', el), $('#sol', el),
-      () => `<div class="reveal">${patternTag(p.pattern)} ${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div><pre class="code">${esc(p.solution)}</pre>${extLinks(p)}`,
+      () => `<div class="reveal">${patternTag(p.pattern)} ${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div><pre class="code">${esc(padSolution(p, mode))}</pre>${extLinks(p)}`,
       () => { if (!finished) $('#moveon', el).append(missedBar(done)); }, 'solution');
     const finish = q => {
       finished = true; const t = timer.stop();
@@ -1253,8 +1389,8 @@ GAMES.oa = {
     };
     const run = async () => {
       if (finished) return; runs++; $('#rc', el).textContent = `${runs} run${runs > 1 ? 's' : ''}`;
-      const r = await runTests(p, ed.value);
-      $('#out', el).innerHTML = resultsHtml(r);
+      const r = await padRun(p, mode, ed.value);
+      $('#out', el).innerHTML = padResultsHtml(mode, r);
       if (r.ok) finish(timer.elapsed() <= mins * 60 && runs <= 3 ? 2 : 1);
     };
     $('#run', el).onclick = run;
@@ -1271,7 +1407,7 @@ GAMES.mock = {
     const phases = [
       { id: 'clarify', name: 'Clarify', mins: 3 }, { id: 'plan', name: 'Plan aloud', mins: 5 },
       { id: 'code', name: 'Code (no run)', mins: 20 }, { id: 'test', name: 'Dry-run & test', mins: 4 }, { id: 'score', name: 'Score', mins: 0 }];
-    let ph = 0, timer = null, timerPhase = -1, storeCur = null; const notes = {}; let rec = null, chunks = [], audioUrl = null;
+    let ph = 0, timer = null, timerPhase = -1, storeCur = null; const notes = { mode: padMode(p) }; let rec = null, chunks = [], audioUrl = null;
     const draw = () => {
       if (timer && timerPhase !== ph) timer.stop();
       const P = phases[ph];
@@ -1286,7 +1422,8 @@ GAMES.mock = {
         <textarea id="n" style="min-height:150px" placeholder="Brute force: ...&#10;Bottleneck: ...&#10;Pattern: ...&#10;Plan: 1) ... 2) ...">${esc(notes.plan || '')}</textarea>
         <div class="row" style="margin-top:8px">Time <select id="ct">${C.complexities.map(c => `<option ${notes.ct === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
         Space <select id="cs">${C.complexities.map(c => `<option ${notes.cs === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>`;
-      if (P.id === 'code') main += `<p class="muted">Whiteboard rules: no run button, no auto-indent. Narrate what each block is for.</p><textarea class="code" id="n" aria-label="Your code">${esc(notes.code || p.starter)}</textarea>`;
+      if (P.id === 'code') main += `${notes.mode === 'prog' ? padFormat(p) : ''}<div class="row"><p class="muted" style="margin:0">Whiteboard rules: no run button, no auto-indent. Narrate what each block is for.</p><span class="spacer"></span>${padBar(p, 'mpad')}</div>
+        <textarea class="code" id="n" aria-label="Your code">${esc(notes.code ?? padStarter(p, notes.mode))}</textarea>`;
       if (P.id === 'test') main += `<p class="muted">Trace your code on the example and 2 edge cases, out loud. Fix bugs you find. Still no running.</p>
         <textarea class="code" id="n" aria-label="Your code">${esc(notes.code)}</textarea><textarea id="n2" style="min-height:80px;margin-top:8px" placeholder="Dry-run notes / edge cases tested">${esc(notes.test || '')}</textarea>`;
       if (P.id === 'score') main += `<div id="res"><p class="muted">Running your final code…</p></div><h2 class="h3" style="margin-top:12px">Score yourself (1 = weak, 4 = strong)</h2>
@@ -1306,6 +1443,8 @@ GAMES.mock = {
         if (P.id === 'test') { notes.code = n.value; notes.test = $('#n2', el).value; }
       };
       $('#nextp', el) && ($('#nextp', el).onclick = () => { store(); ph++; draw(); });
+      $('#mpad', el) && ($('#mpad', el).onchange = e => { store(); const was = notes.mode; notes.mode = S.settings.pad = e.target.value; save();
+        if (!notes.code || notes.code === padStarter(p, was)) notes.code = undefined; draw(); });
       $('#rec', el) && ($('#rec', el).onclick = toggleRec);
       if (P.id === 'score') scorePhase();
     };
@@ -1322,11 +1461,11 @@ GAMES.mock = {
     };
     onRound(() => rec && rec.stop());
     const scorePhase = async () => {
-      const r = await runTests(p, notes.code || '');
+      const r = await padRun(p, notes.mode, notes.code || '');
       const okT = notes.ct === p.time, okS = notes.cs === p.space;
-      $('#res', el).innerHTML = resultsHtml(r) + `<div class="reveal">You said time <b>${esc(notes.ct)}</b> ${okT ? '✓' : '✗'}, space <b>${esc(notes.cs)}</b> ${okS ? '✓' : '✗'}.
+      $('#res', el).innerHTML = padResultsHtml(notes.mode, r) + `<div class="reveal">You said time <b>${esc(notes.ct)}</b> ${okT ? '✓' : '✗'}, space <b>${esc(notes.cs)}</b> ${okS ? '✓' : '✗'}.
         Reference: ${esc(p.time)} / ${esc(p.space)}.<br>${patternTag(p.pattern)} ${esc(p.insight)}</div>
-        <details><summary>Reference solution</summary><pre class="code">${esc(p.solution)}</pre></details>`;
+        <details><summary>Reference solution</summary><pre class="code">${esc(padSolution(p, notes.mode))}</pre></details>`;
       $('#save', el).onclick = () => {
         const scores = {}; let missing = false;
         for (const rb of C.rubric) { const v = $(`input[name="${rb.id}"]:checked`, el); if (!v) missing = true; else scores[rb.id] = +v.value; }
@@ -1376,7 +1515,7 @@ ROUTES.games = app => {
   app.innerHTML = `<h1>Games</h1><p class="muted">The ladder goes Idea → Structure → Syntax → Full solve → In-person. Use the daily plan, or grind any game here.</p>
     <div class="grid g2">${Object.entries(GAMES).map(([id, g], gi) => `<div class="card"><div class="row"><span style="font-size:26px">${g.icon}</span><h2 class="h3" style="margin:0">${g.name}</h2>
       <span class="tag">${g.layer}</span><span class="spacer"></span>${dueCount(id) ? `<span class="tag" style="color:var(--accent)">${dueCount(id)} due</span>` : ''}</div>
-      <p class="muted small">${esc(g.desc)}</p><div class="row"><a class="btn primary" href="#/play/${id}?n=${g.defaultN}" data-key="${gi + 1}" data-kgroup="play a game">Play ${g.defaultN > 1 ? g.defaultN + ' rounds' : ''} <kbd>${gi + 1}</kbd></a>
+      <p class="muted small">${esc(g.desc)}</p><div class="row"><a class="btn primary" href="#/play/${id}?n=${g.defaultN}" data-key="${(gi + 1) % 10}" data-kgroup="play a game">Play ${g.defaultN > 1 ? g.defaultN + ' rounds' : ''} <kbd>${(gi + 1) % 10}</kbd></a>
       ${g.defaultN > 1 ? `<a class="btn ghost" href="#/play/${id}?n=${g.defaultN * 2}">×${g.defaultN * 2}</a>` : ''}</div></div>`).join('')}</div>`;
 };
 

@@ -2,7 +2,7 @@
 
 # `{}` Pattern Gym
 
-**Spaced practice for coding interviews in Python. It drills the parts of a solution people forget (spotting the pattern, the code skeleton, the edge cases, the complexity) and brings each one back just before you would forget it.**
+**Spaced practice for coding interviews in Python, for both online assessments and live blank-page interviews (CoderPad). It drills the parts of a solution people forget (spotting the pattern, the code skeleton, the edge cases, the complexity) and brings each one back just before you would forget it.**
 
 [![Deploy](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml/badge.svg)](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab)
@@ -46,7 +46,10 @@ this for the daily recall that makes 150 problems stick. Free, no sign-up, and y
 | 📚 **173 problems** | The NeetCode 150 plus 23 twists, each with a reference solution, real tests, a walkthrough and edge cases |
 | 🐢 **Hidden large tests** | 75 problems also run a large hidden input, so correct but slow code fails, like on LeetCode |
 | 🧭 **23 patterns** | A short course for each, from the idea to problems you solve cold |
-| 🎮 **9 games** | From spotting a pattern in seconds to a full mock interview |
+| 🎮 **10 games** | From spotting a pattern in seconds to a full mock interview, including Bug Hunt: 260 realistic bugs to find and fix |
+| 📝 **CoderPad mode** | Solve on a blank page: write your own imports, `ListNode`/`TreeNode` and tests, or read stdin and print like a HackerRank OA (154 problems) |
+| 🐍 **The Python tab** | 45 lessons with 80 runnable quizzes: writing a whole program, input and output, the core language, and how to read the dense one-liners in the solutions |
+| 📋 **The Cheatsheet** | Every game question with its answer, plus data-structure and algorithm costs and the interview method, with a hide-answers quiz mode |
 | 🔁 **Spaced repetition** | Nailed items come back after 1, 3, 7, 14, 30… days; blanked ones tomorrow. A full solve you passed comes back as a *different* problem of the same pattern |
 | 🔗 **Out-links** | Every problem links to LeetCode (slugs checked against LeetCode's API) and to NeetCode's video |
 | 🗺️ **The Starter Guide** | First three steps, the 8-week plan as a timeline, a daily routine, and a table of which outside resource does what. New users land on it first |
@@ -135,16 +138,18 @@ The cold-solve page has an **approach coach** (open for your first few attempts,
 | Structure | 🦴 **Skeleton Recall** | Write a pattern's template from memory; hints step up, feedback lists what's missing |
 | Structure → code | ✍️ **Fill the Gap** | Write the 2–4 key lines that make the skeleton solve *this* problem |
 | Syntax | 🐍 **Syntax Snap** | One-line Python idioms, executed and checked |
-| Full solve | 💻 **OA Mode** | Blank editor, timer, run button: online-assessment conditions |
+| Full solve | 🐞 **Bug Hunt** | A working solution with one realistic planted bug (off-by-one, shared list, missing update, broken guard): run it, read the failures, fix it |
+| Full solve | 💻 **OA Mode** | Blank editor, timer, run button: online-assessment conditions, with a CoderPad switch (below) |
 | In person | ⏱️ **Big-O Call** | Call the time and space complexity of a solution |
 | In person | 🔍 **Edge Hunter** | 60 s to list questions and edge cases, scored against the expected list |
 | In person | 🎤 **Mock Interview** | Clarify → plan aloud → code with no run button → dry-run → score yourself |
 
+- **CoderPad mode:** OA Mode and Mock have an editor switch. *LeetCode* gives you the starter and pre-imports everything. *Blank page: function* gives you nothing: you write the imports, any `ListNode`/`TreeNode`, the function and your own tests, and the hidden tests still call your function. *Blank page: program* is HackerRank-style: read stdin, print the answer, with the input and output format and a sample shown under the problem (154 of the 173 problems; the rest have class or custom inputs). Your `print` output is shown on every run.
 - **Problems page:** search all 173 (twists are tagged) and solve any of them against the real tests.
 - **Hidden large tests:** after the examples pass, OA Mode, cold solves and mocks run one or two large hidden inputs. Code that is right but too slow gets *"Correct on every example, but too slow on large hidden test 1 of 1 (n = 40,000)"*. Line Up and Fill the Gap skip them.
 - **Answers:** "Show answer" toggles, so you can hide it and keep working, but seeing it once records the round as missed.
 - **← Previous** reopens the last question and undoes the grade you gave it.
-- **Code editors** have optional syntax colours (toggle on the editor itself, no autocomplete) and Python-friendly indentation: Tab / Shift+Tab indent or dedent the selection, Backspace removes 4 leading spaces, Enter keeps the indent.
+- **Code editors** have optional syntax colours (toggle on the editor itself or in Settings, no autocomplete) and Python-friendly indentation: Tab / Shift+Tab indent or dedent the selection, Backspace removes 4 leading spaces, Enter keeps the indent. The colours apply to all code in the app, including the gaps you type into in Fill the Gap.
 
 <p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and highlighted matches" width="680"></p>
 
@@ -230,7 +235,10 @@ pattern-gym/
 ├── runner.py              runs code against tests (subprocess locally, Pyodide online)
 ├── build_static.py        builds static/content.json for hosting
 ├── validate.py            every solution and brute-force version must pass its tests
-├── content/               problems, twists, hidden-test generators (perf.py), LeetCode links, lessons, walkthroughs
+├── make_bugs.py           regenerates the Bug Hunt bugs (content/bug_hunt_data.py)
+├── content/               problems, twists, hidden-test generators (perf.py), LeetCode links, lessons, walkthroughs,
+│                          the Python tab (python_course.py), Cheatsheet tables (references.py), CoderPad program
+│                          style (stdio.py) and Bug Hunt (bug_hunt.py, bug_hunt_data.py)
 ├── static/                the whole app, which is what gets published
 │   ├── app.js             pages, games, Study, keyboard
 │   ├── guide.js           the Starter Guide page
@@ -239,7 +247,7 @@ pattern-gym/
 │   ├── py-worker.js       Python in the browser
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring
-├── tests/                 node tests for merge and edge matching
+├── tests/                 node tests for merge, edge matching and the highlighter
 └── docs/
     ├── ARCHITECTURE.md    how it all fits together: content, judge, app, progress, sync, CI
     └── NEXT_STEPS.md      project context: conventions, what's verified, to-dos
@@ -253,7 +261,8 @@ trade-offs), see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 1. Append a `P(...)` entry to any `content/problems*.py` file.
 2. Mark the key lines with `  # <<` (they become Fill the Gap blanks).
 3. Optionally add a hidden large test in `content/perf.py`: a `make(rng)` that returns big inputs. Expected answers come from your reference solution, and validate checks that the brute force fails it.
-4. Run `python validate.py` and check that it prints `ALL OK`.
+4. Run `python make_bugs.py` to give it Bug Hunt bugs (rerun it whenever you change a solution). Its program-style (stdin) version for CoderPad mode is made automatically when its inputs fit a text format.
+5. Run `python validate.py` and check that it prints `ALL OK`.
 
 Tests support plain functions, design classes (`D(...)`), linked lists and trees (`arg_types`), in-place mutation (`inplace=`),
 custom node classes (`prelude=`), and a `harness=` for round-trips or problems with several valid answers.

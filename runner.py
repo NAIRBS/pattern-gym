@@ -4,7 +4,9 @@ Spec kinds:
   function : {"fn", "cases": [{"args": [...], "expected": ...}], "arg_types", "ret_type", "compare", "inplace"}
   design   : {"cls", "cases": [{"ops": [...], "args": [[...]], "expected": [...]}]}
   snippet  : {"setup": str, "check": str}   (user code runs after setup; check is an expression that must be True)
-  script   : {"cases": [{"stdin": str, "expected": str?, "files": {name: text}?, "outfile": name?}]}
+Any spec may add "blank": true (blank-page mode): no prelude, so imports and ListNode/TreeNode are the code's own.
+Whatever the code prints is returned as result["stdout"].
+  script   : {"cases": [{"stdin": str, "expected": str?, "compare": mode?, "files": {name: text}?, "outfile": name?}]}
              a whole program, run once per case with stdin as its input; what it prints (or writes to
              outfile) is returned, and compared with expected when given. No prelude: imports are yours.
 """
@@ -36,11 +38,17 @@ class TreeNode:
 """
 
 
+def _node_class(ns, name, fields):
+    if name not in ns:
+        raise NameError(f"{name} isn't defined. On a blank page you write it yourself: class {name} with {fields}")
+    return ns[name]
+
+
 def to_linked(ns, arr):
-    dummy = ns["ListNode"]()
+    dummy = _node_class(ns, "ListNode", "val and next")()
     cur = dummy
     for v in arr:
-        cur.next = ns["ListNode"](v)
+        cur.next = _node_class(ns, "ListNode", "val and next")(v)
         cur = cur.next
     return dummy.next
 
@@ -56,7 +64,7 @@ def from_linked(node, limit=10000):
 def to_tree(ns, arr):
     if not arr or arr[0] is None:
         return None
-    T = ns["TreeNode"]
+    T = _node_class(ns, "TreeNode", "val, left and right")
     root = T(arr[0])
     q, i = [root], 1
     while q and i < len(arr):
@@ -226,6 +234,23 @@ def _norm_out(s):
     return "\n".join(l.rstrip() for l in s.replace("\r\n", "\n").rstrip("\n").split("\n")).rstrip("\n")
 
 
+def _same_out(got, want, mode):
+    """Compare printed output. mode: None (exact, after _norm_out), "unordered" (the same tokens in any order),
+    "unordered_nested" (the same lines in any order, each line's tokens in any order), "float" (within 1e-5)."""
+    if mode == "unordered":
+        return sorted(got.split()) == sorted(want.split())
+    if mode == "unordered_nested":
+        rows = lambda s: sorted(" ".join(sorted(l.split())) for l in _norm_out(s).split("\n") if l.strip())
+        return rows(got) == rows(want)
+    if mode == "float":
+        try:
+            a, b = [float(x) for x in got.split()], [float(x) for x in want.split()]
+        except ValueError:
+            return False
+        return len(a) == len(b) and all(abs(x - y) < 1e-5 for x, y in zip(a, b))
+    return _norm_out(got) == _norm_out(want)
+
+
 def _err_line(e):
     tb = traceback.extract_tb(e.__traceback__)
     line = next((fr.lineno for fr in reversed(tb) if fr.filename == "<your code>"), None)
@@ -289,7 +314,7 @@ def run_script(code, spec):
             row["error"] = err
         if "expected" in case:
             row["expected"] = case["expected"]
-            row["pass"] = not err and _norm_out(got) == _norm_out(case["expected"])
+            row["pass"] = not err and _same_out(got, case["expected"], case.get("compare"))
         else:
             row["pass"] = not err
         all_ok &= row["pass"]
@@ -302,10 +327,23 @@ def run(code, spec, progress=None):
     """Run code against spec and return the result dict. Also used in the browser (Pyodide worker)."""
     if spec.get("kind") == "script":
         return run_script(code, spec)
+    import contextlib
+    import io
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        result = _run(code, spec, progress)
+    printed = out.getvalue()
+    if printed:
+        result["stdout"] = printed[:20000] + ("\n... (output cut at 20,000 characters)" if len(printed) > 20000 else "")
+    return result
+
+
+def _run(code, spec, progress=None):
     ns = {"__name__": "__solution__"}
     result = {"ok": False, "results": [], "error": None}
     try:
-        exec(PRELUDE, ns)
+        if not spec.get("blank"):
+            exec(PRELUDE, ns)
         if spec.get("prelude"):
             exec(spec["prelude"], ns)
         if spec.get("kind") == "snippet":

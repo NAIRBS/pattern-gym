@@ -56,7 +56,7 @@ ROUTES.cheatsheet = (app, [tab], params) => {
         <h2 class="cs-group">${esc(t)} <span class="muted small">${xs.length}</span></h2>
         <table class="gtbl cs-tbl"><thead><tr><th>Task</th><th>Answer</th></tr></thead><tbody>
         ${xs.map(s => `<tr class="cs-item" data-s="${cheatKey(t, s.prompt, s.answer)}">
-          <td data-label="Task">${cheatMd(s.prompt)}${s.setup ? `<div class="muted small cs-setup">Given <code>${esc(s.setup)}</code></div>` : ''}</td>
+          <td data-label="Task">${cheatMd(s.prompt)}${s.setup ? `<div class="muted small cs-setup">Given <code class="hlc">${esc(s.setup)}</code></div>` : ''}</td>
           <td data-label="Answer"><div class="ans"><pre class="code cs-one">${esc(s.answer)}</pre></div></td></tr>`).join('')}
         </tbody></table></section>`).join('')}`;
     },

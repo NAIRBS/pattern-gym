@@ -114,6 +114,29 @@ for sec in c["python"]:
                 bad += 1
                 print("PY TASK FAIL", t["id"], r.get("error"), [(x.get("got"), x.get("expected"), x.get("error")) for x in r["results"] if not x["pass"]][:2])
 
+# CoderPad program style: the reference program (solution + stdin driver) prints every expected output.
+from content.stdio import reference_program
+for p in c["problems"]:
+    if p.get("stdio"):
+        r = run_code(reference_program(p["solution"], p["stdio"]), {"kind": "script", "cases": p["stdio"]["cases"]}, timeout=6)
+        if not r["ok"]:
+            bad += 1
+            print("STDIO FAIL", p["id"], r.get("error"), [(x.get("got"), x.get("expected"), x.get("error")) for x in r["results"] if not x["pass"]][:1])
+
+# Bug Hunt: every planted bug matches its line in the reference and makes the visible tests fail.
+from content.bug_hunt import apply as _apply_bug, BUG_KINDS
+for p in c["problems"]:
+    for b in p.get("bugs", []):
+        lines = p["solution"].split("\n")
+        if b["kind"] not in BUG_KINDS or b["line"] >= len(lines) or lines[b["line"]] != b["fixed"]:
+            bad += 1
+            print("BUG STALE", b["id"], "the solution changed: run python make_bugs.py")
+            continue
+        r = run_code(_apply_bug(p["solution"], b), {k: v for k, v in p["tests"].items() if k != "perf"}, timeout=4)
+        if r.get("ok"):
+            bad += 1
+            print("BUG PASSES", b["id"], "the planted bug doesn't fail any test")
+
 for p in c["problems"]:
     if not p["brute"] or len(p["plan"]) < 2:
         print("NO WALKTHROUGH", p["id"]); bad += 1

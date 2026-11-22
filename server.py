@@ -122,6 +122,8 @@ class Handler(BaseHTTPRequestHandler):
             if not p:
                 return self._send(404, {"error": "unknown problem"})
             spec = p["tests"] if body.get("hidden", True) else {k: v for k, v in p["tests"].items() if k != "perf"}
+            if body.get("blank"):   # blank-page mode: nothing pre-imported or predefined
+                spec = {**spec, "blank": True}
             return self._send(200, run_code(body.get("code", ""), spec))
         if path == "/api/syntax":
             c = SYNTAX.get(body.get("id"))
@@ -130,7 +132,7 @@ class Handler(BaseHTTPRequestHandler):
             spec = {"kind": "snippet", "setup": c["setup"], "check": c["check"]}
             return self._send(200, run_code(body.get("code", ""), spec, timeout=4))
         if path == "/api/script":   # Python tab: run a whole program on the given stdin (local only)
-            cases = [{k: c[k] for k in ("stdin", "expected", "files", "outfile") if k in c} for c in body.get("cases", [])][:10]
+            cases = [{k: c[k] for k in ("stdin", "expected", "compare", "files", "outfile") if k in c} for c in body.get("cases", [])][:20]
             return self._send(200, run_code(body.get("code", ""), {"kind": "script", "cases": cases}, timeout=4))
         return self._send(404, {"error": "not found"})
 

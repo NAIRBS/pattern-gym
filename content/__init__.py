@@ -16,7 +16,12 @@ from .perf import PERF
 from .links import LEETCODE
 from .python_course import PYTHON
 from .references import DS_COSTS, ALGO_COSTS, STEPS, OPTIMIZE
+from .stdio import stdio_for, LIB as STDIO_LIB
+from .bug_hunt import BUGS, BUG_KINDS
 PERF = {**PERF, **PERF_TWIST}
+BUGS_BY_PROBLEM = {}
+for _b in BUGS:
+    BUGS_BY_PROBLEM.setdefault(_b["problem"], []).append(_b)
 
 
 def _strip_marks(code):
@@ -57,6 +62,11 @@ def load_all():
         if p["id"] in PERF:   # hidden large tests: expected answers come from the reference at run time
             size, gen = PERF[p["id"]]
             p["tests"] = {**p["tests"], "perf": {"size": size, "gen": gen.strip("\n"), "ref": p["solution"]}}
+        io = stdio_for(p)   # program-style (stdin/stdout) version for CoderPad mode, when the inputs fit a text format
+        if io:
+            p["stdio"] = io
+        if p["id"] in BUGS_BY_PROBLEM:
+            p["bugs"] = BUGS_BY_PROBLEM[p["id"]]
         problems.append(p)
     patterns = []
     for pt in PATTERNS:
@@ -77,6 +87,8 @@ def load_all():
         "method": [{"title": t, "points": pts} for t, pts in METHOD],
         "input_size": [list(r) for r in INPUT_SIZE],
         "python": PYTHON,
+        "stdio_lib": STDIO_LIB,
+        "bug_kinds": BUG_KINDS,
         "references": {
             "ds_costs": [list(r) for r in DS_COSTS],
             "algo_costs": [list(r) for r in ALGO_COSTS],
