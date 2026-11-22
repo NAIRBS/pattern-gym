@@ -38,7 +38,7 @@ flowchart LR
     B --> R2["static/runner.py"]
   end
   subgraph Browser["Run time (your browser)"]
-    UI["app.js + guide.js<br/>router, pages, games"] -->|code + test spec| W["py-worker.js<br/>Pyodide (CPython in WebAssembly)"]
+    UI["app.js + guide.js + cheatsheet.js<br/>router, pages, games"] -->|code + test spec| W["py-worker.js<br/>Pyodide (CPython in WebAssembly)"]
     W -->|runs| R3["runner.py"]
     UI <--> LS[("localStorage")]
     UI <--> SY["sync.js + merge.js"]
@@ -53,7 +53,7 @@ flowchart LR
 | Content | `content/*.py` | Every problem, test, walkthrough, lesson, drill card and hidden-test generator, as Python data |
 | Build | `validate.py`, `build_static.py` | Check all content by running it, then compile it to `static/content.json` |
 | Judge | `runner.py`, `static/py-worker.js` | Run untrusted code against a test spec, with a time limit |
-| App | `static/app.js`, `static/guide.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer |
+| App | `static/app.js`, `static/guide.js`, `static/cheatsheet.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer |
 | Helpers | `static/highlight.js`, `static/edge-match.js` | Syntax colouring; matching typed edge cases to the expected ones |
 | Progress | `static/merge.js`, `static/sync.js`, `static/config.js` | Local state, merging two copies, optional cloud sync |
 | Local mode | `server.py`, `start.bat` | Same app served from your machine, code run in a subprocess, progress in `progress.json` |
@@ -76,7 +76,7 @@ flowchart LR
 
 **Run time** is entirely in the browser:
 
-1. `index.html` loads `app.js`, then `guide.js`. On boot, `loadContent()` tries `GET /api/content` (local
+1. `index.html` loads `app.js`, then `guide.js` and `cheatsheet.js`. On boot, `loadContent()` tries `GET /api/content` (local
    mode); if that fails it fetches `content.json` (static mode) and sets `SERVER = false`.
 2. Progress is read from `localStorage` (`pattern-gym-state`), normalised, and held in one object `S`.
 3. The hash router renders the page for the current `#/route`.
@@ -191,6 +191,7 @@ also triggers a fresh worker. `print()` output is discarded in both modes.
 | Games | A registry `GAMES[id] = { name, pool(), gate(), render(el, item, done, ctx) }`. Every game plugs into one session runner (`runSession`), which handles the queue, grading, Previous/undo, XP and the end screen. Each game only renders a question and calls `done(grade)` |
 | Study | Courses per pattern: lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages; `nextStep()` picks what's next |
 | Starter Guide | `guide.js` registers `ROUTES.guide`, a page with six sections addressed as `#/guide/<section>` |
+| Cheatsheet | `cheatsheet.js` registers `ROUTES.cheatsheet`: every game question with its answer, read-only, in six sections (`#/cheatsheet/<section>`: sprint, skeletons, syntax, solutions, bigo, edges). It reads the same `C.sprint`, `C.patterns`, `C.syntax` and `C.problems` the games draw from, so it never goes stale. A filter, a pattern menu, a Hide answers mode (blurred until clicked) and print styles; nothing on it is graded or scheduled |
 | Keyboard layer | Any button with `data-key="x"` gets that shortcut. One global `keydown` handler clicks the visible match. The key bar (`paintKeybar`) lists exactly the keys that work on the current screen |
 | Problem panel | `problemPanel(p)` renders statement, examples, typed signature and constraints from the test spec |
 | Editor | A `<textarea>` with a syntax-colour overlay (`highlight.js`), auto-indent and Tab handling (`enhanceEditor`) |

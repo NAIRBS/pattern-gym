@@ -1,6 +1,6 @@
 # Pattern Gym: project context
 
-**Updated 2026-11-19.** If you're Claude starting a new session: read this file, then
+**Updated 2026-11-22.** If you're Claude starting a new session: read this file, then
 `docs/ARCHITECTURE.md` and `README.md`, then the parts of `static/app.js` you need (it's sectioned with `// ───` banners). Update this
 file whenever you change architecture, state shape, conventions or the to-do list, and update
 `docs/ARCHITECTURE.md` (its checklist says when) in the same commit.
@@ -76,6 +76,7 @@ content/
   sprint.py, syntax.py, interview.py   Sprint cards (150), Syntax Snap cards (34), clarify/talk-track/rubric
 static/
   guide.js         the grind guide page (ROUTES.guide), loaded after app.js
+  cheatsheet.js    the Cheatsheet page (ROUTES.cheatsheet): every game question + answer, read-only
   app.js           everything UI: utilities, storage, runner client, SRS, daily plan, router, keyboard,
                    games (GAMES.*), pages (ROUTES.*), Study (courses, walkthroughs, cold solve)
   py-worker.js     Pyodide worker
@@ -101,7 +102,7 @@ tests/             node tests: merge.test.js, edge-match.test.js
 - **Review rotation** (`rotate()` in `chooseItems('oa')`): a due full solve whose last grade was a pass is
   replaced by the same-pattern sibling with the fewest reps (`_dueFor`); grading it reschedules both, and
   Previous undoes both.
-- **Routes:** today, study, games, play, problems, patterns, guide, stats, settings (hash router; `onLeave` cleanup).
+- **Routes:** today, study, games, play, problems, patterns, cheatsheet, guide, stats, settings (hash router; `onLeave` cleanup).
 - **Games** (`GAMES.*`): sprint, lineup (SortableJS drag/drop + keyboard), skeleton (structural check,
   hint ladder), fill, syntax, bigo, edge (auto-scored via edge-match.js), oa, mock.
   "Show answer" toggles but counts as missed; "Previous" reopens the last question and undoes its grade.
@@ -141,6 +142,11 @@ tests/             node tests: merge.test.js, edge-match.test.js
    Spiral Matrix and the "convert to int" problems. Their walkthroughs say so in the one-line `brute`
    text. If code is ever added, the `brute` sentence in `study_problems.py` must describe that code and
    contain an `O(...)` (validate checks this; the code label and the meter read it).
+
+Done 2026-11-22:
+- Cheatsheet tab (`G` `C`): every game question with its answer, filter, hide-answers quiz mode, print.
+- Confirm dialog before quitting a round (`confirmQuit`, `data-exit-confirm`).
+- Highlighted code lines must not sit in a flex box (flex drops whitespace-only text between spans).
 
 Done 2026-11-19:
 - Hidden large tests for 75 problems (61 of the 150 + 14 twists), adversarial where random input let a

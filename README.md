@@ -28,6 +28,7 @@ this for the daily recall that makes 150 problems stick. Free, no sign-up, and y
 - [The Starter Guide](#the-starter-guide)
 - [The Study tab](#the-study-tab)
 - [The games](#the-games)
+- [The Cheatsheet](#the-cheatsheet)
 - [Keyboard](#keyboard)
 - [Online or local](#online-or-local)
 - [Accounts and sync](#accounts-and-sync)
@@ -146,6 +147,14 @@ The cold-solve page has an **approach coach** (open for your first few attempts,
 
 <p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and highlighted matches" width="680"></p>
 
+## The Cheatsheet
+
+The **Cheatsheet** tab (<kbd>G</kbd> <kbd>C</kbd>) lists every question the games ask, with its answer, to read through without playing:
+the 150 Pattern Sprint prompts with their pattern and key move, the 23 pattern skeletons, the 34 Syntax Snap idioms, and for
+all 150 problems the reference solution (the lines Fill the Gap blanks are highlighted), its Big-O, and its clarifying questions and
+edge cases. Filter by text or pattern, press <kbd>H</kbd> to blur the answers and quiz yourself, or <kbd>P</kbd> to print it. Reading it
+doesn't count toward your reviews; the games are still where recall gets trained.
+
 ## Keyboard
 
 The bar at the bottom of every screen lists the keys that work right there, and every chip is clickable. Press <kbd>?</kbd> for the full list.
@@ -154,7 +163,7 @@ The bar at the bottom of every screen lists the keys that work right there, and 
 |---|---|---|---|
 | <kbd>?</kbd> | all shortcuts | <kbd>E</kbd> / <kbd>Esc</kbd> | into / out of the editor |
 | <kbd>/</kbd> | search problems | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | run / check |
-| <kbd>G</kbd> then <kbd>T</kbd> <kbd>S</kbd> <kbd>G</kbd> <kbd>P</kbd> <kbd>A</kbd> <kbd>U</kbd> <kbd>X</kbd> <kbd>,</kbd> | go to a page | <kbd>H</kbd> · <kbd>A</kbd> | hint · show / hide answer |
+| <kbd>G</kbd> then <kbd>T</kbd> <kbd>S</kbd> <kbd>G</kbd> <kbd>P</kbd> <kbd>A</kbd> <kbd>C</kbd> <kbd>U</kbd> <kbd>X</kbd> <kbd>,</kbd> | go to a page | <kbd>H</kbd> · <kbd>A</kbd> | hint · show / hide answer |
 | <kbd>C</kbd> | continue studying | <kbd>N</kbd> · <kbd>[</kbd> | next · previous question |
 | <kbd>M</kbd> | mystery problem | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | grade: blanked / shaky / nailed |
 | <kbd>Space</kbd> | reveal the next step | <kbd>Q</kbd> | exit the game |
@@ -211,6 +220,7 @@ pattern-gym/
 ├── static/                the whole app, which is what gets published
 │   ├── app.js             pages, games, Study, keyboard
 │   ├── guide.js           the Starter Guide page
+│   ├── cheatsheet.js      the Cheatsheet page: every game question with its answer
 │   ├── py-worker.js       Python in the browser
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring

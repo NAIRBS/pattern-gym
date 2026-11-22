@@ -399,9 +399,9 @@ document.getElementById('skip')?.addEventListener('click', () => $('#app').focus
 // Single keys work whenever you're not typing; Esc leaves a text box so they work again.
 // "g" then a letter jumps to a page. Buttons opt in with data-key="x" (shown as <kbd>X</kbd>).
 const NAV_KEYS = { t: ['today', 'Today'], s: ['study', 'Study'], g: ['games', 'Games'], p: ['problems', 'Problems'],
-  a: ['patterns', 'Patterns'], u: ['guide', 'Starter Guide'], x: ['stats', 'Stats'], ',': ['settings', 'Settings'] };
+  a: ['patterns', 'Patterns'], c: ['cheatsheet', 'Cheatsheet'], u: ['guide', 'Starter Guide'], x: ['stats', 'Stats'], ',': ['settings', 'Settings'] };
 const KEY_HELP = [
-  ['Anywhere', [['?', 'This list'], ['/', 'Search problems'], ['g then t s g p a u x ,', 'Go to Today, Study, Games, Problems, Patterns, Starter Guide, Stats, Settings'],
+  ['Anywhere', [['?', 'This list'], ['/', 'Search problems'], ['g then t s g p a c u x ,', 'Go to Today, Study, Games, Problems, Patterns, Cheatsheet, Starter Guide, Stats, Settings'],
     ['E', 'Jump into the code editor / answer box'], ['Esc', 'Leave the editor (then single keys work)'], ['Q', 'Exit the game'], ['Tab', 'Next control']]],
   ['In a game', [['Ctrl+Enter', 'Run / check / score'], ['R', 'Run / check (when not typing)'], ['H', 'Hint'], ['A', 'Show / hide the answer'],
     ['N', 'Next question / next game when a round ends'], ['R', 'Another round (end of a round)'], ['[', 'Previous question (undoes its grade)'], ['1 2 3', 'Grade: Blanked / Shaky / Nailed'], ['1-4', 'Pick an option (Sprint, Big-O)']]],
