@@ -152,6 +152,9 @@ Done 2026-11-22:
 - CoderPad mode in OA Mode and Mock (S.settings.pad: leetcode | fn | prog); runner `blank` flag; print output shown on every run.
 - Bug Hunt game (🐞, after Edge Hunter): 260 generated bugs; rerun `python make_bugs.py` after changing a solution.
 - Don't remove existing content or games unless the owner names them.
+- README screenshots are taken with headless Chrome over the DevTools protocol (1280x800 at 1.5x, dark, first-run tips dismissed); retake them when a pictured page changes.
+- Every button has a key except per-row/per-lesson repeats, Settings form controls and Reset: Bug Hunt Show the bug = A, Python next section = N, cold-solve coach C / [ / ].
+- All form controls share the app's styling (input[type=search] included; checkbox/radio/range use accent-color); :root sets color-scheme so native widgets match the theme.
 - Cheatsheet sections Costs and Method (keys 7-8). The site doesn't name books it draws on (keep the substance, drop the citation); the USACO Guide is credited where its material is used.
 - Python tab (`G` `Y`): Python for OAs and blank-page interviews (whole-program structure, own ListNode/TreeNode/graph builders, I/O, how to read the solutions' one-liners); runner kind `script` runs whole programs with stdin. Header: level pill hidden at 821–1300px, compact nav up to 1440px.
 - Cheatsheet tab (`G` `C`): every game question with its answer, filter, hide-answers quiz mode, print.

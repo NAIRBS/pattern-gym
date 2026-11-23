@@ -98,7 +98,7 @@ ROUTES.python = (app, [tab]) => {
       <p class="py-intro">${pyMd(sec.intro)}</p>
       <nav class="py-toc" aria-label="Lessons in this section">${sec.lessons.map((l, i) => `<button type="button" class="gchip in" data-go="${l.id}">${i + 1}. ${esc(l.title)}</button>`).join('')}</nav>
       ${sec.lessons.map(lesson).join('')}
-      ${secs[secs.indexOf(sec) + 1] ? `<p class="py-next"><a class="btn" href="#/python/${secs[secs.indexOf(sec) + 1].id}">Next: ${esc(secs[secs.indexOf(sec) + 1].title)} →</a></p>` : ''}
+      ${secs[secs.indexOf(sec) + 1] ? `<p class="py-next"><a class="btn" href="#/python/${secs[secs.indexOf(sec) + 1].id}" data-key="n">Next: ${esc(secs[secs.indexOf(sec) + 1].title)} → <kbd>N</kbd></a></p>` : ''}
     </div></div>`;
 
   const L = Object.fromEntries(sec.lessons.map(l => [l.id, l]));

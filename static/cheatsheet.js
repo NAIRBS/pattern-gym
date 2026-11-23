@@ -124,7 +124,8 @@ ROUTES.cheatsheet = (app, [tab], params) => {
         data-key="${i + 1}" data-kgroup="switch section">${esc(label)} <kbd>${i + 1}</kbd></a>`).join('')}</div>
     <div class="cs-bar">
       ${cur[2] ? `<span class="muted small">From <b>${esc(cur[2])}</b></span>` : ''}<span class="spacer"></span>
-      <input type="search" id="cs-q" placeholder="Filter this section" aria-label="Filter this section" autocomplete="off" spellcheck="false" value="${esc(params.q || '')}">
+      <div class="sfield compact"><svg class="sicon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+        <input type="search" id="cs-q" placeholder="Filter this section" aria-label="Filter this section" autocomplete="off" spellcheck="false" value="${esc(params.q || '')}"></div>
       ${usesPattern ? `<select id="cs-p" aria-label="Pattern"><option value="">All patterns</option>${C.patterns.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>` : ''}
       <button type="button" class="ghost" id="cs-hide" data-key="h" aria-pressed="${hide}">${hide ? 'Show answers' : 'Hide answers'} <kbd>H</kbd></button>
       <button type="button" class="ghost" id="cs-print" data-key="p">Print <kbd>P</kbd></button>

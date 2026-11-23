@@ -708,7 +708,7 @@ function resultsHtml(r) {
   for (const x of r.results || []) {
     // hidden tests are too big to print: just say what went wrong
     const detail = x.hidden ? (x.error ? '\n   ' + esc(x.error) : '')
-      : `\n   expected ${esc(x.expected ?? '')}\n   got      ${esc(x.got ?? '')}${x.error ? '\n   ' + esc(x.error) : ''}`;
+      : `${x.expected != null ? `\n   expected ${esc(x.expected)}` : ''}${x.got != null ? `\n   got      ${esc(x.got)}` : ''}${x.error ? '\n   ' + esc(x.error) : ''}`;
     h += `<div class="res ${x.pass ? '' : 'fail'}">${x.pass ? '✓' : '✗'} ${esc(x.input || '')}${x.pass ? '' : detail}</div>`;
   }
   const hidden = (r.results || []).filter(x => x.hidden).length, shown = (r.results || []).length - hidden;
@@ -1319,7 +1319,7 @@ GAMES.bughunt = {
       <div class="ed-head"><span>Python 3</span><span class="spacer"></span><span class="muted">one bug</span></div>
       <textarea class="code" id="ed" aria-label="The buggy solution">${esc(applyBug(p.solution, b))}</textarea>
       <div class="row" style="margin-top:10px"><button class="primary" id="run" data-key="r">Run tests <kbd>Ctrl+Enter</kbd></button>
-        <button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button><button class="ghost" id="show">Show the bug</button>
+        <button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button><button class="ghost" id="show" data-key="a">Show the bug <kbd>A</kbd></button>
         <span id="moveon"></span><span class="spacer"></span><span class="muted small" id="rc"></span></div>
       <div id="hints"></div><div id="out" aria-live="polite"></div></div></div>`;
     const ed = $('#ed', el); enhanceEditor(ed, { onSubmit: () => run() });
@@ -2168,19 +2168,19 @@ function studySolve(app, probId, params) {
   const drawCoach = () => {
     if (!coachShown) {
       coach.innerHTML = `<div class="coach-head"><b>Approach coach</b><span class="muted small">6 steps, optional</span><span class="spacer"></span>
-        <button type="button" class="ghost" id="cshow" aria-expanded="false">Show</button></div>`;
+        <button type="button" class="ghost" id="cshow" aria-expanded="false" data-key="c">Show <kbd>C</kbd></button></div>`;
       $('#cshow', coach).onclick = () => { coachShown = true; drawCoach(); $('#cn', coach).focus(); };
       return;
     }
     const a = APPROACH[ci];
     coach.innerHTML = `<div class="coach-head"><b>Approach coach</b><span class="muted small">Step ${ci + 1} of 6</span><span class="spacer"></span>
-        <button type="button" class="ghost" id="chide" aria-expanded="true">Hide</button></div>
+        <button type="button" class="ghost" id="chide" aria-expanded="true" data-key="c">Hide <kbd>C</kbd></button></div>
       <ol class="coach-steps">${APPROACH.slice(0, 6).map((x, k) => `<li><button type="button" class="${k === ci ? 'on' : notes[k] ? 'done' : ''}" data-ci="${k}"
         title="${esc(x.t)}" aria-label="Step ${k + 1}: ${esc(x.t)}" ${k === ci ? 'aria-current="step"' : ''}>${k + 1}</button></li>`).join('')}</ol>
       <label class="coach-body" for="cn"><b>${esc(a.t)}</b><span class="muted small">${esc(a.d)}</span></label>
       <textarea id="cn" rows="3" placeholder="Your notes for this step (optional)">${esc(notes[ci] || '')}</textarea>
-      <div class="row coach-nav"><button type="button" class="ghost" id="cprev" ${ci ? '' : 'disabled'}>Back</button><span class="spacer"></span>
-        <button type="button" id="cnext">${ci < 5 ? 'Next step' : 'Done, write the code'}</button></div>`;
+      <div class="row coach-nav"><button type="button" class="ghost" id="cprev" data-key="[" ${ci ? '' : 'disabled'}>Back <kbd>[</kbd></button><span class="spacer"></span>
+        <button type="button" id="cnext" data-key="]">${ci < 5 ? 'Next step' : 'Done, write the code'} <kbd>]</kbd></button></div>`;
     const ta = $('#cn', coach); ta.oninput = () => { notes[ci] = ta.value; };
     const go = k => { ci = k; drawCoach(); $('#cn', coach).focus(); };
     $$('[data-ci]', coach).forEach(b => b.onclick = () => go(+b.dataset.ci));

@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;   /* native parts (date picker, dropdowns, scrollbars) match the theme */
   --bg: #15171c; --panel: #1e2128; --panel2: #262a33; --line: #343a46;
   --text: #e7e9ee; --muted: #9aa3b2; --accent: #4ade80; --accent-ink: #052e16;
   --good: #2dd4bf; --shaky: #e8c33d; --bad: #ef6b6b; --info: #5aa2f0;
@@ -10,7 +11,7 @@
   --shaky-text: var(--shaky);
 }
 @media (prefers-color-scheme: light) {
-  :root {
+  :root { color-scheme: light;
     --bg: #f5f3ee; --panel: #ffffff; --panel2: #f0ede6; --line: #dcd6ca;
     --text: #1d1f24; --muted: #5c6069; --accent: #166534; --accent-ink: #fff;
     --pc-mix: 45%; --shaky-text: #6e5400;   /* pattern colours mixed toward text; amber as text */
@@ -79,7 +80,11 @@ button:disabled { opacity: .45; cursor: default; filter: none; }
 .btn.ghost, button.ghost { background: transparent; }
 kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 4px; color: var(--muted); }
 
-input[type=text], input[type=email], input[type=date], input[type=number], textarea, select {
+input, button, select, textarea { font: inherit; }
+input[type=checkbox], input[type=radio], input[type=range] { accent-color: var(--accent); }
+input[type=checkbox], input[type=radio] { width: 16px; height: 16px; vertical-align: -3px; margin: 0 6px 0 0; cursor: pointer; }
+input[type=range] { cursor: pointer; }
+input[type=text], input[type=email], input[type=date], input[type=number], input[type=search], textarea, select {
   font: inherit; background: var(--code-bg); color: var(--text); border: 1px solid var(--line);
   border-radius: var(--r-md); padding: 8px 10px; }
 textarea { width: 100%; resize: vertical; }
@@ -740,9 +745,13 @@ td .practise { flex-wrap: nowrap; }
 
 /* Cheatsheet */
 .cs-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0 4px; }
-.cs-bar input[type=search] { min-width: 220px; flex: 0 1 280px; }
+/* the filter box: a compact version of the Problems search field */
+.cs-bar .sfield { min-width: 220px; flex: 0 1 300px; }
+.sfield.compact .sicon { left: 11px; width: 16px; height: 16px; }
+.sfield.compact input { height: 38px; padding: 0 12px 0 34px; font-size: 14px; border-radius: 10px; }
+.sfield.compact input:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .cs-bar select { max-width: 220px; }
-.cs-group { display: flex; align-items: center; gap: 8px; font-size: 18px; margin: 28px 0 10px; text-transform: capitalize; }
+.cs-group { display: flex; align-items: center; gap: 8px; font-size: 18px; margin: 28px 0 10px; }
 .cheat .gdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .cs-tbl td:first-child { width: 42%; }
 .cs-tbl td > div + div { margin-top: 4px; }
@@ -771,7 +780,7 @@ td .practise { flex-wrap: nowrap; }
 .quiz .ans:hover { filter: blur(8px) opacity(.8); }
 .quiz .ans.shown { filter: none; user-select: auto; }
 .quiz .ans:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 760px) { .cs-cols { grid-template-columns: 1fr; } .cs-bar input[type=search] { flex: 1 1 100%; } }
+@media (max-width: 760px) { .cs-cols { grid-template-columns: 1fr; } .cs-bar .sfield { flex: 1 1 100%; } }
 @media print {
   .topbar, #keybar, .keybar, .gtabs, .cs-bar, #toast { display: none !important; }
   .quiz .ans { filter: none; }

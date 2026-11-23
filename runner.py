@@ -367,6 +367,12 @@ def _run(code, spec, progress=None):
     t0 = time.perf_counter()
     for case in spec["cases"]:
         r = {"pass": False}
+        # say which test it was and what was expected even if the code crashes on it
+        if kind == "design":
+            r["input"] = short(case["ops"]) + " " + short(case["args"])
+        else:
+            r["input"] = ", ".join(short(a, 120) for a in case["args"])
+        r["expected"] = short(case["expected"])
         try:
             if kind == "design":
                 got = call_one(ns, spec, kind, (case["ops"], case["args"]))
