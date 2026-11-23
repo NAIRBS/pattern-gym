@@ -145,6 +145,20 @@ for pt in c["patterns"]:
     if not (L.get("why") and L.get("build") and L.get("bugs") and L.get("not_this")):
         print("INCOMPLETE LESSON", pt["id"]); bad += 1
 
+    if not (L.get("primer") or {}).get("text"):
+        print("NO PRIMER", pt["id"]); bad += 1
+    # a course order must list exactly the pattern's non-twist problems
+    if pt.get("course"):
+        want = {p["id"] for p in c["problems"] if p["pattern"] == pt["id"] and not p.get("twist_of")}
+        got = pt["course"]["order"]
+        if set(got) != want or len(got) != len(set(got)):
+            print("COURSE ORDER", pt["id"], "missing", sorted(want - set(got)), "unknown", sorted(set(got) - want)); bad += 1
+        for k in pt["course"].get("notes", {}):
+            if k not in want:
+                print("COURSE NOTE", pt["id"], k); bad += 1
+if not c.get("bigo_primer"):
+    print("NO BIG-O PRIMER"); bad += 1
+
 ids = [p["id"] for p in c["problems"]]
 if len(ids) != len(set(ids)):
     print("DUPLICATE IDS"); bad += 1

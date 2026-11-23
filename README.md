@@ -63,7 +63,7 @@ On Windows you can double-click `start.bat`. Another port: `PORT=9000 python ser
 <td><img src="docs/screenshots/python.jpg" alt="The Python tab: the any() and all() lesson with a how-to-read table and the same code written as a loop"><br><b>The Python tab.</b> The language for interviews, including how to read the dense one-liners, with code that runs.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/study.jpg" alt="The Study tab: the next lesson, mixed practice and the path of 23 patterns"><br><b>Study.</b> 23 patterns in the order they come up, each a short course ending in a problem you've never seen.</td>
+<td><img src="docs/screenshots/study.jpg" alt="The Study tab: the next lesson, mixed practice and the path of patterns"><br><b>Study.</b> 24 patterns in the order you should learn them, each a short course ending in a problem you've never seen.</td>
 <td><img src="docs/screenshots/cheatsheet.jpg" alt="The Cheatsheet: section tabs, a filter box and the input-size to runtime table"><br><b>Cheatsheet.</b> Every game question with its answer, plus what each data structure and algorithm costs.</td>
 </tr>
 </table>
@@ -72,9 +72,9 @@ On Windows you can double-click `start.bat`. Another port: `PORT=9000 python ser
 
 |  |  |
 |---|---|
-| 📚 **173 problems** | The NeetCode 150 plus 23 twists, each with a reference solution, real tests, a walkthrough and edge cases |
+| 📚 **180 problems** | The NeetCode 150, 7 starter problems that open courses gently, and 23 twists, each with a reference solution, real tests, a walkthrough and edge cases |
 | 🐢 **Hidden large tests** | 75 problems also run a large hidden input, so correct but slow code fails, like on LeetCode |
-| 🧭 **23 patterns** | A short course for each, from the idea to problems you solve cold |
+| 🧭 **24 patterns** | A short course for each, in prerequisite order, from the idea to problems you solve cold |
 | 🎮 **10 games** | From spotting a pattern in seconds to a full mock interview, including Bug Hunt: 260 realistic bugs to find and fix |
 | 📝 **CoderPad mode** | Blank-page practice: your own imports, `ListNode`/`TreeNode` and tests, or stdin/stdout like a HackerRank OA (154 problems) |
 | 🐍 **Python tab** | 45 lessons and 80 runnable quizzes: whole programs, input and output, the core language, reading one-liners |
@@ -90,7 +90,11 @@ On Windows you can double-click `start.bat`. Another port: `PORT=9000 python ser
 ### Study
 
 Memorising solutions doesn't carry over to problems you haven't seen. Recognising a pattern from the problem's *features*,
-and having a method for when you don't, does. So each pattern is a short course:
+and having a method for when you don't, does. So each pattern is a short course, and the courses come in the order they
+build on each other: **Big-O basics** first, then Hash Map, Prefix Sum, Two Pointers and so on, with **Recursion** before
+trees, backtracking and DP, and Heap before shortest paths. Each lesson opens with a **"New to this?"** note on what it
+assumes, with a link to the matching USACO Guide module. After every 4 lessons, a **checkpoint** asks for one mystery
+problem with its name and pattern hidden.
 
 | Stage | What you do |
 |---|---|
@@ -139,7 +143,7 @@ You type a guess before each step is revealed. A meter shrinks from the brute-fo
 - **Your `print` output** is shown with the results on every run, so you can debug the way you would without a judge.
 - **Answers:** "Show answer" toggles, but seeing it once records the round as missed. **← Previous** undoes the last grade.
 - **Editors** have syntax colours everywhere code appears (including Fill the Gap's gaps) and Python-friendly indentation: Tab / Shift+Tab indent the selection, Backspace removes 4 leading spaces, Enter keeps the indent.
-- **Problems page:** search all 173 (twists are tagged) and solve any of them against the real tests.
+- **Problems page:** search all 180 (twists are tagged) and solve any of them against the real tests.
 
 <p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and the problem list" width="720"></p>
 
@@ -151,7 +155,7 @@ OA Mode and Mock Interview have an editor switch, remembered between problems:
 |---|---|---|
 | **LeetCode** | The function signature; imports, `ListNode` and `TreeNode` are already there | LeetCode, most OA platforms |
 | **Blank page: function** | Nothing. Write the imports, any `ListNode`/`TreeNode`, the function and your own tests; the hidden tests still call your function | CoderPad, a shared editor |
-| **Blank page: program** | The input and output format with a sample. Read stdin, print the answer; checked line by line (154 of 173 problems) | HackerRank-style OAs |
+| **Blank page: program** | The input and output format with a sample. Read stdin, print the answer; checked line by line (160 of 180 problems) | HackerRank-style OAs |
 
 ### Python tab
 
@@ -167,7 +171,7 @@ the solution lines that use it. Every example runs in the browser with its own s
 ### Cheatsheet
 
 Everything the games ask, with the answers, to read without playing (<kbd>G</kbd> <kbd>C</kbd>): the 150 Pattern Sprint
-prompts, the 23 skeletons, the 34 Syntax Snap idioms, and for every problem the reference solution, its Big-O, and its
+prompts, the 24 skeletons, the 34 Syntax Snap idioms, and for every problem the reference solution, its Big-O, and its
 clarifying questions and edge cases. **Costs** gives input size → target runtime and what each data structure and algorithm
 costs, with Python notes; **Method** gives seven steps from an unseen problem to a tested program, and what to try when the
 brute force is too slow. Filter by text or pattern, press <kbd>H</kbd> to blur the answers and quiz yourself, <kbd>P</kbd> to print.
@@ -187,9 +191,9 @@ explanation, close it, and write it from blank (10–15 min) → one line on the
 
 | When | Focus | Here | Elsewhere |
 |---|---|---|---|
-| Days 1–3 | Python fluency | The Python tab and Syntax Snap; set your interview date | LeetCode's editor and class-based signatures |
+| Days 1–3 | Python fluency | Big-O basics, the Python tab and Syntax Snap; set your interview date if you have one | LeetCode's editor and class-based signatures |
 | Weeks 1–4 | Patterns | One Study course every day or two, ending in its transfer check | Submit each problem on LeetCode too; the NeetCode video only after a real attempt |
-| Weeks 3–8 | Volume | The Today plan's reviews, every day | [Grind 75](https://www.techinterviewhandbook.org/grind75) or the [NeetCode 150](https://neetcode.io/practice) on LeetCode, timed |
+| Weeks 3–8 | Volume | The problems here are the main list: every course's solo problems and the daily reviews | Submit them on LeetCode too; once the courses are done, [Grind 75](https://www.techinterviewhandbook.org/grind75) problems you haven't seen, timed (15 / 25 / 40 min) |
 | Weeks 6–8 | Speed and pressure | Mixed practice, OA Mode with hidden tests, blank-page mode | A [LeetCode contest](https://leetcode.com/contest/) a week; company-tagged lists if you have Premium |
 | From week 4 | Talking | Mock Interview, weekly | [Pramp](https://www.pramp.com) peers, [interviewing.io](https://interviewing.io) mocks and recordings |
 

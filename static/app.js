@@ -205,7 +205,7 @@ function repaintCode() {
 let C = null;           // content from server
 let S = null;           // persisted state
 const DEFAULTS = {
-  settings: { interviewDate: addDays(today(), 14), minutes: 30, newPerDay: 4, sprintSeconds: 15, sprintNoLimit: false, edgeSeconds: 60, singleKeys: true, highlight: true,
+  settings: { interviewDate: null, minutes: 30, newPerDay: 4, sprintSeconds: 15, sprintNoLimit: false, edgeSeconds: 60, singleKeys: true, highlight: true,
               focus: { talk: true, clarify: true, complexity: true, noide: true } },
   items: {}, xp: 0, streak: { count: 0, last: null, best: 0 }, days: {}, mocks: [], plan: null,
   study: { lessons: {}, walks: {}, attempts: {} },
@@ -277,10 +277,12 @@ function addXP(n) {
 const level = xp => Math.floor(Math.sqrt(xp / 40)) + 1;
 const levelFloor = l => 40 * (l - 1) ** 2;
 
-// Priority = pattern frequency in OAs/interviews, then difficulty
-const PATTERN_PRIORITY = ['hashmap', 'two_pointers', 'sliding_window', 'binary_search', 'tree_dfs', 'grid_graph', 'dp_1d', 'heap',
-  'intervals', 'stack', 'linked_list', 'backtracking', 'tree_bfs', 'mono_stack', 'prefix', 'greedy', 'topo_sort', 'dp_2d',
-  'union_find', 'trie', 'shortest_path', 'bit', 'matrix_math'];
+// The Study path. Each course comes after what it builds on (Recursion before trees, Backtracking and DP;
+// Heap before Dijkstra; Stack before Monotonic Stack), and within that, the patterns that come up most come first.
+// New items in the games are interleaved in this order too.
+const STUDY_ORDER = ['hashmap', 'prefix', 'two_pointers', 'sliding_window', 'stack', 'binary_search', 'linked_list', 'recursion',
+  'tree_dfs', 'tree_bfs', 'backtracking', 'grid_graph', 'heap', 'intervals', 'greedy', 'dp_1d', 'mono_stack', 'topo_sort',
+  'union_find', 'dp_2d', 'trie', 'shortest_path', 'bit', 'matrix_math'];
 const DIFF = { Easy: 0, Medium: 1, Hard: 2 };
 
 // Round-robin across patterns so new material is interleaved, not blocked by topic.
@@ -288,7 +290,7 @@ function interleave(objs) {
   const by = {};
   for (const o of objs) (by[o.pattern] ||= []).push(o);
   for (const k in by) by[k].sort((a, b) => (DIFF[a.diff] ?? 1) - (DIFF[b.diff] ?? 1) || a.num - b.num);
-  const order = PATTERN_PRIORITY.filter(p => by[p]).concat(Object.keys(by).filter(p => !PATTERN_PRIORITY.includes(p)));
+  const order = STUDY_ORDER.filter(p => by[p]).concat(Object.keys(by).filter(p => !STUDY_ORDER.includes(p)));
   const out = []; let added = true;
   while (added) { added = false; for (const p of order) if (by[p].length) { out.push(by[p].shift()); added = true; } }
   return out;
@@ -302,6 +304,8 @@ function chooseItems(game, n, patternFilter) {
     .sort((a, b) => item(game, a.id).due.localeCompare(item(game, b.id).due) || item(game, a.id).box - item(game, b.id).box);
   const budget = Math.max(0, S.settings.newPerDay * (game === 'sprint' ? 3 : 1) - (dayRec().newBy[game] || 0));
   let fresh = interleave(pool.filter(o => !item(game, o.id)));
+  // New material from patterns you've studied comes first: you can't spot or build a pattern you haven't met.
+  if (fresh.some(o => o.pattern)) { const known = fresh.filter(o => !o.pattern || lessonDone(o.pattern)); if (known.length) fresh = known.concat(fresh.filter(o => !known.includes(o))); }
   if (g.gate) { const gated = fresh.filter(g.gate); fresh = gated.length >= Math.min(n, budget) ? gated : gated.concat(fresh.filter(o => !g.gate(o))); }
   let q = due.slice(0, n);
   if (q.length < n) q = q.concat(fresh.slice(0, Math.min(n - q.length, Math.max(budget, due.length ? 0 : Math.min(n, 2)))));
@@ -410,10 +414,14 @@ function recordPace(game, mins) {
 }
 
 // ─────────────────────────── daily plan ───────────────────────────
+// Day one: no lesson learned and no game played except Syntax Snap. The plan is then the first lesson (on the
+// Today page) and a Python warm-up; the other games practise patterns, so they start after the first lesson.
+const firstDay = () => !studyOrder().some(p => lessonDone(p.id)) && !Object.keys(S.items).some(k => !k.startsWith('syntax:'));
 function buildPlan() {
   const M = S.settings.minutes, f = S.settings.focus, u = urgency();
   const blocks = [];
   const add = (game, n) => n > 0 && blocks.push({ game, target: n, done: 0 });
+  if (firstDay()) { add('syntax', clamp(Math.round(M / 6), 3, 8)); return { date: today(), minutes: M, firstDay: true, blocks }; }
   let used = 0;
   const sprintN = clamp(Math.round(M * 0.12 / 0.3), 8, 25); add('sprint', sprintN); used += sprintN * 0.3;
   const synN = clamp(Math.round(M * 0.06 / 0.6), 3, 8); add('syntax', synN); used += synN * 0.6;
@@ -428,10 +436,24 @@ function buildPlan() {
   add('skeleton', clamp(Math.round(rest * 0.15 / 2), 1, 3));
   const order = ['sprint', 'syntax', 'lineup', 'skeleton', 'fill', 'bigo', 'edge', 'oa', 'mock'];
   blocks.sort((a, b) => order.indexOf(a.game) - order.indexOf(b.game));
+  fitPlan(blocks, M);
   return { date: today(), minutes: M, blocks };
 }
+// Trim the plan until its estimated time fits the minutes you set: shorten the longest block first, then drop
+// the optional ones (Mock, OA, Edge Hunter, Big-O Call). Uses the same estimates the page shows.
+function fitPlan(blocks, M) {
+  const total = () => blocks.reduce((a, b) => a + roundMin(b.game, b.target), 0);
+  const shrinkable = ['lineup', 'fill', 'sprint', 'skeleton', 'bigo', 'syntax', 'edge'];
+  while (total() > M + 0.5) {
+    const b = blocks.filter(b => shrinkable.includes(b.game) && b.target > 1).sort((x, y) => gameMin(y.game) - gameMin(x.game))[0];
+    if (b) { b.target--; continue; }
+    const drop = ['mock', 'oa', 'edge', 'bigo', 'skeleton'].map(g => blocks.findIndex(x => x.game === g)).find(i => i >= 0);
+    if (drop === undefined || blocks.length <= 2) break;
+    blocks.splice(drop, 1);
+  }
+}
 function currentPlan() {
-  if (!S.plan || S.plan.date !== today() || S.plan.minutes !== S.settings.minutes) {
+  if (!S.plan || S.plan.date !== today() || S.plan.minutes !== S.settings.minutes || !!S.plan.firstDay !== firstDay()) {
     const old = S.plan && S.plan.date === today() ? S.plan.blocks : [];
     S.plan = buildPlan();
     for (const b of S.plan.blocks) { const o = old.find(x => x.game === b.game); if (o) b.done = Math.min(o.done, b.target); }
@@ -1197,7 +1219,7 @@ GAMES.skeleton = {
   pool: () => C.patterns.map((p, i) => ({ ...p, num: i, diff: 'Medium', pattern: p.id })),
   render(el, pt, done, { clock }) {
     const timer = startTimer(clock, 180, () => toast('⏰ 3 minutes: compare when ready'));
-    const exId = PATTERN_PRIORITY.find(id => id !== pt.id && C.patterns.some(x => x.id === id));
+    const exId = STUDY_ORDER.find(id => id !== pt.id && C.patterns.some(x => x.id === id));
     const ex = C.patterns.find(x => x.id === exId);
     const refLines = pt.skeleton.split('\n');
     // hint ladder (progressive: nudge → shape → near-complete). Each step lowers the best grade you can get.
@@ -1558,42 +1580,61 @@ GAMES.mock = {
 
 // ─────────────────────────── pages ───────────────────────────
 ROUTES.today = app => {
-  const plan = currentPlan(), u = urgency();
+  const plan = currentPlan(), u = urgency(), day1 = !!plan.firstDay, ns = nextStudy(), cp = checkpointDue();
   const total = plan.blocks.reduce((a, b) => a + b.target, 0), doneN = plan.blocks.reduce((a, b) => a + b.done, 0);
   const pct = total ? Math.round(doneN / total * 100) : 0;
   const nextBlock = plan.blocks.find(b => b.done < b.target);
-  const weakest = C.patterns.map(p => ({ p, m: mastery(p.id) })).sort((a, b) => a.m - b.m).slice(0, 3);
-  const blockMin = b => roundMin(b.game, Math.max(0, b.target - b.done)), leftMin = plan.blocks.reduce((a, b) => a + blockMin(b), 0);
+  // Weakest patterns: only ones you've studied or practised, so the list means something.
+  const weakest = studyOrder().filter(p => lessonDone(p.id) || mastery(p.id) > 0).map(p => ({ p, m: mastery(p.id) })).sort((a, b) => a.m - b.m).slice(0, 3);
+  const blockMin = b => roundMin(b.game, Math.max(0, b.target - b.done));
+  const leftMin = plan.blocks.reduce((a, b) => a + blockMin(b), 0) + (day1 && ns ? ns.min : 0);
+  const lessonCard = () => {
+    if (ns?.primer) return `<a class="card block" href="${ns.href}" style="color:inherit" data-key="l"><div class="icon">⏱️</div>
+      <div style="flex:1"><div class="row"><b>Before your first lesson: Big-O basics</b><span class="tag">Study</span></div>
+      <div class="muted small">What “O(n)” means, how to work out what your code costs, and the Python operations that are slower than they look. Every lesson after this assumes it.</div>
+      <div class="row eta-row">${eta(ns.min, 'read')}</div></div><span class="btn block-go primary">Start <kbd>L</kbd></span></a>`;
+    const nl = nextLesson(); if (!nl) return '';
+    return `<a class="card block" href="#/study/${nl.id}" style="color:inherit" data-key="l"><div class="icon">📖</div>
+      <div style="flex:1"><div class="row"><b>Today's lesson: <span style="color:${pc(nl.color)}">${esc(nl.name)}</span></b><span class="tag">Study</span></div>
+      <div class="muted small">Read the lesson, then take the worked example from the brute force to the final answer.${day1 ? '' : ' The games below keep it alive.'}</div>
+      <div class="row eta-row">${eta(lessonMin(nl.id), 'lesson')}${courseOf(nl.id).learn ? eta(walkMin(courseOf(nl.id).learn), 'worked example') : ''}${eta(courseMins(nl.id).left, 'left in the whole course')}</div></div>
+      <div class="mono" title="Lessons learned">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div><span class="btn block-go${day1 ? ' primary' : ''}">Open lesson <kbd>L</kbd></span></a>`;
+  };
+  const startBtn = day1 && ns ? `<a class="btn primary" href="${ns.href}" data-key="s">▶ ${esc(ns.verb)} <kbd>S</kbd></a>`
+    : nextBlock ? `<a class="btn primary" href="#/play/${nextBlock.game}?plan=1" data-key="s">▶ ${pct ? 'Continue' : 'Start'}: ${GAMES[nextBlock.game].name} <kbd>S</kbd></a>`
+    : `<a class="btn primary" href="#/games" data-key="s">Extra practice <kbd>S</kbd></a>`;
   app.innerHTML = `
     <div class="hero"><div class="ring" style="--p:${pct}"><div>${pct}%</div></div>
       <div><h1>${pct === 100 ? 'Done for today 🎉' : 'Today’s session'}</h1>
       <p class="muted">${S.settings.minutes} min plan · <b>${esc(u.label)}</b>${u.mode === 'urgent' ? ' · urgent mode: reviews are packed closer together' : ''}</p>
-      ${leftMin ? `<p class="hero-eta">${eta(leftMin, pct ? 'left today' : 'for today’s practice', { cls: 'pill' })}</p>` : ''}
-      <div class="row">${nextBlock ? `<a class="btn primary" href="#/play/${nextBlock.game}?plan=1" data-key="s">▶ ${pct ? 'Continue' : 'Start'}: ${GAMES[nextBlock.game].name} <kbd>S</kbd></a>` : `<a class="btn primary" href="#/games" data-key="s">Extra practice <kbd>S</kbd></a>`}
+      ${leftMin ? `<p class="hero-eta">${eta(leftMin, day1 ? 'for today: your first lesson and a warm-up' : pct ? 'left today' : 'for today’s practice', { cls: 'pill' })}</p>` : ''}
+      <div class="row">${startBtn}
       <a class="btn ghost" href="#/settings" data-key="d">Adjust time / date <kbd>D</kbd></a></div></div></div>
     ${Object.keys(S.study.attempts).length < 3 ? `<a class="guide-cta" href="#/guide" data-key="u"><span class="guide-cta-i" aria-hidden="true">🧭</span>
-      <span><b>New here? Start with the Starter Guide</b><span class="muted">Your first three steps, the 8-week plan, a daily routine, and which outside resource is best for what. Start here takes about ${fmtMin(guideTabMin('start'))} to read.</span></span>
+      <span><b>New here? Read the Starter Guide</b><span class="muted">How the app fits together, the 8-week plan, and what to do when you’re stuck. Start here takes about ${fmtMin(guideTabMin('start'))} to read.</span></span>
       <span class="btn">Open <kbd>U</kbd></span></a>` : ''}
-    ${(() => { const nl = nextLesson(); return nl ? `<h2>Learn</h2><a class="card block" href="#/study/${nl.id}" style="color:inherit" data-key="l"><div class="icon">📖</div>
-      <div style="flex:1"><div class="row"><b>Today's lesson: <span style="color:${pc(nl.color)}">${esc(nl.name)}</span></b><span class="tag">Study</span></div>
-      <div class="muted small">Read the lesson, build the skeleton line by line, then take the worked example from brute force to the final answer. The games below keep it alive.</div>
-      <div class="row eta-row">${eta(lessonMin(nl.id), 'lesson')}${courseOf(nl.id).learn ? eta(walkMin(courseOf(nl.id).learn), 'worked example') : ''}${eta(courseMins(nl.id).left, 'left in the whole course')}</div></div>
-      <div class="mono">${studyOrder().filter(p => lessonDone(p.id)).length}/${studyOrder().length}</div><span class="btn block-go">Open lesson <kbd>L</kbd></span></a>` : ''; })()}
+    ${cp || ns?.primer || nextLesson() ? `<h2>Learn</h2>` : ''}
+    ${cp ? `<a class="card block checkpoint" href="#/study/mixed" style="color:inherit" data-key="m"><div class="icon">🎲</div>
+      <div style="flex:1"><div class="row"><b>Checkpoint: a mystery problem</b><span class="tag">Study</span></div>
+      <div class="muted small">You’ve learned ${cp.n} patterns. Solve one problem from any of them with its name and pattern hidden: telling which pattern it is from the statement alone is what an interview tests.</div>
+      <div class="row eta-row">${eta(SOLVE_MIN.Medium)}</div></div><span class="btn block-go primary">Start <kbd>M</kbd></span></a>` : ''}
+    ${lessonCard()}
     <h2>Practice</h2>
+    ${day1 ? '<p class="muted small">The other games practise patterns, so they open after your first lesson. For today: the lesson above, then a Python warm-up.</p>' : ''}
     <div class="grid">${plan.blocks.map((b, bi) => { const g = GAMES[b.game]; const d = dueCount(b.game);
       return `<a class="card block ${b.done >= b.target ? 'done' : ''}" href="#/play/${b.game}?plan=1" style="color:inherit" ${bi < 9 ? `data-key="${bi + 1}" data-kgroup="start a practice block"` : ''}>
         <div class="icon">${g.icon}</div><div style="flex:1"><div class="row"><b>${g.name}</b><span class="tag">${g.layer}</span>
         ${d ? `<span class="tag" style="color:var(--accent)">${d} due</span>` : ''}<span class="spacer"></span>${b.done < b.target ? eta(blockMin(b), b.done ? 'left' : '', { title: paceNote(b.game) }) : eta(roundMin(b.game, b.target), 'a round', { title: paceNote(b.game) })}</div>
         <div class="muted small">${esc(g.desc)}</div><div class="bar"><i style="width:${b.done / b.target * 100}%"></i></div></div>
-        <div class="mono">${b.done}/${b.target}</div><span class="btn block-go ${b.done >= b.target ? 'ghost' : b === nextBlock ? 'primary' : ''}">${b.done >= b.target ? 'Again' : b.done ? 'Continue' : 'Start'}${bi < 9 ? ` <kbd>${bi + 1}</kbd>` : ''}</span></a>`; }).join('')}</div>
-    <h2>Weakest patterns right now</h2>
+        <div class="mono">${b.done}/${b.target}</div><span class="btn block-go ${b.done >= b.target ? 'ghost' : b === nextBlock && !day1 ? 'primary' : ''}">${b.done >= b.target ? 'Again' : b.done ? 'Continue' : 'Start'}${bi < 9 ? ` <kbd>${bi + 1}</kbd>` : ''}</span></a>`; }).join('')}</div>
+    ${weakest.length ? `<h2>Weakest patterns you’ve studied</h2>
     <div class="grid g3" data-navlist>${weakest.map(({ p, m }) => `<a class="card" href="#/patterns/${p.id}" style="color:inherit" data-item><b style="color:${pc(p.color)}">${esc(p.name)}</b>
       <div class="muted small">${Math.round(m * 100)}% mastery</div><div class="small">${p.triggers.slice(0, 2).map(esc).join(' · ')}</div>
-      ${p.lesson ? `<div class="eta-row">${courseMins(p.id).left ? eta(courseMins(p.id).left, 'left in its course') : eta(gameMin('sprint') * 8, 'to drill it')}</div>` : ''}</a>`).join('')}</div>`;
+      ${p.lesson ? `<div class="eta-row">${courseMins(p.id).left ? eta(courseMins(p.id).left, 'left in its course') : eta(gameMin('sprint') * 8, 'to drill it')}</div>` : ''}</a>`).join('')}</div>` : ''}`;
 };
 
 ROUTES.games = app => {
-  app.innerHTML = `<h1>Games</h1><p class="muted">The ladder goes Idea → Structure → Syntax → Full solve → In-person. Use the daily plan, or grind any game here.</p>
+  app.innerHTML = `<h1>Games</h1><p class="muted">The ladder goes Idea → Structure → Syntax → Full solve → In-person. Each game brings new problems from the patterns you’ve studied first. Use the daily plan, or grind any game here.</p>
     <div class="grid g2">${Object.entries(GAMES).map(([id, g], gi) => `<div class="card"><div class="row"><span style="font-size:26px">${g.icon}</span><h2 class="h3" style="margin:0">${g.name}</h2>
       <span class="tag">${g.layer}</span><span class="spacer"></span>${dueCount(id) ? `<span class="tag" style="color:var(--accent)">${dueCount(id)} due</span>` : ''}</div>
       <p class="muted small">${esc(g.desc)}</p><div class="row"><a class="btn primary" href="#/play/${id}?n=${g.defaultN}" data-key="${(gi + 1) % 10}" data-kgroup="play a game">Play ${g.defaultN > 1 ? g.defaultN + ' rounds' : ''} <kbd>${(gi + 1) % 10}</kbd></a>
@@ -1631,7 +1672,7 @@ function runFixed(app, game, o) {
 ROUTES.problems = (app, _, params) => {
   const st = { q: params.q || '', d: '', p: '' };
   app.innerHTML = `<h1>Problems</h1>
-    <p class="muted plede">The ${C.problems.length} problems of the NeetCode 150 plus ${C.twists.length} twists that appear nowhere else. <b>Solve</b> any of them from a blank editor against the real tests, or drill one with Line Up 🧩 or Fill the Gap ✍️.</p>
+    <p class="muted plede">The ${C.problems.filter(p => !p.onramp).length} problems of the NeetCode 150, ${C.problems.filter(p => p.onramp).length} starter problems that open some courses gently, and ${C.twists.length} twists that appear nowhere else. These are the main list: <b>Solve</b> any of them from a blank editor against the real tests, or drill one with Line Up 🧩 or Fill the Gap ✍️.</p>
     <div class="psearch" role="search">
       <div class="sfield">
         <svg class="sicon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
@@ -1727,10 +1768,11 @@ ROUTES.patterns = (app, [pid]) => {
       <h2>Sprint cards (${cards.length})</h2><div class="small">${cards.map(c => `<div style="padding:4px 0"><b>${c.num}. ${esc(c.title)}</b> ${lcChip(C.problems.find(x => x.title === c.title || x.lc?.title === c.title))}: <span class="muted">${esc(c.move)}</span></div>`).join('')}</div>`;
     return;
   }
-  app.innerHTML = `<h1>Patterns</h1><p class="muted">The ~20 shapes behind the NeetCode 150. Each tile shows how well you know it across every game.</p>
-    <div class="heat" data-navlist="grid">${C.patterns.map(p => { const m = mastery(p.id);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  app.innerHTML = `<h1>Patterns</h1><p class="muted">The ${C.patterns.length} patterns behind the NeetCode 150, in the Study path’s order. Each tile shows how well you know it across every game; open one for its template and all of its problems.</p>
+    <div class="heat" data-navlist="grid">${studyOrder().map(p => { const m = mastery(p.id), nC = C.sprint.filter(x => x.pattern === p.id).length;
       return `<a href="#/patterns/${p.id}" data-item style="background:color-mix(in srgb, ${p.color} ${Math.round(8 + m * 60)}%, var(--panel))">
-      <b>${Math.round(m * 100)}%</b>${esc(p.name)}<div class="small muted">${C.problems.filter(x => x.pattern === p.id).length} coded · ${C.sprint.filter(x => x.pattern === p.id).length} cards</div>
+      <b>${Math.round(m * 100)}%</b>${esc(p.name)}<div class="small muted">${plural(C.problems.filter(x => x.pattern === p.id).length, 'problem')}${nC ? ` · ${plural(nC, 'Sprint card')}` : ''}</div>
       <div class="small muted">${CLOCK}<span class="sr">About </span>${fmtMin(C.problems.filter(x => x.pattern === p.id).reduce((a, x) => a + solveMin(x), 0))} to solve them</div></a>`; }).join('')}</div>`;
 };
 
@@ -1832,7 +1874,7 @@ ROUTES.settings = app => {
 // guided problems → solo problems solved cold before any explanation. Mixed practice then hides the
 // title and pattern, the closest thing here to a question you have never seen.
 const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-const studyOrder = () => PATTERN_PRIORITY.map(PAT).filter(p => p.lesson);
+const studyOrder = () => STUDY_ORDER.map(PAT).filter(p => p.lesson);
 const lessonDone = id => !!S.study.lessons[id];
 const walked = id => !!S.study.walks[id];
 const attempted = id => !!S.study.attempts[id];
@@ -1873,7 +1915,8 @@ function lineRole(code, afterLoop) {
 }
 
 function courseOf(pid) {
-  const all = sortedProblems(pid);
+  const order = PAT(pid).course?.order;   // worked example first, then gentle to hard (content/study_patterns.py COURSES)
+  const all = order ? order.map(PROB).filter(Boolean) : sortedProblems(pid);
   const nG = all.length >= 5 ? 2 : all.length >= 2 ? 1 : 0;
   return { all, learn: all[0], guided: all.slice(1, 1 + nG), solo: all.slice(1 + nG), transfer: C.twists.find(t => t.pattern === pid) };
 }
@@ -1892,7 +1935,7 @@ function courseProgress(pid) {
 // How long each course stage takes: reading time of what it shows, plus time to think or code.
 function lessonMin(pid) {
   const p = PAT(pid), L = p.lesson; if (!L) return 0;
-  return readMin(`<p>${esc([L.why, ...p.triggers, ...L.not_this, ...p.fill, ...L.bugs, ...L.build.map(b => b[1])].join(' '))}</p><pre>${esc(L.build.map(b => b[0]).join('\n'))}</pre>`)
+  return readMin(`<p>${esc([L.why, L.primer?.text || '', ...p.triggers, ...L.not_this, ...p.fill, ...L.bugs, ...L.build.map(b => b[1])].join(' '))}</p><pre>${esc(L.build.map(b => b[0]).join('\n'))}</pre>`)
     + L.build.length * 0.5 + 1;   // plus ~30 s to work out each skeleton line's job, and a minute to recap
 }
 function walkMin(p) {   // read every step, plus about 45 seconds to answer each of the 8 yourself first
@@ -1906,6 +1949,20 @@ function courseMins(pid) {
     ...c.guided.map(x => [guidedMin(x), walked(x.id)]), ...c.solo.map(x => [solveMin(x), attempted(x.id)]),
     ...(c.transfer ? [[solveMin(c.transfer), attempted(c.transfer.id)]] : [])];
   return { total: parts.reduce((a, [m]) => a + m, 0), left: parts.reduce((a, [m, d]) => a + (d ? 0 : m), 0) };
+}
+// The next thing to study anywhere on the path. Before any lesson, that's the Big-O primer.
+function nextStudy() {
+  if (!lessonDone('bigo') && !studyOrder().some(p => lessonDone(p.id)))
+    return { label: 'Big-O basics: what your code costs, and how to say it', href: '#/study/bigo', verb: 'Start with Big-O', min: bigoMin(), primer: true };
+  const cur = studyOrder().find(p => nextStep(p.id));
+  return cur ? { ...nextStep(cur.id), pattern: cur } : null;
+}
+// Checkpoints: after every 4 lessons, one mystery problem (names hidden) from everything learned so far.
+// Done when a mystery problem is attempted; recorded in S.study.lessons as 'checkpoint:<k>' so sync merges it.
+const CHECK_EVERY = 4;
+function checkpointDue() {
+  const n = studyOrder().filter(p => lessonDone(p.id)).length, k = Math.floor(n / CHECK_EVERY);
+  return k >= 1 && !S.study.lessons['checkpoint:' + k] ? { k, n } : null;
 }
 function nextStep(pid) {
   const { c } = courseProgress(pid); const p = PAT(pid);
@@ -1975,6 +2032,7 @@ function cuesIn(p) {
 }
 
 ROUTES.study = (app, [a, b], params) => {
+  if (a === 'bigo') return studyBigO(app);
   if (a === 'solve' && b) return studySolve(app, b, params);
   if (a === 'guided' && b) return studyGuided(app, b);
   if (a === 'mixed') {
@@ -1989,34 +2047,64 @@ ROUTES.study = (app, [a, b], params) => {
   studyHome(app);
 };
 
+// **bold** and `code` inside plain text (primers).
+const inlineMd = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code class="hlc">$1</code>');
+function bigoHtml() {
+  return C.bigo_primer.map(sec => `<section class="stage"><h2>${esc(sec.title)}</h2>${sec.paras.map(p => `<p>${inlineMd(p)}</p>`).join('')}
+    ${sec.title.startsWith('Read the constraints') ? `<table><tr><th>Constraint</th><th>Aim for</th><th>Usually means</th></tr>${C.input_size.map(r => `<tr><td class="mono">${esc(r[0])}</td><td class="mono">${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</table>` : ''}</section>`).join('');
+}
+const bigoMin = () => readMin(bigoHtml()) + C.bigo_check.length * 0.5;   // plus ~30 s to answer each check question
+function studyBigO(app) {
+  const first = studyOrder()[0];
+  app.innerHTML = `<div class="study course"><a href="#/study" class="crumb">← Study</a>
+    <div class="course-head"><h1>Big-O basics</h1>
+      <p class="lede">Every lesson, walkthrough and interview talks about what code costs. This is the background they assume: read it once before your first course.</p>
+      <p class="eta-row">${eta(bigoMin(), 'to read and check yourself')}</p></div>
+    ${bigoHtml()}
+    <section class="stage"><h2>Check yourself</h2><p class="muted">Answer each in your head, then open it.</p>
+      ${C.bigo_check.map(([q, a]) => `<details class="check"><summary>${inlineMd(q)}</summary><p>${inlineMd(a)}</p></details>`).join('')}
+      <p class="small">More: <a href="https://usaco.guide/bronze/time-comp" target="_blank" rel="noopener">Time complexity on the USACO Guide ↗</a> · the <a href="#/cheatsheet">Cheatsheet</a> has the cost of every Python operation.</p></section>
+    <div class="row" style="margin-top:20px"><button class="${lessonDone('bigo') ? 'ghost' : 'good'}" id="mark" data-key="l">${lessonDone('bigo') ? 'Mark as not read' : '✓ Got it'} <kbd>L</kbd></button>
+      <span class="spacer"></span><a class="btn primary" href="#/study/${first.id}" data-key="]">First course: ${esc(first.name)} → <kbd>]</kbd></a></div></div>`;
+  $('#mark', app).onclick = () => {
+    if (lessonDone('bigo')) { delete S.study.lessons.bigo; save(); studyBigO((app.innerHTML = '', app)); return; }
+    S.study.lessons.bigo = today(); addXP(10); toast('⏱️ Big-O done +10 XP'); save(); location.hash = `#/study/${first.id}`;
+  };
+}
+
 function studyHome(app) {
   const order = studyOrder();
-  const cur = order.find(p => nextStep(p.id)), nx = cur && nextStep(cur.id);
+  const nx = nextStudy(), cur = nx?.pattern, cp = checkpointDue();
   const studied = order.filter(p => lessonDone(p.id)).length, pool = mixedPool();
   const untried = pool.filter(p => !attempted(p.id)).length;
   const syntaxByTopic = {};
   for (const s of C.syntax) (syntaxByTopic[s.topic] ||= []).push(s);
   app.innerHTML = `<div class="study">
     <div class="study-head"><h1>Study</h1>
-      <p class="lede">Each pattern is a short course: the idea, one worked example taken from the brute force to the final answer,
-        guided problems, then problems you solve cold before seeing any explanation.</p></div>
+      <p class="lede">The course. Start at the top and go in order: each pattern is a short course with the idea, one worked example taken
+        from the brute force to the final answer, guided problems, then problems you solve cold before seeing any explanation.</p></div>
     ${nx ? `<a class="continue" href="${nx.href}" data-key="c">
-        ${nx.label.includes(cur.name) ? "" : `<span class="continue-pattern" style="color:${pc(cur.color)}">${esc(cur.name)}</span>`}
+        ${!cur || nx.label.includes(cur.name) ? "" : `<span class="continue-pattern" style="color:${pc(cur.color)}">${esc(cur.name)}</span>`}
         <span class="continue-what">${esc(nx.label)} ${eta(nx.min)}</span>
         <span class="btn primary continue-go">${esc(nx.verb)} <kbd>C</kbd></span></a>`
       : `<div class="continue"><span class="continue-what">Every course is complete. Mixed practice is where you keep sharp now.</span></div>`}
-    <section class="mixed ${pool.length ? '' : 'locked'}">
-      <div><h2>Mixed practice</h2>
-        <p>${studied ? `A random problem from the ${studied} pattern${studied > 1 ? 's' : ''} you’ve studied, with its name and pattern hidden, so you have to work out the approach yourself.
-          ${untried} you haven’t tried yet.`
+    <section class="mixed ${pool.length ? '' : 'locked'}${cp ? ' due' : ''}">
+      <div><h2>Mixed practice${cp ? ' <span class="tag">Checkpoint due</span>' : ''}</h2>
+        <p>${studied ? `${cp ? `You’ve learned ${cp.n} patterns: time for a checkpoint. ` : ''}A random problem from the ${studied} pattern${studied > 1 ? 's' : ''} you’ve studied, with its name and pattern hidden, so you have to work out the approach yourself.
+          ${untried} you haven’t tried yet. A checkpoint comes up after every ${CHECK_EVERY} lessons.`
           : 'Opens after your first lesson. It picks problems from every pattern you’ve studied and hides their names, so you work out the approach yourself, like in a real interview.'}</p></div>
-      ${pool.length ? `<a class="btn" href="#/study/mixed" data-key="m">Start a mystery problem${etaIn(SOLVE_MIN.Medium)} <kbd>M</kbd></a>` : ''}</section>
+      ${pool.length ? `<a class="btn${cp ? ' primary' : ''}" href="#/study/mixed" data-key="m">Start a mystery problem${etaIn(SOLVE_MIN.Medium)} <kbd>M</kbd></a>` : ''}</section>
     <section><h2>The path</h2>
-      <p class="muted small">Ordered by how often each pattern comes up in online assessments and interviews. The bar under each shows the four stages:
-        the idea, worked example, guided, solo. The time is what’s left in each course.</p>
-      ${(() => { const t = order.map(p => courseMins(p.id)); const left = t.reduce((a, x) => a + x.left, 0), all = t.reduce((a, x) => a + x.total, 0);
+      <p class="muted small">In order: each course builds on the ones before it (Recursion comes before trees, backtracking and DP; Heap before shortest paths).
+        The bar under each shows its stages: the idea, worked example, guided, solo. The time is what’s left in each course.</p>
+      ${(() => { const t = order.map(p => courseMins(p.id)); const b = bigoMin(); const left = t.reduce((a, x) => a + x.left, 0) + (lessonDone('bigo') ? 0 : b), all = t.reduce((a, x) => a + x.total, 0) + b;
         return `<p class="eta-row">${eta(left, left < all ? `left of ${fmtMin(all)} for the whole path` : 'for the whole path')}</p>`; })()}
-      <ol class="path" data-navlist>${order.map((p, i) => { const pr = courseProgress(p.id);
+      <ol class="path" data-navlist><li><a href="#/study/bigo" class="path-row primer-row${lessonDone('bigo') ? ' complete' : ''}" data-item>
+          <span class="path-n">${lessonDone('bigo') ? '✓' : 0}</span>
+          <span class="path-name"><b>Big-O basics</b><span class="small muted">before you start: what code costs</span></span>
+          <span class="track" aria-hidden="true"><span class="seg"><i style="width:${lessonDone('bigo') ? 100 : 0}%"></i></span></span>
+          <span class="path-eta">${lessonDone('bigo') ? '<span class="eta">Done</span>' : eta(bigoMin(), 'read')}</span></a></li>
+        ${order.map((p, i) => { const pr = courseProgress(p.id);
         return `<li><a href="#/study/${p.id}" class="path-row${pr.complete ? ' complete' : ''}" data-item>
           <span class="path-n">${pr.complete ? '✓' : i + 1}</span>
           <span class="path-name"><b style="color:${pc(p.color)}">${esc(p.name)}</b><span class="small muted">${esc(p.triggers[0])}</span></span>
@@ -2043,7 +2131,8 @@ function probRow(x, role) {
   const solo = role === 'solo', locked = solo && !attempted(x.id);
   const done = solo ? attempted(x.id) : walked(x.id);
   const mins = solo ? solveMin(x) : role === 'learn' ? walkMin(x) : guidedMin(x);
-  return `<div class="prob-row" data-navrow><span class="prob-title">${esc(x.title)}</span><span class="tag ${x.diff}">${x.diff}</span>${lcChip(x)}${eta(mins)}
+  const note = PAT(x.pattern).course?.notes?.[x.id];
+  return `<div class="prob-row" data-navrow><span class="prob-title">${esc(x.title)}${note ? `<small class="prob-note">${esc(note)}</small>` : ''}</span><span class="tag ${x.diff}">${x.diff}</span>${lcChip(x)}${eta(mins)}
     <span class="status ${done ? 'done' : 'todo'}">${solo ? (done ? 'tried' : 'not tried') : (done ? 'done' : 'to do')}</span><span class="spacer"></span>
     ${solo ? `<a class="btn ${done ? '' : 'primary'}" href="#/study/solve/${x.id}" data-item>Solve cold</a>
         <a class="btn ghost" href="#/study/${x.pattern}/${x.id}" title="${locked ? 'Unlocks after you try it' : 'See the approach'}">${locked ? '🔒 ' : ''}Walkthrough</a>`
@@ -2066,6 +2155,8 @@ function studyCourse(app, pid) {
       ${(() => { const t = courseMins(pid); return `<p class="eta-row">${eta(t.left || t.total, t.left && t.left < t.total ? `left of ${fmtMin(t.total)} for this course` : 'for this course')}</p>`; })()}</div>
     <section class="stage"><h2><span class="n">${n++}</span>The idea ${eta(lessonMin(pid))}</h2>
       <p class="why">${esc(L.why)}</p>
+      ${L.primer ? `<details class="primer"${lessonDone(pid) ? '' : ' open'}><summary>New to this? What this lesson assumes you know</summary>
+        <p>${inlineMd(L.primer.text)}</p>${L.primer.more ? `<p class="small"><a href="${esc(L.primer.more)}" target="_blank" rel="noopener">Read it properly on the USACO Guide ↗</a></p>` : ''}</details>` : ''}
       <div class="two"><div><h3>Reach for it when you see</h3><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
         <div><h3>It’s a different pattern when</h3><ul>${L.not_this.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></div>
       <h3>The skeleton, and the job of each line</h3>
@@ -2306,7 +2397,10 @@ function studySolve(app, probId, params) {
     $('#chide', coach).onclick = () => { coachShown = false; drawCoach(); };
   };
   drawCoach();
-  const markAttempt = () => { if (!attempted(p.id)) { S.study.attempts[p.id] = today(); save(); } };
+  const markAttempt = () => {
+    const cp = mystery && checkpointDue(); if (cp) { S.study.lessons['checkpoint:' + cp.k] = today(); save(); }
+    if (!attempted(p.id)) { S.study.attempts[p.id] = today(); save(); }
+  };
   const twistNote = p.twist_of ? ` It’s a twist on <a href="#/study/${p.pattern}/${p.twist_of}">${esc(PROB(p.twist_of)?.title || p.twist_of)}</a>.` : '';
   const reveal = () => mystery ? `<div class="reveal">It was <b>${esc(p.title)}</b>, a ${patternTag(p.pattern)} problem.${twistNote}</div>`
     : twistNote ? `<div class="reveal">${twistNote.trim()}</div>` : '';

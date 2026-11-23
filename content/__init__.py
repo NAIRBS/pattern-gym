@@ -5,11 +5,12 @@ from .problems_a import PROBLEMS_A
 from .problems_b import PROBLEMS_B
 from .problems_c import PROBLEMS_C
 from .problems_twist import PROBLEMS_TWIST, PERF_TWIST
-PROBLEMS = sorted(_P0 + PROBLEMS_A + PROBLEMS_B + PROBLEMS_C + PROBLEMS_TWIST, key=lambda p: p["num"])
+from .problems_onramp import PROBLEMS_ONRAMP
+PROBLEMS = sorted(_P0 + PROBLEMS_A + PROBLEMS_B + PROBLEMS_C + PROBLEMS_TWIST + PROBLEMS_ONRAMP, key=lambda p: p["num"])
 from .sprint import SPRINT
 from .syntax import SYNTAX
 from .interview import CLARIFY_GENERIC, THINK_ALOUD, RUBRIC, COMPLEXITIES
-from .study_patterns import LESSONS, METHOD, INPUT_SIZE
+from .study_patterns import LESSONS, METHOD, INPUT_SIZE, PRIMERS, COURSES, BIGO_PRIMER, BIGO_CHECK
 from .study_problems import WALK
 from .study_brute import BRUTE
 from .perf import PERF
@@ -74,6 +75,11 @@ def load_all():
         pt["skeleton"] = pt["skeleton"].strip("\n")
         lesson = LESSONS.get(pt["id"], {})
         pt["lesson"] = {**lesson, "build": [list(x) for x in lesson.get("build", [])]}
+        if pt["id"] in PRIMERS:   # "New to this?": what the lesson assumes, and where to read more
+            text, more = PRIMERS[pt["id"]]
+            pt["lesson"]["primer"] = {"text": text, "more": more}
+        if pt["id"] in COURSES:   # the course's problem order (worked example first) and notes
+            pt["course"] = {"order": list(COURSES[pt["id"]]["order"]), "notes": dict(COURSES[pt["id"]].get("notes", {}))}
         patterns.append(pt)
     return {
         "patterns": patterns,
@@ -86,6 +92,8 @@ def load_all():
         "complexities": COMPLEXITIES,
         "method": [{"title": t, "points": pts} for t, pts in METHOD],
         "input_size": [list(r) for r in INPUT_SIZE],
+        "bigo_primer": [{"title": t, "paras": list(ps)} for t, ps in BIGO_PRIMER],
+        "bigo_check": [list(q) for q in BIGO_CHECK],
         "python": PYTHON,
         "stdio_lib": STDIO_LIB,
         "bug_kinds": BUG_KINDS,

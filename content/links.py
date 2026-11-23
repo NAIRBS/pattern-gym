@@ -169,4 +169,12 @@ LEETCODE = {
     'min_effort_path': ('path-with-minimum-effort', 1631, 'Path With Minimum Effort', False),
     'two_single_numbers': ('single-number-iii', 260, 'Single Number III', False),
     'diagonal_order': ('diagonal-traverse', 498, 'Diagonal Traverse', False),
+    # on-ramp problems (problems_onramp.py)
+    'fib_number': ('fibonacci-number', 509, 'Fibonacci Number', False),
+    'power_of_two': ('power-of-two', 231, 'Power of Two', False),
+    'kth_grammar': ('k-th-symbol-in-grammar', 779, 'K-th Symbol in Grammar', False),
+    'find_winner': ('find-the-winner-of-the-circular-game', 1823, 'Find the Winner of the Circular Game', False),
+    'pivot_index': ('find-pivot-index', 724, 'Find Pivot Index', False),
+    'range_sum_query': ('range-sum-query-immutable', 303, 'Range Sum Query - Immutable', False),
+    'flood_fill': ('flood-fill', 733, 'Flood Fill', False),
 }

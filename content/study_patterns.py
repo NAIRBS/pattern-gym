@@ -4,6 +4,18 @@ build = the skeleton taught line by line: (code_line, why_this_line).
 """
 
 LESSONS = {
+"recursion": {
+  "why": "Some problems are defined by a smaller copy of themselves. Instead of tracing every step, you answer the smallest case directly and trust the function on a smaller input. That trust is the whole skill: Tree DFS, Backtracking and DP are all built on it.",
+  "not_this": ["The same smaller calls repeat many times -> remember them (that is 1D DP).", "You need every combination of choices -> backtracking (recursion that undoes each choice).", "The input is a tree -> Tree DFS: this pattern applied to the left and right children."],
+  "build": [
+    ("def solve(n):", "One question, asked about a smaller input each time."),
+    ("    if n <= 1:", "Base case first: the smallest input you can answer without recursing."),
+    ("        return base", "Without it the calls never stop (RecursionError)."),
+    ("    smaller = solve(n - 1)", "Trust it: assume this returns the right answer for the smaller input."),
+    ("    return combine(n, smaller)", "Build this answer from the smaller one. This line is the only real work."),
+  ],
+  "bugs": ["No base case, or one the input can jump past (n goes from 1 to -1).", "The call isn't on a smaller input, so it never reaches the base case.", "Calling the function but not returning its result.", "The same calls repeat exponentially: add a memo."],
+},
 "hashmap": {
   "why": "Brute force compares every pair: O(n²). A hash map remembers what you've already seen so the question 'have I seen the thing I need?' costs O(1). You trade O(n) memory for dropping a whole loop.",
   "not_this": ["Input is SORTED and you need pairs -> two pointers uses O(1) space.", "You need contiguous ranges -> sliding window or prefix sums."],
@@ -18,20 +30,16 @@ LESSONS = {
   "bugs": ["Inserting before checking (element pairs with itself).", "Using a list as a dict key: convert to tuple.", "Counter vs dict.get(k, 0): pick one and be consistent."],
 },
 "prefix": {
-  "why": "Recomputing a sum/product for each i is O(n) each -> O(n²). Running totals carry the work forward so each answer is O(1) from what you already computed.",
+  "why": "Re-adding a range for every question is O(n) each time, O(n²) overall. A prefix sum array, built once in O(n), answers the sum of any range in O(1): everything up to r, minus everything before l. The same running-total idea gives Product of Array Except Self (a running product from each side) and, with a hash map of earlier prefix sums, Subarray Sum Equals K.",
   "not_this": ["Need max/min over a moving range -> monotonic deque.", "Range is variable and depends on a condition -> sliding window."],
   "build": [
-    ("res = [1] * n", "Output array doubles as storage for the left pass."),
-    ("pre = 1", "Identity element: 1 for products, 0 for sums."),
-    ("for i in range(n):", "Left to right."),
-    ("    res[i] = pre", "res[i] = product of everything strictly LEFT of i."),
-    ("    pre *= nums[i]", "Include nums[i] only after using pre, so i is excluded."),
-    ("post = 1", "Second accumulator for the right side."),
-    ("for i in range(n - 1, -1, -1):", "Right to left."),
-    ("    res[i] *= post", "Multiply in everything strictly RIGHT of i."),
-    ("    post *= nums[i]", "Then include nums[i]."),
+    ("pre = [0] * (len(nums) + 1)", "pre[i] = sum of the first i values. The extra slot at the front is the empty prefix, 0."),
+    ("for i, x in enumerate(nums):", "One pass, left to right."),
+    ("    pre[i + 1] = pre[i] + x", "Each prefix is the one before plus one value: O(1) per step."),
+    ("def range_sum(l, r):", "Any range, inclusive, as often as you like."),
+    ("    return pre[r + 1] - pre[l]", "Everything up to r, minus everything before l."),
   ],
-  "bugs": ["Updating the running value before using it (includes i itself).", "Wrong identity (0 for a product)."],
+  "bugs": ["Off by one: with the extra 0 at the front, the sum of nums[l..r] is pre[r + 1] - pre[l].", "Updating the running value before using it (includes i itself).", "Wrong identity (0 for a product)."],
 },
 "two_pointers": {
   "why": "On SORTED data, a pair's sum moves predictably: moving left up increases it, moving right down decreases it. So every step safely discards one candidate: O(n) instead of O(n²), with O(1) space.",
@@ -382,6 +390,87 @@ METHOD = [
    ["Each day: read ONE pattern lesson (5 min), then walk through 2 of its problems using the step reveals, saying each step out loud BEFORE revealing it.",
     "Then drill that pattern from the lesson page (Line Up -> Fill the Gap). Studying without retrieval fades; retrieval without understanding doesn't transfer. Use both.",
     "Mark the lesson studied. The daily plan's games then keep it alive with spaced repetition."]),
+]
+
+# "New to this?" for each lesson: the background the lesson assumes, in plain words, and where to read more.
+PRIMERS = {
+"hashmap": ("A Python dict maps keys to values; a set holds keys only. Both hash the key to find its slot, so `x in seen`, `seen[x] = i` and `del seen[x]` take O(1) on average, where searching a list takes O(n). Keys must be immutable: numbers, strings and tuples, not lists. `Counter(nums)` counts everything in one line, and `defaultdict(list)` lets you append to a key that doesn't exist yet.", "https://usaco.guide/bronze/intro-sets"),
+"prefix": ("A prefix sum array stores pre[i] = nums[0] + ... + nums[i - 1]. Building it is one O(n) pass; afterwards the sum of any range nums[l..r] is pre[r + 1] - pre[l], O(1) instead of re-adding the range. The same idea works for products, counts or XOR: anything you can accumulate. Often you don't need the array at all, just a running total as you walk.", "https://usaco.guide/silver/prefix-sums"),
+"two_pointers": ("Two indices move through the same array instead of one index and an inner loop. In the converging form, l starts at 0 and r at the end, and each step moves exactly one of them inward, so the loop runs at most n times. It works only when you can prove which pointer to move, usually because the array is sorted.", "https://usaco.guide/silver/two-pointers"),
+"sliding_window": ("A window is a contiguous slice nums[l..r]. Instead of rebuilding every slice, you move r right to add one element and l right to drop one, keeping a running state (a sum, a count map, a set). Each element is added once and removed once, so the scan is O(n). A fixed-size window moves l and r together; a variable one grows r and shrinks l only when the window breaks a rule.", "https://usaco.guide/gold/sliding-window"),
+"stack": ("A stack is a pile you only touch at the top. A Python list is one: `append` pushes, `pop()` removes the top and `stack[-1]` reads it, all O(1). Use it when the most recent unfinished thing is the one you need next: matching brackets, undo, evaluating expressions.", "https://usaco.guide/gold/stacks"),
+"mono_stack": ("A monotonic stack is a stack kept in sorted order: before pushing a value, pop everything that would break the order. Each value you pop has just met its next greater (or smaller) element: the one being pushed. Every index is pushed and popped once, so it's O(n), replacing a nested 'scan ahead' loop. Do the Stack course first.", "https://usaco.guide/gold/stacks"),
+"binary_search": ("Binary search finds a target in sorted data by checking the middle and discarding the half that can't hold it, so n items take about log₂ n steps (20 for a million). Keep lo and hi as the range still possible and stop when it's empty. It also works on any yes/no question whose answer flips once, like 'can I finish at speed k?', which is 'binary search on the answer'.", "https://usaco.guide/silver/binary-search"),
+"linked_list": ("A linked list is a chain of nodes, each with a value and a `next` pointer to the following node; the last one points to None. There's no index: reaching the 5th node means following 4 links, O(n). In exchange, once you hold a node, inserting or removing next to it is O(1): you just rewire pointers. Draw boxes and arrows before you code; most bugs are pointers rewired in the wrong order.", ""),
+"recursion": ("A recursive function calls itself on a smaller version of its input. It needs a base case that answers the smallest input directly, and a recursive case that trusts the call on a smaller input and builds on its answer. Python keeps every unfinished call on the call stack and stops at about 1,000 deep, so very deep recursion needs a loop or `sys.setrecursionlimit`.", "https://usaco.guide/bronze/complete-rec"),
+"tree_dfs": ("A binary tree node has a value and two children, `left` and `right`, either of which can be None. Depth-first search goes all the way down one branch before backing up, and recursion does that for you: call the function on each child, then combine their answers. Most tree problems come down to one question: what should this function return to its parent? Do the Recursion course first if this is new.", "https://usaco.guide/silver/intro-tree"),
+"tree_bfs": ("Breadth-first search visits nodes in order of distance from the start: all of level 0, then level 1, and so on. It uses a queue: `collections.deque`, with `append` to add and `popleft` to take the oldest, both O(1). Processing `len(queue)` nodes per loop gives you one whole level at a time. On an unweighted graph, BFS also finds shortest paths.", "https://usaco.guide/silver/graph-traversal"),
+"grid_graph": ("A grid is a graph in disguise: each cell is a node, and its up, down, left and right neighbours are its edges. Flood fill starts at a cell and spreads to every connected cell that matches, marking each visited so it's never processed twice, using DFS (recursion or a stack) or BFS (a queue). Each cell is visited once: O(rows × cols).", "https://usaco.guide/silver/flood-fill"),
+"backtracking": ("Backtracking builds answers one choice at a time and explores every combination, like a depth-first search over a tree of decisions. At each step you choose, recurse, then undo the choice so the next option starts clean. The number of answers is usually exponential (2ⁿ subsets, n! permutations), so the goal is to generate each one exactly once, not to be fast. Do Recursion first.", "https://usaco.guide/bronze/complete-rec"),
+"heap": ("A heap keeps its smallest item on top: `heapq.heappush` and `heapq.heappop` are O(log n), and `heap[0]` reads the smallest in O(1). Python's heapq is a min-heap only; for a max-heap, push negated values. For 'top k' problems, keep a heap of size k and pop when it grows past k: O(n log k) instead of sorting everything.", "https://usaco.guide/silver/priority-queues"),
+"intervals": ("An interval is a [start, end] pair. Almost every interval problem starts by sorting by start; after that, an interval can only overlap the one just before it. Two sorted intervals [a, b] and [c, d] overlap when c <= b. Draw them on a number line first: the edge cases are touching ends and one interval inside another.", "https://usaco.guide/silver/sorting-custom"),
+"greedy": ("A greedy algorithm makes the choice that looks best right now and never revisits it. It's short and fast, but correct only when a locally best choice can't spoil the final answer, which you should be able to argue ('swapping my choice for any other can't do better'). When you can't argue it, the problem usually needs DP.", "https://usaco.guide/silver/greedy-sorting"),
+"dp_1d": ("Dynamic programming is recursion plus memory. When a brute-force recursion solves the same smaller problem many times, store each answer the first time (a memo, or `@cache`), or fill a table from the smallest case up. The real work is defining the subproblem in words ('dp[i] = the best answer for the first i items'), how dp[i] comes from smaller ones, and the base cases. Do Recursion and Backtracking first.", "https://usaco.guide/gold/intro-dp"),
+"topo_sort": ("In a directed graph every edge points one way: a -> b can mean 'a must come before b'. A topological order lists every node after all of its prerequisites. Kahn's algorithm counts each node's incoming edges, starts with the nodes that have none, and removes them one at a time with a queue. If some nodes never reach zero, there's a cycle and no valid order.", "https://usaco.guide/gold/toposort"),
+"union_find": ("Union-find (disjoint set union) tracks which items are in the same group. `find(x)` returns the group's representative and `union(a, b)` merges two groups. With path compression and union by size, both are nearly O(1). Use it when edges arrive one by one and you only need 'are these connected?' or 'how many groups?', not the paths.", "https://usaco.guide/gold/dsu"),
+"dp_2d": ("2D DP is 1D DP with two indices: dp[i][j] usually means 'the answer for the first i characters of one string and the first j of the other', or 'for the cell at row i, column j'. Each cell comes from its neighbours above, to the left or diagonally. Fill the table for a small example by hand once and the recurrence becomes clear. Do 1D DP first.", "https://usaco.guide/gold/paths-grids"),
+"trie": ("A trie (prefix tree) stores words letter by letter: each node is a dict from a character to the next node, plus a flag where a word ends. Inserting or looking up a word of length L takes O(L), however many words are stored, and every word with a given prefix sits under a single node. Nested dicts are enough in Python.", ""),
+"shortest_path": ("When edges have different costs, BFS no longer finds the cheapest path. Dijkstra's algorithm always expands the closest unfinished node next, using a heap of (distance, node): O(E log V) with non-negative costs. Do the Heap course first. Negative costs need Bellman-Ford, which interviews rarely ask for.", "https://usaco.guide/gold/shortest-paths"),
+"bit": ("Integers are stored in binary, and bitwise operators work on every bit at once: & (and), | (or), ^ (xor), ~ (not), << and >> (shifts). The tricks interviews use: x ^ x == 0 and x ^ 0 == x, so xor cancels pairs; x & (x - 1) clears the lowest set bit; x >> 1 halves. Python ints never overflow, so 32-bit problems need a mask like & 0xFFFFFFFF.", "https://usaco.guide/silver/intro-bitwise"),
+"matrix_math": ("A matrix is a list of rows: grid[r][c] is row r, column c, with len(grid) rows and len(grid[0]) columns. Most problems here are careful simulation: visit the cells in a specific order and keep the boundaries straight. Work out the index math on a 3×3 example on paper first; off-by-one errors are the whole difficulty.", "https://usaco.guide/bronze/simulation"),
+}
+
+# Course order: the worked example first (it should use the lesson's skeleton), then the guided problems,
+# then the cold solves from gentle to hard. Patterns not listed fall back to Easy -> Hard.
+# notes: a short line shown next to a problem in its course.
+COURSES = {
+"hashmap": {"order": ["two_sum", "contains_duplicate", "valid_anagram", "group_anagrams", "longest_consecutive", "top_k_frequent", "valid_sudoku", "encode_decode"],
+            "notes": {"top_k_frequent": "Solved here by counting into buckets; the Heap course shows the other way.",
+                      "encode_decode": "More string design than hashing."}},
+"prefix": {"order": ["pivot_index", "range_sum_query", "product_except_self"]},
+"recursion": {"order": ["fib_number", "power_of_two", "kth_grammar", "find_winner"]},
+"grid_graph": {"order": ["num_islands", "flood_fill", "max_area_island", "rotting_oranges", "surrounded_regions", "pacific_atlantic", "walls_and_gates", "clone_graph"],
+               "notes": {"clone_graph": "A general graph, not a grid: the same DFS with a visited map.",
+                         "rotting_oranges": "BFS from every rotten orange at once."}},
+"backtracking": {"order": ["subsets", "permutations", "combination_sum", "subsets_ii", "letter_combinations", "combination_sum_ii", "generate_parentheses", "palindrome_partitioning", "word_search", "n_queens"]},
+"dp_1d": {"order": ["climbing_stairs", "min_cost_stairs", "house_robber", "house_robber_ii", "coin_change", "decode_ways", "word_break", "lis", "max_product_subarray", "palindromic_substrings", "longest_palindrome", "partition_equal_subset"]},
+"dp_2d": {"order": ["unique_paths", "lcs", "coin_change_ii", "edit_distance", "target_sum", "stock_cooldown", "interleaving_string", "longest_increasing_path", "distinct_subsequences", "burst_balloons", "regex_matching"]},
+"shortest_path": {"order": ["network_delay", "min_cost_connect", "cheapest_flights", "reconstruct_itinerary", "swim_rising_water"],
+                  "notes": {"min_cost_connect": "A minimum spanning tree (Prim's), which uses the same heap loop.",
+                            "reconstruct_itinerary": "An Euler path, solved with DFS rather than Dijkstra."}},
+}
+
+# The study path's step 0: "Big-O basics", what Big-O means. (title, paragraphs); `code` and **bold** are rendered.
+BIGO_PRIMER = [
+ ("What Big-O measures", [
+   "Big-O describes how the work grows as the input grows. If n is the length of the array, O(n) means the steps grow in step with n: twice the input, about twice the work. It ignores constant factors (2n and n are both O(n)) and keeps only the fastest-growing term (n² + n is O(n²)), because for large inputs that term is all that matters.",
+   "Interviewers ask for it because it predicts whether your code will pass. A judge runs roughly 10⁷ to 10⁸ simple steps a second, so with n = 100,000 an O(n²) solution (10¹⁰ steps) times out while O(n log n) (about 1.7 million) finishes instantly."]),
+ ("The classes you'll meet", [
+   "**O(1)**: the same work whatever n is. Reading `a[i]`, `x in some_set`, `d[key]`.",
+   "**O(log n)**: the input halves each step. Binary search: a million items take about 20 steps.",
+   "**O(n)**: one pass over the input. A single loop, `sum(nums)`, `x in some_list`.",
+   "**O(n log n)**: sorting. `nums.sort()` and `sorted()`; also n heap operations.",
+   "**O(n²)**: every pair. Two nested loops over the same input.",
+   "**O(2ⁿ)** and **O(n!)**: every subset, every ordering. Only fine for tiny n (about 20 and 10)."]),
+ ("Counting the cost of code", [
+   "Steps one after another add up, and the biggest wins: a loop then a sort is O(n + n log n) = O(n log n).",
+   "Nested loops multiply: a loop over n with an inner loop over n is O(n²). An inner loop that only runs a fixed number of times (4 neighbours, 26 letters) is a constant, so it stays O(n).",
+   "A loop that halves or doubles its variable runs O(log n) times.",
+   "Recursion costs (number of calls) × (work per call). A function that calls itself twice on n - 1 makes about 2ⁿ calls."]),
+ ("Python costs that catch people", [
+   "`x in list` is O(n) but `x in set` and `x in dict` are O(1). Turning a list into a set once is often the whole optimisation.",
+   "`list.append` and `list.pop()` are O(1), but `list.pop(0)` and `list.insert(0, x)` are O(n): every other element shifts. Use `collections.deque` for a queue.",
+   "Slicing `a[i:j]` copies, so it costs O(j - i). Slicing inside a loop quietly adds a factor of n.",
+   "Strings are immutable: `s += c` in a loop can be O(n²). Collect pieces in a list and `''.join(parts)` once."]),
+ ("Space complexity", [
+   "Space is the extra memory you use besides the input: a set of seen values is O(n), a few variables O(1). Recursion uses space too: each unfinished call sits on the call stack, so recursing n deep costs O(n) space."]),
+ ("Read the constraints first", [
+   "The input limits tell you which complexity the intended solution has. Before you think about an algorithm, find n's maximum in the problem and look it up in the table below; it rules out most wrong approaches before you write a line."]),
+]
+BIGO_CHECK = [
+ ("A loop over nums, and inside it `if x in seen_list:`. What is the cost, and how do you fix it?", "O(n²): the `in` on a list scans it. Make seen a set and it becomes O(n)."),
+ ("n can be 100,000. Will an O(n²) solution pass?", "No: 10¹⁰ steps. You need O(n log n) or better."),
+ ("You sort the array, then do one pass with two pointers. What is the total?", "O(n log n): the sort dominates the O(n) pass."),
 ]
 
 INPUT_SIZE = [

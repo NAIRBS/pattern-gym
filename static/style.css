@@ -929,3 +929,15 @@ h2 .eta, h3 .eta { margin-left: 8px; }
 .theme-pick { border: 0; padding: 0; margin: 0; min-width: 0; }
 .theme-pick legend { padding: 0; margin-bottom: 4px; }
 .theme-pick legend h2 { margin: 0; }
+
+/* Study: "New to this?" primers, course notes, Big-O primer, checkpoints */
+.primer { margin: 12px 0 18px; padding: 10px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel2); }
+.primer summary { cursor: pointer; font-weight: 600; }
+.primer p { max-width: 72ch; }
+.prob-note { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+details.check { margin: 8px 0; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--r-md); }
+details.check summary { cursor: pointer; }
+details.check p { margin: 8px 0 2px; }
+.mixed.due { border-color: var(--accent); }
+.mixed h2 .tag { font-size: 12px; vertical-align: middle; margin-left: 6px; }
+.tabs-guide th { text-align: left; white-space: nowrap; padding-right: 18px; }

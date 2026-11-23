@@ -4,7 +4,7 @@
 
 const GUIDE_RULES = [
   ['Learn patterns, not problems.', 'About 20 patterns cover almost every interview question. Once you can name the pattern, the problem is mostly translation.'],
-  ['Attempt before you read.', 'Struggle with a problem cold for 25 to 40 minutes before any explanation. Reading first feels faster and teaches far less.'],
+  ['Attempt before you read.', 'Give a problem a real try before any explanation: 15 minutes for an Easy, 25 for a Medium, 40 for a Hard, the same budgets as an online assessment. Reading first feels faster and teaches far less.'],
   ['Re-solve what you failed.', 'A problem you read the answer to isn’t learned until you write it from a blank editor a day or more later. The Today plan schedules this for you.'],
   ['Say the cost before you code.', 'Brute force and its Big-O first, then what work it repeats, then the tool that removes it. Interviewers grade that reasoning.'],
   ['Practise out loud, under a clock.', 'Knowing the answer and producing it in 30 minutes while talking are different skills. Train the second one too.'],
@@ -13,14 +13,14 @@ const GUIDE_RULES = [
 // [when, title, in this app, elsewhere, start week, end week]  (weeks 0-8; drawn as a timeline)
 const GUIDE_PLAN = [
   ['Days 1–3', 'Python fluency',
-    'Syntax Snap until Counter, defaultdict, heapq, deque, sort keys and slicing come without thinking. Set your interview date in Settings so the plan paces itself.',
+    'Big-O basics (the first step on the Study path), then Syntax Snap until Counter, defaultdict, heapq, deque, sort keys and slicing come without thinking. If you have an interview date, set it in Settings so the plan paces itself.',
     'The Python cheat sheet on the Study tab; LeetCode’s editor, to get used to its class-based signatures.', 0, 0.43],
   ['Weeks 1–4', 'Patterns',
-    'One Study course every day or two, in the path order: the idea, the worked example, guided problems, solo problems cold, then the transfer check. Do the Today plan’s reviews every day.',
+    'One Study course every day or two, in the path order, since each builds on the ones before: the idea, the worked example, guided problems, solo problems cold, then the transfer check. A mixed checkpoint comes up after every 4 courses. Do the Today plan’s reviews every day.',
     'After each cold solve, submit the same problem on LeetCode (the link is on the problem). Watch the NeetCode video only after a real attempt.', 0.43, 4],
   ['Weeks 3–8', 'Volume',
-    'Keep the daily reviews. OA Mode on problems the plan brings back.',
-    'Grind 75 (or the NeetCode 150) on LeetCode with a timer: 25 min for Easy, 40 for Medium. Log each miss and re-solve it here later.', 2, 8],
+    'The problems here are your main list: every course’s solo problems, the daily reviews, and OA Mode on what the plan brings back.',
+    'Submit what you solve here on LeetCode too. Only once the courses are done, add Grind 75 problems you haven’t seen, timed: 15 min Easy, 25 Medium, 40 Hard.', 2, 8],
   ['From week 4', 'Talking',
     'Mock Interview once a week: clarify, plan out loud, code, state complexity, test.',
     'Peer mocks on Pramp, paid mocks on interviewing.io, and its public recordings. Behavioural answers and your resume from the Tech Interview Handbook a week before you apply.', 3, 8],
@@ -32,17 +32,18 @@ const GUIDE_PLAN = [
 // [time, step, what, minutes (sizes the bar)]
 const GUIDE_DAY = [
   ['10–20 min', 'Reviews', 'Today’s plan, top to bottom. Due items first; they’re what you’re about to forget.', 15],
-  ['25–45 min', 'One new problem, cold', 'A Study cold solve, a mystery problem, or the next Grind 75 problem on LeetCode. Timer on.', 35],
+  ['15–40 min', 'One new problem, cold', 'Your next Study step, or a mystery problem. Timer on: 15 min for an Easy, 25 for a Medium, 40 for a Hard.', 28],
   ['10–15 min', 'Close the loop', 'If you missed it: read the walkthrough or watch the video, close it, and write the solution from a blank editor.', 12],
   ['2 min', 'One line', 'Write down the signal you should have spotted (“sorted input + pair → two pointers”). That sentence is the thing you’re really learning.', 3],
 ];
 
+// The clock for a Medium (25 minutes, as in an OA). An Easy gets about 15 minutes in all, a Hard 40.
 const GUIDE_STUCK = [
-  ['0–5 min', 'Restate the problem, solve a tiny example by hand, ask about empty input, duplicates, negatives and size.'],
-  ['5–15 min', 'Write the brute force and its cost. Find the work it repeats.'],
-  ['15–25 min', 'Hint 1, then hint 2: the brute force, then the tool. Try again with each.'],
-  ['25–40 min', 'Hint 3, the plan. Code it from the plan.'],
-  ['40+ min', 'Read the walkthrough or watch the video. It’s recorded as missed and comes back tomorrow, when you write it again from scratch.'],
+  ['0–3 min', 'Restate the problem, solve a tiny example by hand, ask about empty input, duplicates, negatives and size.'],
+  ['3–10 min', 'Write the brute force and its cost. Find the work it repeats.'],
+  ['10–15 min', 'Hint 1, then hint 2: the brute force, then the tool. Try again with each.'],
+  ['15–25 min', 'Hint 3, the plan. Code it from the plan.'],
+  ['25+ min', 'Read the walkthrough or watch the video. It’s recorded as missed and comes back tomorrow, when you write it again from scratch.'],
 ];
 
 // [question, [[label, href], ...]]  (an href starting with # is inside the app)
@@ -52,7 +53,7 @@ const GUIDE_WHERE = [
   ['I don’t understand a data structure or algorithm', [['USACO Guide', 'https://usaco.guide'], ['VisuAlgo', 'https://visualgo.net'], ['TIH cheatsheets', 'https://www.techinterviewhandbook.org/algorithms/study-cheatsheet/']]],
   ['I’m stuck on one specific problem', [['The walkthrough here', '#/problems'], ['NeetCode’s video', 'https://www.youtube.com/@NeetCode'], ['LeetCode’s Editorial and Solutions tabs', 'https://leetcode.com/problemset/']]],
   ['My code is right but too slow', [['Input size → target complexity', '#/study'], ['Big-O game', '#/play/bigo'], ['Big-O cheat sheet', 'https://www.bigocheatsheet.com']]],
-  ['Which problems should I do?', [['Grind 75', 'https://www.techinterviewhandbook.org/grind75'], ['NeetCode 150', 'https://neetcode.io/practice']]],
+  ['Which problems should I do?', [['The Study path, in order', '#/study'], ['Every problem here', '#/problems'], ['Grind 75, once the courses are done', 'https://www.techinterviewhandbook.org/grind75']]],
   ['I’m preparing for one company', [['LeetCode company tags (Premium)', 'https://leetcode.com/problemset/'], ['TIH company guides', 'https://www.techinterviewhandbook.org']]],
   ['I freeze when I have to talk', [['Mock Interview', '#/play/mock'], ['Pramp', 'https://www.pramp.com'], ['interviewing.io', 'https://interviewing.io']]],
   ['Behavioural, resume, negotiating', [['Tech Interview Handbook', 'https://www.techinterviewhandbook.org']]],
@@ -64,7 +65,7 @@ const GUIDE_WHERE = [
 const GUIDE_RES = [
   ['LeetCode', 'https://leetcode.com', 'Free; Premium is paid',
     'The real thing. Thousands of problems, the judge companies’ OAs resemble, hidden tests, Editorials and a Solutions tab for every approach, weekly contests, and (Premium) company-tagged lists.',
-    'Your main volume. Submit every problem you learn here there too. Use study plans or Grind 75 as the list, contests for speed, company tags at the end.'],
+    'Submit every problem you solve here there too, to get used to its editor and judge. Once the courses here are done, Grind 75 for problems you haven’t seen, contests for speed, company tags at the end.'],
   ['NeetCode', 'https://neetcode.io', 'Free; Pro is paid',
     'The NeetCode 150 roadmap, ordered by pattern, and a clear video for every problem on it. The best explanations for visual learners.',
     'Watch a video after you’ve tried the problem, never before. Use the roadmap to see which patterns build on which.'],
@@ -101,7 +102,8 @@ const GUIDE_TABS = [['start', 'Start here'], ['plan', '8-week plan'], ['day', 'D
 
 // Each tab's HTML, by id (also used for the reading-time estimates).
 function guideBodies() {
-  const nP = C.problems.length, nT = C.twists.length, nPat = C.patterns.length;
+  const nP = C.problems.filter(p => !p.onramp).length, nO = C.problems.filter(p => p.onramp).length, nT = C.twists.length, nPat = C.patterns.length;
+  const first = studyOrder()[0];
   const link = ([label, href]) => href.startsWith('#') ? `<a class="gchip in" href="${href}">${esc(label)}</a>`
     : `<a class="gchip" href="${href}" target="_blank" rel="noopener">${esc(label)} <span aria-hidden="true">↗</span></a>`;
   const mark = v => v === 2 ? '<span class="gm yes" role="img" aria-label="Yes">●</span>' : v === 1 ? '<span class="gm part" role="img" aria-label="Partly">◐</span>' : '<span class="gm no" role="img" aria-label="No">–</span>';
@@ -109,22 +111,34 @@ function guideBodies() {
   const body = {
     start: () => `
       <section><h2>Your first three steps</h2>
+        <p class="muted">The Today page shows the same three on your first day.</p>
         <ol class="gsteps">
-          <li><a class="card" href="#/settings"><span class="gn">1</span><b>Set your interview date</b><span class="muted">The daily plan paces itself to it. No date is fine too.</span><span class="go">Settings →</span></a></li>
-          <li><a class="card" href="#/play/syntax"><span class="gn">2</span><b>Warm up your Python</b><span class="muted">A few rounds of Syntax Snap: Counter, heapq, deque, slicing.</span><span class="go">Syntax Snap →</span></a></li>
-          <li><a class="card" href="#/study"><span class="gn">3</span><b>Start the first course</b><span class="muted">Then come back to Today every day for your plan and reviews.</span><span class="go">Study →</span></a></li>
-        </ol></section>
+          <li><a class="card" href="#/study/bigo"><span class="gn">1</span><b>Read Big-O basics</b><span class="muted">What your code costs and how to say it. Every lesson assumes it.</span><span class="go">Big-O →</span></a></li>
+          <li><a class="card" href="#/study/${first.id}"><span class="gn">2</span><b>Take the first course: ${esc(first.name)}</b><span class="muted">Then the next one on the Study path, in order, every day or two.</span><span class="go">First course →</span></a></li>
+          <li><a class="card" href="#/play/syntax"><span class="gn">3</span><b>Warm up your Python</b><span class="muted">A few rounds of Syntax Snap: Counter, heapq, deque, slicing. The other games open after your first lesson.</span><span class="go">Syntax Snap →</span></a></li>
+        </ol>
+        <p class="muted small">Have an interview or online assessment booked? <a href="#/settings">Set its date in Settings</a> and the daily plan paces itself to it.</p></section>
+      <section><h2>Which tab is for what</h2>
+        <table class="gtbl tabs-guide"><tbody>
+          <tr><th scope="row"><a href="#/today">Today</a></th><td>Come here every day: your next lesson, the reviews that are due, and a short round of each game.</td></tr>
+          <tr><th scope="row"><a href="#/study">Study</a></th><td>The course. One pattern at a time, in order, from the idea to problems you solve cold.</td></tr>
+          <tr><th scope="row"><a href="#/problems">Problems</a></th><td>Every problem in one searchable list, to solve any of them against the tests.</td></tr>
+          <tr><th scope="row"><a href="#/patterns">Patterns</a></th><td>How well you know each pattern, its template, and all of its problems with solutions.</td></tr>
+          <tr><th scope="row"><a href="#/games">Games</a></th><td>Each drill on its own, outside the daily plan.</td></tr>
+          <tr><th scope="row"><a href="#/python">Python</a></th><td>Python for interviews from scratch, with exercises. Start here if Python is new to you.</td></tr>
+          <tr><th scope="row"><a href="#/cheatsheet">Cheatsheet</a></th><td>Everything the games ask, with the answers, to read.</td></tr>
+        </tbody></table></section>
       <section><h2>Five rules</h2>
         <ol class="grules">${GUIDE_RULES.map(([b, t], i) => `<li><span class="gn">${i + 1}</span><div><b>${esc(b)}</b><p class="muted">${esc(t)}</p></div></li>`).join('')}</ol></section>
       <section><h2>What this app covers</h2>
         <div class="gtwo">
           <div class="card"><h3>Here</h3><ul>
             <li>${nPat} pattern courses, from the idea to problems you solve cold, then a twist you haven’t seen.</li>
-            <li>${nP} NeetCode 150 problems and ${nT} twists, with real tests and large hidden tests.</li>
+            <li>${nP} NeetCode 150 problems, ${nO} starter problems and ${nT} twists, with real tests and large hidden tests. These are your main problem list.</li>
             <li>Short drills for each layer: spotting the pattern, structure, syntax, complexity, edge cases.</li>
             <li>Spaced reviews that bring each pattern back just before you’d forget it.</li></ul></div>
           <div class="card"><h3>Elsewhere</h3><ul>
-            <li>Volume: LeetCode has thousands of problems; ${nP + nT} is a core.</li>
+            <li>More volume once you’re through the courses: LeetCode has thousands of problems; the ${nP + nO + nT} here are the core.</li>
             <li>Languages other than Python.</li>
             <li>Contests, company-tagged lists and practice with real people.</li>
             <li>Behavioural interviews, resumes, offers, system design.</li></ul>
@@ -148,7 +162,7 @@ function guideBodies() {
         <div class="row" style="margin-top:16px"><a class="btn primary" href="#/today" data-key="t">Open today’s plan <kbd>T</kbd></a>
           <a class="btn" href="#/study" data-key="s">Study <kbd>S</kbd></a></div></section>`,
     stuck: () => `
-      <section><p class="muted">A clock for one problem. Move to the next step only when its time is up.</p>
+      <section><p class="muted">A clock for one Medium problem, the 25 minutes an online assessment gives it. For an Easy, squeeze it into about 15 minutes; for a Hard, stretch it to 40. Move to the next step only when its time is up.</p>
         <ol class="gladder">${GUIDE_STUCK.map(([t, d], i) => `<li><span class="gladder-t mono">${esc(t)}</span><span class="gladder-dot c${i}"></span><p>${esc(d)}</p></li>`).join('')}</ol>
         <p class="muted small">The cold-solve page has these hints built in, in this order. Copying an answer you haven’t understood never counts as solving it.</p></section>`,
     where: () => `

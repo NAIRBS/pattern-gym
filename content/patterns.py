@@ -5,6 +5,18 @@ fill = the questions you answer to turn the skeleton into a specific solution.
 
 PATTERNS = [
     {
+        "id": "recursion", "name": "Recursion (base case + smaller call)", "color": "#9fb35f",
+        "triggers": ["the definition refers to itself", "answer for n from the answer for n - 1 or n / 2", "self-similar structure", "a process that shrinks by one each round"],
+        "fill": ["What is the smallest input, and its answer? (base case)", "What smaller input do you call on?", "How do you build this answer from the smaller one?", "Do the same calls repeat? Then remember them."],
+        "skeleton": '''
+def solve(n):
+    if n <= 1:                 # base case: answer directly
+        return base
+    smaller = solve(n - 1)     # trust the call on a smaller input
+    return combine(n, smaller)
+''',
+    },
+    {
         "id": "hashmap", "name": "Hash Map / Set Lookup", "color": "#e8a33d",
         "triggers": ["'have I seen X before?'", "pair/complement lookup", "count frequencies", "group by a canonical key"],
         "fill": ["What is the key? (value, complement, sorted string, count tuple)", "What is stored as the value?", "Check before or after inserting?"],
@@ -20,19 +32,14 @@ return ...
     },
     {
         "id": "prefix", "name": "Prefix / Running Sum", "color": "#d4883a",
-        "triggers": ["product/sum of everything except i", "subarray sum equals k", "range queries"],
-        "fill": ["What accumulates left-to-right?", "What is the identity value (0 or 1)?", "Do you need a second pass right-to-left?"],
+        "triggers": ["sum of a range, asked many times", "product/sum of everything except i", "subarray sum equals k", "left side vs right side"],
+        "fill": ["What accumulates left-to-right (sum, product, count)?", "What is the identity value (0 or 1)?", "Do you need the whole array, or just a running total?", "Do you need a second pass right-to-left?"],
         "skeleton": '''
-res = [1] * n
-pre = 1                        # identity element
-for i in range(n):
-    res[i] = pre
-    pre *= nums[i]
-post = 1
-for i in range(n - 1, -1, -1):
-    res[i] *= post
-    post *= nums[i]
-return res
+pre = [0] * (len(nums) + 1)    # pre[i] = sum of the first i values
+for i, x in enumerate(nums):
+    pre[i + 1] = pre[i] + x    # one more value than the last prefix
+# sum of nums[l..r], inclusive, in O(1):
+return pre[r + 1] - pre[l]
 ''',
     },
     {

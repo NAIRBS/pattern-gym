@@ -92,6 +92,7 @@ flowchart LR
 |---|---|
 | `problems.py`, `problems_a.py`, `problems_b.py`, `problems_c.py` | The NeetCode 150: statement, insight, catch, complexity, clarifying questions, edge cases, reference solution, tests |
 | `problems_twist.py` | 23 twist problems (`twist_of` points to the core problem they vary), with their own walkthrough and brute force |
+| `problems_onramp.py` | 7 starter problems outside the NeetCode 150 (`onramp: true`): the Recursion course, and an Easy first step for Prefix Sum and Grid. Each carries its own walkthrough and brute force |
 | `perf.py` | Hidden large tests: a size label and a `make(rng)` generator per problem |
 | `links.py` | LeetCode slug, number, title and Premium flag, checked against LeetCode's API |
 | `patterns.py`, `study_patterns.py` | The patterns: skeleton, triggers, lesson content |
@@ -194,7 +195,8 @@ also triggers a fresh worker. `print()` output is discarded in both modes.
 | Router | `ROUTES[name] = (app, parts, params) => …`. `route()` runs on `hashchange`, calls the page's cleanup callbacks, renders, sets the title and moves focus to the `h1` |
 | Pages | Each route writes HTML into `#app` with template strings. Every dynamic value goes through `esc()` |
 | Games | A registry `GAMES[id] = { name, pool(), gate(), render(el, item, done, ctx) }`. Every game plugs into one session runner (`runSession`), which handles the queue, grading, Previous/undo, XP and the end screen. Each game only renders a question and calls `done(grade)` |
-| Study | Courses per pattern: lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages; `nextStep()` picks what's next |
+| Study | Courses per pattern, in `STUDY_ORDER` (prerequisites first): lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages from the pattern's `course.order` (content `COURSES`: worked example first, then gentle to hard) or, without one, Easy → Hard; `nextStep()` picks what's next in a course and `nextStudy()` across the path. Step 0 is Big-O basics (`#/study/bigo`, from `C.bigo_primer`), done when `S.study.lessons.bigo` is set. Each lesson shows its "New to this?" primer (`lesson.primer`). After every 4 lessons `checkpointDue()` asks for one mystery problem; attempting one records `S.study.lessons['checkpoint:<k>']`, so sync merges it like a lesson |
+| Daily plan | `buildPlan()` sizes each game's block from the minutes you set, then `fitPlan()` trims blocks until the plan's estimated time fits. On day one (`firstDay()`: no lesson learned, no game played except Syntax Snap) the plan is only Syntax Snap and the Today page leads with the next study step; new game items come from studied patterns first (`chooseItems`) |
 | Starter Guide | `guide.js` registers `ROUTES.guide`, a page with six sections addressed as `#/guide/<section>` |
 | Python tab | `python.js` registers `ROUTES.python` (`#/python/<section>`: start, types, io, flow, data, pythonic) from `C.python`. Examples and quizzes run through `runScript()` (the `script` kind). A Predict task compares your typed output with what the code actually prints, line by line; a Write task runs every case. Finished tasks are kept in localStorage `pg-py-done`, outside the synced state, and never touch reviews or XP. "Where you'll see it" applies each lesson's `find` regex to every reference solution at render time |
 | Cheatsheet | `cheatsheet.js` registers `ROUTES.cheatsheet`: every game question with its answer, read-only, in eight sections (`#/cheatsheet/<section>`: sprint, skeletons, syntax, solutions, bigo, edges, costs, method). The first six read the same `C.sprint`, `C.patterns`, `C.syntax` and `C.problems` the games draw from, so they never go stale; costs and method read `C.references` and `C.input_size`. A filter, a pattern menu, a Hide answers mode (blurred until clicked) and print styles; nothing on it is graded or scheduled |
@@ -240,7 +242,7 @@ All progress is one JSON object, `S`:
   "mocks":  [ /* scored mock interviews */ ],
   "study":  { "lessons": {}, "walks": {}, "attempts": {} },
   "plan":   { /* today's blocks and how many are done */ },
-  "settings": { "minutes": 30, "interviewDate": "...", "singleKeys": true, "...": "..." },
+  "settings": { "minutes": 30, "interviewDate": null, "singleKeys": true, "...": "..." },   // no date until you set one
   "pace":   { "sprint": { "m": 0.45, "n": 12 } },   // minutes a question, from n questions (time estimates)
   "settingsAt": 1763600000000
 }
@@ -327,7 +329,7 @@ The Node tests cover the pure modules: progress merging, edge-case matching and 
 ## Known limits
 
 - Python only. LeetCode stores a language-neutral signature and generates per-language stubs; this app doesn't.
-- 173 problems with hand-written tests: far fewer cases per problem than a real judge.
+- 180 problems with hand-written tests: far fewer cases per problem than a real judge.
 - `app.js` (~2,000 lines) has no module boundaries or types, and its logic (scheduling, rotation, routing) has no
   unit tests yet.
 - `server.py` and the static build are two code paths to keep in step.
