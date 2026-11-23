@@ -53,7 +53,7 @@ flowchart LR
 | Content | `content/*.py` | Every problem, test, walkthrough, lesson, drill card and hidden-test generator, as Python data |
 | Build | `validate.py`, `build_static.py` | Check all content by running it, then compile it to `static/content.json` |
 | Judge | `runner.py`, `static/py-worker.js` | Run untrusted code against a test spec, with a time limit |
-| App | `static/app.js`, `static/guide.js`, `static/cheatsheet.js`, `static/python.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer |
+| App | `static/app.js`, `static/guide.js`, `static/cheatsheet.js`, `static/python.js`, `static/theme.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer, theme, time estimates |
 | Helpers | `static/highlight.js`, `static/edge-match.js` | Syntax colouring; matching typed edge cases to the expected ones |
 | Progress | `static/merge.js`, `static/sync.js`, `static/config.js` | Local state, merging two copies, optional cloud sync |
 | Local mode | `server.py`, `start.bat` | Same app served from your machine, code run in a subprocess, progress in `progress.json` |
@@ -201,6 +201,30 @@ also triggers a fresh worker. `print()` output is discarded in both modes.
 | Keyboard layer | Any button with `data-key="x"` gets that shortcut. One global `keydown` handler clicks the visible match. The key bar (`paintKeybar`) lists exactly the keys that work on the current screen |
 | Problem panel | `problemPanel(p)` renders statement, examples, typed signature and constraints from the test spec |
 | Editor | A `<textarea>` with a syntax-colour overlay (`highlight.js`), auto-indent and Tab handling (`enhanceEditor`). One-line code inputs (Fill the Gap) get the same overlay (`hlInput`); read-only `pre.code` and inline `code.hlc` are coloured by `paintPre`, applied automatically to anything added to the page |
+| Time estimates | Every page and activity shows how long it takes (`eta()` chips, `etaIn()` inside buttons). Reading time comes from `readMin(el or html)`: 200 words a minute for prose, 5 seconds a line for code, skipping controls, hidden parts and editor overlays. Doing time: each game's `cost` (minutes a question) until you've done 3 questions, then your own pace (`S.pace`, a moving average that `recordPace()` updates after each question, capped at a quarter to three times the default so a break doesn't skew it); full solves use OA Mode's budgets (`SOLVE_MIN`: 15 / 25 / 40 min by difficulty); study stages use `lessonMin`, `walkMin`, `guidedMin` and `courseMins`. A page with no estimate of its own gets its reading time under the `h1` from `paintReadTimes()` in `route()` |
+| Theme | Colours are `light-dark()` tokens on `:root`. `theme.js` (loaded in `<head>`, before the first paint) applies the Light / Dark / System choice from Settings by setting `data-theme` (and so `color-scheme`) on `<html>`, updates the `theme-color` tags, and follows changes made in other tabs (`storage` event). The choice is per browser (`pg-theme`), not synced |
+
+### Web platform basics
+
+Checked against a modern web-platform checklist (focus, motion, forms, dialogs, dark mode, responsiveness, security):
+
+- **Security:** `index.html` sets a Content Security Policy in a `<meta>` tag. There are no inline scripts or `on*`
+  handlers, so `script-src` is this site plus the exact CDN folders of the two libraries (Supabase, Sortable), which
+  also load with `integrity` hashes. `connect-src` is this site and the Supabase project; `object-src` and
+  `base-uri` are `'none'`. `style-src` allows `'unsafe-inline'` because views write `style=""` attributes.
+  Pyodide runs in `py-worker.js`, which gets its policy from its own response, not the page's.
+  Trusted Types aren't enforced: every view writes HTML with `innerHTML`, and `esc()` on every dynamic value is
+  the defence. Content comes from this repository; the only user text shown is the user's own.
+- **Dialogs** are native `<dialog>` + `showModal()` (focus trap, Esc, inert page). A backdrop click closes only when it
+  lands outside the dialog's box. Opening fades in; the 8px rise runs only with `prefers-reduced-motion: no-preference`.
+- **Motion:** smooth scrolling is chosen per call by `scrollMotion()`; bars that slide or grow stop moving under
+  reduced motion. Colour, opacity and focus feedback stay for everyone (no blanket `transition-duration` reset).
+- **Contrast:** text tokens meet 4.5:1 in both themes; input borders use `--control-edge` (3:1 or more on every
+  surface). `prefers-contrast: more` strengthens edges and secondary text; `forced-colors: active` keeps the current
+  tab, selected option, progress and invalid states visible.
+- **Forms:** the sign-in field has a real label, `autocomplete`, `inputmode` and one specific, announced message per
+  failure (empty, not an email), with an icon and "Error:" text, in a slot that doesn't shift the layout.
+- **Long pages:** problem rows, Python lessons and Cheatsheet sections use `content-visibility: auto`.
 
 ---
 
@@ -217,6 +241,7 @@ All progress is one JSON object, `S`:
   "study":  { "lessons": {}, "walks": {}, "attempts": {} },
   "plan":   { /* today's blocks and how many are done */ },
   "settings": { "minutes": 30, "interviewDate": "...", "singleKeys": true, "...": "..." },
+  "pace":   { "sprint": { "m": 0.45, "n": 12 } },   // minutes a question, from n questions (time estimates)
   "settingsAt": 1763600000000
 }
 ```
@@ -252,6 +277,7 @@ Sync is optional. With no values in `config.js`, the app is fully local.
 | `study` | Union, keeping the earliest date |
 | `plan` | Later date wins; same day, per-game maximum |
 | `settings` | The copy with the later `settingsAt` wins |
+| `pace` | Per game, the copy measured from more questions |
 
 `merge.js` is a pure function with no DOM, which is why it can be tested in Node (`tests/merge.test.js`).
 

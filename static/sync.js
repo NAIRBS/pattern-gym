@@ -141,22 +141,42 @@ const Cloud = (() => {
       dlg.id = 'signin-dialog';
       dlg.setAttribute('aria-labelledby', 'signin-title');
       document.body.append(dlg);
-      dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });  // click outside = close
+      // Click outside = close. Checks the dialog's box, so a click on its own padding doesn't close it.
+      dlg.addEventListener('click', e => {
+        if (e.target !== dlg) return;
+        const r = dlg.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
+      });
     }
     dlg.innerHTML = `<form method="dialog" class="dlg-x"><button class="ghost" aria-label="Close">✕</button></form>
       <h3 id="signin-title">Sign in to sync</h3>
       <p class="muted small">Keep your progress in sync across devices. We’ll email you a sign-in link: open it in
       <b>this same browser</b>. No password.</p>
       <form id="signin-form">
-        <label class="small muted" for="signin-email">Email</label>
-        <input type="email" id="signin-email" required placeholder="you@example.com" autocomplete="email">
+        <label class="small" for="signin-email">Email <span aria-hidden="true">*</span><span class="sr">(required)</span></label>
+        <input type="email" id="signin-email" name="email" required autocomplete="email" inputmode="email" spellcheck="false" autocapitalize="off"
+          aria-describedby="signin-err">
+        <p class="small signin-err" id="signin-err" aria-live="polite"></p>
         <button class="primary" type="submit">Email me a sign-in link</button>
       </form>
       <p class="small" id="signin-msg" role="status"></p>`;
     const form = dlg.querySelector('#signin-form'), msg = dlg.querySelector('#signin-msg');
+    const input = form.querySelector('#signin-email'), errBox = form.querySelector('#signin-err');
+    const ERR_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4v5M8 11.5v.5" stroke="var(--panel)" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    // One message per failure, shown and announced next to the field; the slot keeps its height so nothing jumps.
+    const problem = () => input.validity.valueMissing ? 'Enter your email address.'
+      : input.validity.typeMismatch ? 'That doesn’t look like an email address. It needs an @ and a domain, like name@example.com.' : '';
+    const showErr = text => {
+      errBox.innerHTML = text ? `${ERR_ICON}<span><span class="sr">Error: </span>${esc(text)}</span>` : '';
+      input.setAttribute('aria-invalid', text ? 'true' : 'false');
+    };
+    input.addEventListener('input', () => { if (input.getAttribute('aria-invalid') === 'true') showErr(problem()); });
+    form.noValidate = true;   // our messages instead of the browser's tooltip
     form.onsubmit = async e => {
       e.preventDefault();
-      const btn = form.querySelector('button'), email = form.querySelector('input').value.trim();
+      const bad = problem(); showErr(bad);
+      if (bad) { input.focus(); return; }
+      const btn = form.querySelector('button'), email = input.value.trim();
       btn.disabled = true; msg.textContent = 'Sending…'; msg.style.color = '';
       try {
         await signIn(email);

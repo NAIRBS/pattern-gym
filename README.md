@@ -211,6 +211,22 @@ explanation, close it, and write it from blank (10–15 min) → one line on the
 
 </details>
 
+### Time estimates
+
+Everything shows how long it takes, so you can fit it into the time you have:
+
+- **Reading:** lessons, Cheatsheet sections, Guide tabs and every other page show their reading time
+  (200 words a minute, 5 seconds a line of code).
+- **Doing:** each game round, each block of today's plan, each walkthrough, guided problem and Python quiz.
+  Full solves use the online-assessment budgets: 15 minutes Easy, 25 Medium, 40 Hard.
+- **Totals:** what's left today, in each Study course, in the whole Study path and in the Python tab.
+- **Your pace:** after three questions in a game, its estimates switch from the default to your own measured pace.
+  Hover a time to see which one it is.
+
+### Theme
+
+Light, dark, or the same as your device: **Settings → Theme**. Other open tabs switch too.
+
 ### Keyboard
 
 The bar at the bottom of every screen lists the keys that work right there, and every chip is clickable. <kbd>?</kbd> shows them all.
@@ -255,6 +271,7 @@ pattern-gym/
 │   ├── guide.js           the Starter Guide page
 │   ├── cheatsheet.js      the Cheatsheet page
 │   ├── python.js          the Python tab
+│   ├── theme.js           light / dark / system, applied before the first paint
 │   ├── py-worker.js       Python in the browser
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring

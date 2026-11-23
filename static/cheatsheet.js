@@ -130,7 +130,7 @@ ROUTES.cheatsheet = (app, [tab], params) => {
       <button type="button" class="ghost" id="cs-hide" data-key="h" aria-pressed="${hide}">${hide ? 'Show answers' : 'Hide answers'} <kbd>H</kbd></button>
       <button type="button" class="ghost" id="cs-print" data-key="p">Print <kbd>P</kbd></button>
     </div>
-    <p class="muted small" id="cs-count" aria-live="polite"></p>
+    <p class="muted small cs-meta"><span id="cs-count" aria-live="polite"></span><span id="cs-eta"></span></p>
     <div role="tabpanel" aria-label="${esc(cur[1])}" class="gpanel cs-panel">${body[tab]()}</div>
   </div>`;
   const root = $('.cheat', app), q = $('#cs-q', app), ps = $('#cs-p', app), count = $('#cs-count', app);
@@ -145,6 +145,7 @@ ROUTES.cheatsheet = (app, [tab], params) => {
     }
     for (const s of $$('.cs-sec', app)) s.hidden = !$$('.cs-item', s).some(i => !i.hidden);
     count.textContent = n === total ? `${total} ${CHEAT_NOUN[tab] || 'problems'}` : `Showing ${n} of ${total}`;
+    $('#cs-eta', app).innerHTML = n ? eta(readMin($('.cs-panel', app)), n === total ? 'to read this section' : 'to read these') : '';
   };
   q.addEventListener('input', filter); ps?.addEventListener('change', filter); filter();
   $('#cs-hide', app).onclick = e => {

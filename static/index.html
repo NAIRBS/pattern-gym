@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Content Security Policy. Every script is a file (no inline scripts or on* handlers), so script-src lists
+     this site plus the exact folders of the two CDN libraries, which also carry integrity hashes below.
+     Pyodide runs in py-worker.js, which gets its own policy from its own response.
+     style-src needs 'unsafe-inline' for the style="" attributes the views write. If you change config.js's
+     Supabase project, change connect-src too. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/ https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; worker-src 'self'; connect-src 'self' https://qrmtkzktkpjsjebeiqqu.supabase.co wss://qrmtkzktkpjsjebeiqqu.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
 <title>Pattern Gym · daily coding-interview drills</title>
 <meta name="description" content="Daily drills for coding interviews in Python: spot the pattern, rebuild the skeleton, solve all 150 NeetCode problems, with spaced repetition.">
 <meta name="theme-color" content="#15171c" media="(prefers-color-scheme: dark)">
@@ -40,8 +48,8 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="sr-status" class="sr" role="status" aria-live="polite"></div>
 <script src="config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
 <script src="merge.js"></script>
 <script src="edge-match.js"></script>
 <script src="highlight.js"></script>

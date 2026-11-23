@@ -99,9 +99,8 @@ const GUIDE_MATRIX = {
 };
 const GUIDE_TABS = [['start', 'Start here'], ['plan', '8-week plan'], ['day', 'Daily routine'], ['stuck', 'When stuck'], ['where', 'Where to look'], ['resources', 'Resources']];
 
-ROUTES.guide = (app, [tab]) => {
-  if (!GUIDE_TABS.some(([id]) => id === tab)) tab = 'start';
-  try { localStorage.setItem('pg-guide-seen', '1'); } catch (e) {}
+// Each tab's HTML, by id (also used for the reading-time estimates).
+function guideBodies() {
   const nP = C.problems.length, nT = C.twists.length, nPat = C.patterns.length;
   const link = ([label, href]) => href.startsWith('#') ? `<a class="gchip in" href="${href}">${esc(label)}</a>`
     : `<a class="gchip" href="${href}" target="_blank" rel="noopener">${esc(label)} <span aria-hidden="true">↗</span></a>`;
@@ -170,14 +169,23 @@ ROUTES.guide = (app, [tab]) => {
             <td data-label="Best at">${esc(best)}</td><td data-label="How to use it">${esc(how)}</td></tr>`).join('')}
         </tbody></table></section>`,
   };
+  return body;
+}
+const guideTabMin = id => readMin(guideBodies()[id]());
+
+ROUTES.guide = (app, [tab]) => {
+  if (!GUIDE_TABS.some(([id]) => id === tab)) tab = 'start';
+  try { localStorage.setItem('pg-guide-seen', '1'); } catch (e) {}
+  const body = guideBodies();
   app.innerHTML = `<div class="guide">
     <div class="study-head"><h1>Starter Guide</h1>
       <p class="lede">Everything you need to get good at coding interviews quickly: what to do each day, where to look when you’re stuck,
         and which outside resource is best for what.</p></div>
+    <p class="eta-row">${eta(GUIDE_TABS.reduce((a, [id]) => a + readMin(body[id]()), 0), 'to read the whole guide')}</p>
     <div class="gtabs" role="tablist" aria-label="Guide sections">${GUIDE_TABS.map(([id, label], i) =>
-      `<a role="tab" href="#/guide/${id}" aria-selected="${id === tab}" tabindex="${id === tab ? 0 : -1}" class="${id === tab ? 'on' : ''}"
+      `<a role="tab" href="#/guide/${id}" title="About ${fmtMin(readMin(body[id]()))} to read" aria-selected="${id === tab}" tabindex="${id === tab ? 0 : -1}" class="${id === tab ? 'on' : ''}"
         data-key="${i + 1}" data-kgroup="switch section">${esc(label)} <kbd>${i + 1}</kbd></a>`).join('')}</div>
-    <div role="tabpanel" aria-label="${esc(GUIDE_TABS.find(([id]) => id === tab)[1])}" class="gpanel">${body[tab]()}</div>
+    <div role="tabpanel" aria-label="${esc(GUIDE_TABS.find(([id]) => id === tab)[1])}" class="gpanel"><p class="eta-row">${eta(readMin(body[tab]()), `to read ${GUIDE_TABS.find(([id]) => id === tab)[1]}`)}</p>${body[tab]()}</div>
   </div>`;
   const tabs = $$('.gtabs [role=tab]', app);
   $('.gtabs', app).addEventListener('keydown', e => {

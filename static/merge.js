@@ -10,6 +10,7 @@
    - streak:  recomputed from days; best = max
    - plan:    later date wins; same day → per-game max of `done`
    - settings: the copy with the later `settingsAt` (ms timestamp) wins
+   - pace:    per game, the copy measured from more questions (time estimates)
 */
 'use strict';
 (function (root) {
@@ -60,6 +61,13 @@
     }) };
   }
 
+  // Per game, the pace measured from more questions.
+  function mergePace(x = {}, y = {}) {
+    const out = { ...x };
+    for (const [g, p] of Object.entries(y || {})) if (!out[g] || (p?.n || 0) > (out[g].n || 0)) out[g] = p;
+    return out;
+  }
+
   function mergeState(a, b) {
     if (!isObj(b)) return a; if (!isObj(a)) return b;
     const items = { ...(a.items || {}) };
@@ -84,6 +92,7 @@
       xp: Math.max(a.xp || 0, b.xp || 0),
       streak: streakFromDays(days, a.streak, b.streak),
       plan: mergePlan(a.plan, b.plan),
+      pace: mergePace(a.pace, b.pace),
       study: {
         lessons: unionDates(a.study?.lessons, b.study?.lessons),
         walks: unionDates(a.study?.walks, b.study?.walks),

@@ -24,6 +24,12 @@ function pyBody(lines) {
   flush(); return h;
 }
 const pyRows = s => Math.min(24, Math.max(3, String(s).split('\n').length + 1));
+// Time: a Predict takes about 30 seconds plus 9 a line of code; a Write about 2 minutes plus 30 seconds a
+// line of the model solution. A lesson is its reading time, a minute to run the example, and its quizzes.
+const pyTaskMin = t => t.kind === 'predict' ? 0.5 + t.code.split('\n').length * 0.15 : 2 + t.solution.split('\n').length * 0.5;
+const pyLesMin = les => readMin(`${pyBody(les.body)}${les.read.map(([a, b]) => `<p>${esc(a)} ${pyMd(b)}</p>`).join('')}<pre>${esc(les.loop || '')}</pre><pre>${esc(les.code)}</pre>`)
+  + 1 + les.tasks.reduce((a, t) => a + pyTaskMin(t), 0);
+const pyLeft = (les, done) => pyLesMin(les) - les.tasks.filter(t => done[t.id]).reduce((a, t) => a + pyTaskMin(t), 0);
 const pyTasks = sec => sec.lessons.flatMap(l => l.tasks);
 // "Where you'll see it": reference-solution lines that use this lesson's idiom.
 function pySeen(les) {
@@ -55,6 +61,8 @@ ROUTES.python = (app, [tab]) => {
   const done = pyDone();
   const count = s => { const t = pyTasks(s); return [t.filter(x => done[x.id]).length, t.length]; };
   const allT = secs.flatMap(pyTasks), allDone = allT.filter(t => done[t.id]).length;
+  const secMin = s => s.lessons.reduce((a, l) => a + pyLesMin(l), 0), secLeft = s => s.lessons.reduce((a, l) => a + pyLeft(l, done), 0);
+  const allMin = secs.reduce((a, s) => a + secMin(s), 0);
 
   const example = les => `<div class="py-ex" data-les="${les.id}">
       <h3 class="cs-h">Try it${les.outfile ? ` <span class="muted">(${esc(Object.keys(les.files).join(', '))} is provided)</span>` : ''}</h3>
@@ -63,13 +71,13 @@ ROUTES.python = (app, [tab]) => {
       <div class="row"><button class="primary py-run">Run <kbd>Ctrl+Enter</kbd></button><button class="ghost py-reset">Reset</button></div>
       <div class="py-res" aria-live="polite"></div></div>`;
   const task = t => t.kind === 'predict' ? `
-      <div class="py-task" data-t="${t.id}"><div class="py-task-h"><span class="tag py-pr">Predict</span><b>What does this print?</b><span class="py-ok" ${done[t.id] ? '' : 'hidden'}>✓ Done</span></div>
+      <div class="py-task" data-t="${t.id}"><div class="py-task-h"><span class="tag py-pr">Predict</span><b>What does this print?</b>${eta(pyTaskMin(t))}<span class="py-ok" ${done[t.id] ? '' : 'hidden'}>✓ Done</span></div>
         <pre class="code">${esc(t.code)}</pre>
         ${t.stdin ? `<div class="muted small">Its input is <code>${esc(t.stdin.replace(/\n$/, '').replace(/\n/g, '⏎'))}</code></div>` : ''}
         <textarea class="code py-guess" rows="${Math.max(2, t.answer.split('\n').length + 1)}" spellcheck="false" placeholder="Type the exact output, one line per printed line" aria-label="Your prediction"></textarea>
         <div class="row"><button class="primary py-check">Check by running it <kbd>Ctrl+Enter</kbd></button><button class="ghost py-show">Show the answer</button></div>
         <div class="py-res" aria-live="polite"></div></div>` : `
-      <div class="py-task" data-t="${t.id}"><div class="py-task-h"><span class="tag py-wr">Write</span><b>Your turn</b><span class="py-ok" ${done[t.id] ? '' : 'hidden'}>✓ Done</span></div>
+      <div class="py-task" data-t="${t.id}"><div class="py-task-h"><span class="tag py-wr">Write</span><b>Your turn</b>${eta(pyTaskMin(t))}<span class="py-ok" ${done[t.id] ? '' : 'hidden'}>✓ Done</span></div>
         <p>${pyMd(t.prompt)}</p>
         ${t.cases[0].stdin ? `<div class="py-io"><span class="muted small">Sample input</span><pre class="py-out">${esc(t.cases[0].stdin.replace(/\n$/, ''))}</pre></div>` : ''}
         <textarea class="code py-ed" rows="${pyRows(t.starter) + 4}" aria-label="Your program">${esc(t.starter)}</textarea>
@@ -78,7 +86,7 @@ ROUTES.python = (app, [tab]) => {
         <div class="py-sol" hidden><pre class="code">${esc(t.solution)}</pre></div>
         <div class="py-res" aria-live="polite"></div></div>`;
   const lesson = (les, i) => `<article class="card py-les" id="py-${les.id}">
-      <h2 class="h3"><span class="py-n">${i + 1}</span>${esc(les.title)}</h2>
+      <h2 class="h3"><span class="py-n">${i + 1}</span>${esc(les.title)} ${eta(pyLesMin(les), '', { title: 'Reading, a minute to run the example, and the quizzes' })}</h2>
       <div class="py-body">${pyBody(les.body)}</div>
       ${les.read.length ? `<h3 class="cs-h">How to read it</h3><table class="gtbl py-read"><tbody>${les.read.map(([a, b]) => `<tr><td><code class="hlc">${esc(a)}</code></td><td>${pyMd(b)}</td></tr>`).join('')}</tbody></table>` : ''}
       ${les.loop ? `<h3 class="cs-h">The same thing, written out</h3><pre class="code">${esc(les.loop)}</pre>` : ''}
@@ -90,20 +98,22 @@ ROUTES.python = (app, [tab]) => {
   app.innerHTML = `<div class="guide py">
     <div class="guide-head"><h1>Python</h1>
       <p class="lede">The Python you need for online assessments and for live interviews on a blank page: writing the whole program yourself, reading input and printing output, the data types and containers, and how to read the dense one-liners in the solutions. Every example runs, and every quiz is checked by running the code.</p>
+      <p class="eta-row">${eta(allMin, 'for the whole Python tab')}${allDone ? eta(secs.reduce((a, s) => a + secLeft(s), 0), 'left') : ''}</p>
       <p class="muted small">${allDone} of ${allT.length} quiz questions done. Progress is kept in this browser only and doesn’t affect your reviews. The input and output material follows the <a href="https://usaco.guide/general/input-output?lang=py" target="_blank" rel="noopener">USACO Guide ↗</a>.</p></div>
     <div class="gtabs" role="tablist" aria-label="Python sections">${secs.map((s, i) => { const [d, n] = count(s);
-      return `<a role="tab" href="#/python/${s.id}" aria-selected="${s === sec}" tabindex="${s === sec ? 0 : -1}" class="${s === sec ? 'on' : ''}"
+      return `<a role="tab" href="#/python/${s.id}" title="About ${fmtMin(secMin(s))}" aria-selected="${s === sec}" tabindex="${s === sec ? 0 : -1}" class="${s === sec ? 'on' : ''}"
         data-key="${i + 1}" data-kgroup="switch section">${esc(s.title)} <span class="py-cnt${d === n && n ? ' all' : ''}">${d}/${n}</span> <kbd>${i + 1}</kbd></a>`; }).join('')}</div>
     <div role="tabpanel" aria-label="${esc(sec.title)}" class="gpanel">
       <p class="py-intro">${pyMd(sec.intro)}</p>
-      <nav class="py-toc" aria-label="Lessons in this section">${sec.lessons.map((l, i) => `<button type="button" class="gchip in" data-go="${l.id}">${i + 1}. ${esc(l.title)}</button>`).join('')}</nav>
+      <p class="eta-row">${eta(secMin(sec), `for ${esc(sec.title)}`)}${secLeft(sec) < secMin(sec) - 0.5 ? eta(secLeft(sec), 'left') : ''}</p>
+      <nav class="py-toc" aria-label="Lessons in this section">${sec.lessons.map((l, i) => `<button type="button" class="gchip in" data-go="${l.id}">${i + 1}. ${esc(l.title)}${etaIn(pyLesMin(l))}</button>`).join('')}</nav>
       ${sec.lessons.map(lesson).join('')}
-      ${secs[secs.indexOf(sec) + 1] ? `<p class="py-next"><a class="btn" href="#/python/${secs[secs.indexOf(sec) + 1].id}" data-key="n">Next: ${esc(secs[secs.indexOf(sec) + 1].title)} → <kbd>N</kbd></a></p>` : ''}
+      ${secs[secs.indexOf(sec) + 1] ? `<p class="py-next"><a class="btn" href="#/python/${secs[secs.indexOf(sec) + 1].id}" data-key="n">Next: ${esc(secs[secs.indexOf(sec) + 1].title)} →${etaIn(secMin(secs[secs.indexOf(sec) + 1]))} <kbd>N</kbd></a></p>` : ''}
     </div></div>`;
 
   const L = Object.fromEntries(sec.lessons.map(l => [l.id, l]));
   const T = Object.fromEntries(sec.lessons.flatMap(l => l.tasks).map(t => [t.id, t]));
-  $$('.py-toc [data-go]', app).forEach(b => b.onclick = () => $('#py-' + b.dataset.go, app)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  $$('.py-toc [data-go]', app).forEach(b => b.onclick = () => $('#py-' + b.dataset.go, app)?.scrollIntoView({ behavior: scrollMotion(), block: 'start' }));
   const busy = async (btn, fn) => { if (btn.disabled) return; btn.disabled = true; try { await fn(); } finally { btn.disabled = false; } };
   const finish = box => { const id = box.dataset.t; if (!done[id]) { done[id] = 1; pyMark(id); } $('.py-ok', box).hidden = false; };
 

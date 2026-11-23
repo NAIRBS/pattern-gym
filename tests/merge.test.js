@@ -111,5 +111,15 @@ test('study attempts are unioned too', () => {
   assert.deepStrictEqual(mergeState(a, b).study.attempts, { two_sum: '2026-11-09', three_sum: '2026-11-11' });
 });
 
+test('pace: per game, the copy measured from more questions wins', () => {
+  const a = base(), b = base();
+  a.pace = { sprint: { m: 0.4, n: 12 }, fill: { m: 3.5, n: 2 } };
+  b.pace = { sprint: { m: 0.6, n: 5 }, fill: { m: 2.8, n: 7 }, lineup: { m: 1.2, n: 3 } };
+  const want = { sprint: { m: 0.4, n: 12 }, fill: { m: 2.8, n: 7 }, lineup: { m: 1.2, n: 3 } };
+  assert.deepStrictEqual(mergeState(a, b).pace, want);
+  assert.deepStrictEqual(mergeState(b, a).pace, want);
+  assert.deepStrictEqual(mergeState(base(), base()).pace, {});
+});
+
 // keep this the last line: any test added below it would be missing from the count
 console.log(`\n${n} tests passed`);

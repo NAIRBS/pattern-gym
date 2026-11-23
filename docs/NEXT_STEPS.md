@@ -132,7 +132,15 @@ tests/             node tests: merge.test.js, edge-match.test.js
 - Accessibility is a requirement, not polish: AA contrast in both themes, 44 px targets, visible focus,
   aria-live for results/toasts/sync, page titles from the heading, adjustable or no time limits,
   `prefers-reduced-motion`.
-- Pin exact CDN versions (supabase-js 2.118.0, Pyodide 0.26.4, SortableJS 1.15.2).
+- Pin exact CDN versions (supabase-js 2.118.0, Pyodide 0.26.4, SortableJS 1.15.2). Changing supabase-js or
+  Sortable means a new `integrity` hash and a new folder in the CSP `script-src` (both in `index.html`);
+  changing the Supabase project means a new `connect-src`.
+- No inline `<script>` or `onclick=` attributes: the CSP blocks them. New colours go in as `light-dark()`
+  tokens; input borders use `--control-edge` (3:1). Motion is opt-in per element (no blanket reduced-motion
+  reset); smooth scrolling goes through `scrollMotion()`.
+- Every new page or activity shows its time: `eta()` / `etaIn()` with a doing time, or it inherits a reading
+  time from `paintReadTimes()`. A new game needs a realistic `cost` (minutes a question) and an entry in
+  `PACED` if your own pace should replace it.
 - Progress never goes in the repo (`progress.json` is gitignored).
 
 ## Open to-dos
