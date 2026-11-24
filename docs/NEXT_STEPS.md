@@ -67,6 +67,9 @@ content/
                    USACO Guide link, required for every pattern), COURSES (problem order per course, worked
                    example first, plus notes; must list exactly the pattern's non-twist problems), BIGO_PRIMER
                    and BIGO_CHECK (Study step 0), METHOD, INPUT_SIZE
+  alternatives.py  other valid approaches per problem (pattern or None, name, how, time, space, when, code);
+                   validate.py runs each code against the problem's tests. An alternative with a pattern is a
+                   right answer in Pattern Sprint and the guided "which pattern?" step
   problems_onramp.py 7 starter problems outside the NeetCode 150 (nums 174+, onramp=True), with their own
                    walk and brute_code: the Recursion course, Find Pivot Index, Range Sum Query, Flood Fill
   study_problems.py WALK: per-problem brute-force sentence + pseudocode plan (all 150)
@@ -122,7 +125,9 @@ tests/             node tests: merge.test.js, edge-match.test.js
   reveal) → **solo, cold** (`#/study/solve/<id>`: blank editor, approach coach that fades, 3-step hint
   ladder that caps the grade; the walkthrough unlocks only after an attempt) → **transfer check** (the pattern's twist). **Mixed
   practice** (`#/study/mixed`) hides the title and pattern and picks unseen twists first; a checkpoint asks for one after every
-  `CHECK_EVERY` (4) lessons. The 8-step `APPROACH` is the spine of all of it.
+  `CHECK_EVERY` (4) lessons. The 8-step `APPROACH` is the spine of all of it; problems with alternatives add a 9th step,
+  "Another way?". Once a course is complete its skeleton fades: folded away on the lesson, and Fill the Gap blanks the
+  loop and return lines too.
 - **Day one:** until a lesson is learned or a non-Syntax game played, Today shows the next study step and Syntax Snap only.
   Timer guidance everywhere is the OA budget: 15 / 25 / 40 min for Easy / Medium / Hard.
 - **Keyboard:** `?` sheet, `G`+letter navigation, `/` search, `E`/`Esc` editor in/out, `Q` exit, number keys

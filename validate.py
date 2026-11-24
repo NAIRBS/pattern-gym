@@ -159,6 +159,23 @@ for pt in c["patterns"]:
 if not c.get("bigo_primer"):
     print("NO BIG-O PRIMER"); bad += 1
 
+# other valid approaches: every field filled, a real pattern, and any code passes the problem's tests
+from content.alternatives import ALTERNATIVES
+for pid, alts in ALTERNATIVES.items():
+    p = next((x for x in c["problems"] if x["id"] == pid), None)
+    if not p:
+        print("ALT UNKNOWN PROBLEM", pid); bad += 1; continue
+    for a in alts:
+        if a["pattern"] and a["pattern"] not in pids:
+            print("ALT UNKNOWN PATTERN", pid, a["pattern"]); bad += 1
+        if not all(a[k] for k in ("name", "how", "time", "space", "when")):
+            print("ALT INCOMPLETE", pid, a["name"]); bad += 1
+        if a["code"]:
+            r = run_code(a["code"], {k: v for k, v in p["tests"].items() if k != "perf"})
+            if not r["ok"]:
+                bad += 1
+                print("ALT FAIL", pid, a["name"], r.get("error"), [x for x in r["results"] if not x["pass"]][:1])
+
 ids = [p["id"] for p in c["problems"]]
 if len(ids) != len(set(ids)):
     print("DUPLICATE IDS"); bad += 1

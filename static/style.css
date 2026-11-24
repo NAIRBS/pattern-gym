@@ -941,3 +941,22 @@ details.check p { margin: 8px 0 2px; }
 .mixed.due { border-color: var(--accent); }
 .mixed h2 .tag { font-size: 12px; vertical-align: middle; margin-left: 6px; }
 .tabs-guide th { text-align: left; white-space: nowrap; padding-right: 18px; }
+.gnote p { max-width: 72ch; margin: 0 0 10px; line-height: 1.6; }
+.gnote p:last-child { margin-bottom: 0; }
+
+/* Readable prose: no paragraph or list line runs the full page width, and lists breathe */
+main p, main li { max-width: 72ch; }
+.prose p { margin: 8px 0; line-height: 1.6; }
+.prose ul { margin: 6px 0 10px; padding-left: 1.25em; line-height: 1.55; }
+.prose li { margin: 4px 0; }
+.prose li::marker { color: var(--muted); }
+
+/* Other valid approaches ("Another way?" in walkthroughs, "Also works" in Pattern Sprint) and faded skeletons */
+.alt { margin: 10px 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.alt-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.alt p { margin: 6px 0; }
+.alt details { margin-top: 6px; }
+.alt details summary { cursor: pointer; }
+.also { margin-top: 6px; }
+.fade-note { margin: 6px 0 10px; }
+details.faded > summary { cursor: pointer; font-weight: 600; margin: 4px 0 10px; }

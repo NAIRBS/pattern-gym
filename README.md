@@ -119,6 +119,7 @@ the tool → the plan); each hint lowers the best grade you can get.
 6. **Plan in plain words**
 7. **Code it**
 8. **Test it:** the edge cases, then time and space
+9. **Another way?** (about 70 problems): a second approach with its cost and when you'd pick it, with code that passes the same tests
 
 You type a guess before each step is revealed. A meter shrinks from the brute-force cost to the final one as you go.
 
@@ -128,10 +129,10 @@ You type a guess before each step is revealed. A meter shrinks from the brute-fo
 
 | Layer | Game | What it trains |
 |---|---|---|
-| Idea | ⚡ **Pattern Sprint** | Problem statement → pattern, under a timer |
+| Idea | ⚡ **Pattern Sprint** | Problem statement → pattern, under a timer. When a second pattern also solves it, that counts as right too |
 | Structure | 🧩 **Line Up** | Put a shuffled real solution back in order: drag, click or keyboard |
 | Structure | 🦴 **Skeleton Recall** | Write a pattern's template from memory; hints step up, feedback lists what's missing |
-| Structure → code | ✍️ **Fill the Gap** | Write the 2–4 key lines that make the skeleton solve *this* problem |
+| Structure → code | ✍️ **Fill the Gap** | Write the 2–4 key lines that make the skeleton solve *this* problem. After you finish the course, the loop and return lines are blank too |
 | Syntax | 🐍 **Syntax Snap** | One-line Python idioms, executed and checked |
 | Full solve | 🐞 **Bug Hunt** | Find and fix one planted bug: off-by-one, shared list, missing update, broken guard, wrong heap sign… |
 | Full solve | 💻 **OA Mode** | Blank editor, timer, run button: online-assessment conditions, with the CoderPad switch |

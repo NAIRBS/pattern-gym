@@ -128,6 +128,12 @@ function guideBodies() {
           <tr><th scope="row"><a href="#/python">Python</a></th><td>Python for interviews from scratch, with exercises. Start here if Python is new to you.</td></tr>
           <tr><th scope="row"><a href="#/cheatsheet">Cheatsheet</a></th><td>Everything the games ask, with the answers, to read.</td></tr>
         </tbody></table></section>
+      <section><h2>What these interviews actually test</h2>
+        <div class="card gnote">
+          <p>Coding interviews feel like an IQ test. Mostly, they aren’t. Psychologists separate two kinds of intelligence: <b>fluid</b>, working out something new on the spot, and <b>crystallized</b>, what you’ve learned and can bring back when you need it. A 25-minute Medium leans hard on the second. Most problems are variations on a couple of dozen patterns, and solving one in time comes down to recognising the shape, remembering the tool and having written that loop before.</p>
+          <p>That’s good news, because practice reliably builds crystallized knowledge. Fluid reasoning is much harder to train, and if you can follow a lesson here, you already have enough of it for these interviews. People who make a Medium look easy have usually seen it, or a close cousin, many times. A problem that stumps you today shows what you haven’t practised yet, not where your ceiling is.</p>
+          <p>The honest part: it takes weeks, not days, and you will fail problems that later look obvious. That’s the process working. Interviews are noisy too: a bad night’s sleep, an odd problem, an interviewer you don’t click with. One rejection is a sample of one. Keep doing the reps and the odds move your way.</p>
+        </div></section>
       <section><h2>Five rules</h2>
         <ol class="grules">${GUIDE_RULES.map(([b, t], i) => `<li><span class="gn">${i + 1}</span><div><b>${esc(b)}</b><p class="muted">${esc(t)}</p></div></li>`).join('')}</ol></section>
       <section><h2>What this app covers</h2>

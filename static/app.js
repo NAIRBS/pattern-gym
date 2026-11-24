@@ -1038,12 +1038,15 @@ GAMES.sprint = {
     const answer = p => {
       if (answered) return; answered = true; clearInterval(iv);
       const secsTaken = (Date.now() - t0) / 1000;
-      const right = p === s.pattern;
-      $$('.options button', el).forEach(b => { b.disabled = true; if (b.dataset.p === s.pattern) b.classList.add('right'); else if (b.dataset.p === p) b.classList.add('wrong'); });
+      const valid = [s.pattern, ...(s.also || []).map(a => a.pattern)];   // other approaches that also solve it
+      const right = valid.includes(p);
+      $$('.options button', el).forEach(b => { b.disabled = true; if (valid.includes(b.dataset.p)) b.classList.add('right'); else if (b.dataset.p === p) b.classList.add('wrong'); });
       const q = !right ? 0 : secsTaken > secs * 0.6 ? 1 : 2;
       GAMES.sprint.combo = right ? (GAMES.sprint.combo || 0) + 1 : 0;
       $('#rev', el).innerHTML = `<div class="reveal"><b>${esc(s.title)}</b> → ${patternTag(s.pattern)}<br>
-        <span>Key move: ${esc(s.move)}</span><div class="muted small">${p === null ? 'Time up.' : right ? `${secsTaken.toFixed(1)}s` : 'Not quite.'}
+        <span>Key move: ${esc(s.move)}</span>
+        ${s.also ? `<div class="also small">${right && p !== s.pattern ? '✓ Yours works too: ' : 'Also works: '}${s.also.map(a => `${patternTag(a.pattern)} ${esc(a.name)}`).join(' · ')}</div>` : ''}
+        <div class="muted small">${p === null ? 'Time up.' : right ? `${secsTaken.toFixed(1)}s` : 'Not quite.'}
         ${right && q === 1 ? ' Correct but slow, so counted as shaky.' : ''}</div></div>
         <div class="row" style="margin-top:12px"><button class="primary" id="nx" data-key="n">Next <kbd>Enter</kbd></button></div>`;
       const go = () => { document.removeEventListener('keydown', k2); done(q); };
@@ -1163,13 +1166,19 @@ GAMES.fill = {
   gate: p => (item('lineup', p.id)?.box || 0) >= 1,
   render(el, p, done, { clock }) {
     const lines = p.solution.split('\n');
-    const key = new Set(p.key_lines);
+    // Fading: once you've finished this pattern's course, the loop and return lines (the skeleton) are blank too,
+    // so you recall the structure instead of reading it. "Show them" fills them back in and counts as a hint.
+    const shape = new Set(courseProgress(p.pattern).complete
+      ? lines.map((l, i) => i).filter(i => !p.key_lines.includes(i) && /^\s+(for|while)\b|^\s+return\b/.test(lines[i])) : []);
+    const key = new Set([...p.key_lines, ...shape]);
     let tries = 0, hint = false, finished = false;
     const timer = startTimer(clock, 0, null, { countUp: true });
     let gapNo = 0;
     el.innerHTML = `<div class="card"><div class="row"><h2 class="h3">${esc(p.title)}</h2><span class="tag ${p.diff}">${p.diff}</span>
       ${patternTag(p.pattern)}<span class="spacer"></span><button class="ghost" id="hint" data-key="h">Hint <kbd>H</kbd></button></div>
       <p>${esc(p.statement)}</p><div id="hintbox" aria-live="polite"></div>
+      ${shape.size ? `<p class="muted small fade-note">You’ve finished the ${esc(PAT(p.pattern).name)} course, so the loop and return lines are blank too: write the skeleton from memory.
+        <button type="button" class="ghost small" id="unfade">Show them (counts as a hint)</button></p>` : ''}
       <div class="fill">${lines.map((l, i) => {
         if (!key.has(i)) return `<div class="l">${(hlOn() ? highlightLine(l) : esc(l)) || ' '}</div>`;
         const ind = l.match(/^ */)[0]; gapNo++;
@@ -1186,6 +1195,10 @@ GAMES.fill = {
       if (e.key === 'Enter' && e.ctrlKey) check();
     }));
     $('#hint', el).onclick = () => { hint = true; $('#hintbox', el).innerHTML = `<div class="reveal">${esc(p.insight)}<br><span class="muted">Catch: ${esc(p.catch)}</span></div>`; };
+    if (shape.size) $('#unfade', el).onclick = e => {
+      hint = true; e.currentTarget.remove();
+      shape.forEach(i => { const inp = el.querySelector(`input[data-i="${i}"]`); inp.value = lines[i].trim(); inp.readOnly = true; inp.dispatchEvent(new Event('input')); });
+    };
     const same = (a, b) => a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
     // Show answer: each gap's answer appears right under it (your text stays), with ✓ when yours already matches.
     const ans = answerToggle($('#giveup', el), null, open => {
@@ -1938,9 +1951,10 @@ function lessonMin(pid) {
   return readMin(`<p>${esc([L.why, L.primer?.text || '', ...p.triggers, ...L.not_this, ...p.fill, ...L.bugs, ...L.build.map(b => b[1])].join(' '))}</p><pre>${esc(L.build.map(b => b[0]).join('\n'))}</pre>`)
     + L.build.length * 0.5 + 1;   // plus ~30 s to work out each skeleton line's job, and a minute to recap
 }
-function walkMin(p) {   // read every step, plus about 45 seconds to answer each of the 8 yourself first
-  const L = PAT(p.pattern).lesson || {};
-  return readMin(`<p>${esc([p.statement, ...p.clarify, ...p.edges, p.brute, L.why, p.insight, ...p.plan, p.catch].join(' '))}</p><pre>${esc([p.brute_code || '', p.solution].join('\n'))}</pre>`) + 8 * 0.75;
+function walkMin(p) {   // read every step, plus about 45 seconds to answer each one (8, or 9 with "Another way?") yourself first
+  const L = PAT(p.pattern).lesson || {}, alts = p.also || [];
+  return readMin(`<p>${esc([p.statement, ...p.clarify, ...p.edges, p.brute, L.why, p.insight, ...p.plan, p.catch, ...alts.flatMap(a => [a.name, a.how, a.when])].join(' '))}</p><pre>${esc([p.brute_code || '', p.solution].join('\n'))}</pre>`)
+    + (alts.length ? 9 : 8) * 0.75;
 }
 const guidedMin = p => readMin(`<p>${esc(p.statement)}</p>`) + 2 + gameMin('fill');   // two picks, then the key lines
 function courseMins(pid) {
@@ -2049,8 +2063,15 @@ ROUTES.study = (app, [a, b], params) => {
 
 // **bold** and `code` inside plain text (primers).
 const inlineMd = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code class="hlc">$1</code>');
+// Lines of prose: each line is a paragraph, and a run of lines starting "- " becomes one bulleted list.
+function proseHtml(lines) {
+  let h = '', list = [];
+  const flush = () => { if (list.length) h += `<ul>${list.map(x => `<li>${inlineMd(x)}</li>`).join('')}</ul>`; list = []; };
+  for (const l of lines) { if (l.startsWith('- ')) list.push(l.slice(2)); else { flush(); h += `<p>${inlineMd(l)}</p>`; } }
+  flush(); return h;
+}
 function bigoHtml() {
-  return C.bigo_primer.map(sec => `<section class="stage"><h2>${esc(sec.title)}</h2>${sec.paras.map(p => `<p>${inlineMd(p)}</p>`).join('')}
+  return C.bigo_primer.map(sec => `<section class="stage"><h2>${esc(sec.title)}</h2><div class="prose">${proseHtml(sec.paras)}</div>
     ${sec.title.startsWith('Read the constraints') ? `<table><tr><th>Constraint</th><th>Aim for</th><th>Usually means</th></tr>${C.input_size.map(r => `<tr><td class="mono">${esc(r[0])}</td><td class="mono">${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</table>` : ''}</section>`).join('');
 }
 const bigoMin = () => readMin(bigoHtml()) + C.bigo_check.length * 0.5;   // plus ~30 s to answer each check question
@@ -2156,15 +2177,18 @@ function studyCourse(app, pid) {
     <section class="stage"><h2><span class="n">${n++}</span>The idea ${eta(lessonMin(pid))}</h2>
       <p class="why">${esc(L.why)}</p>
       ${L.primer ? `<details class="primer"${lessonDone(pid) ? '' : ' open'}><summary>New to this? What this lesson assumes you know</summary>
-        <p>${inlineMd(L.primer.text)}</p>${L.primer.more ? `<p class="small"><a href="${esc(L.primer.more)}" target="_blank" rel="noopener">Read it properly on the USACO Guide ↗</a></p>` : ''}</details>` : ''}
+        <div class="prose">${proseHtml(L.primer.text.split('\n'))}</div>${L.primer.more ? `<p class="small"><a href="${esc(L.primer.more)}" target="_blank" rel="noopener">Read it properly on the USACO Guide ↗</a></p>` : ''}</details>` : ''}
       <div class="two"><div><h3>Reach for it when you see</h3><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
         <div><h3>It’s a different pattern when</h3><ul>${L.not_this.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></div>
       <h3>The skeleton, and the job of each line</h3>
       <p class="muted small">Every line does one of a handful of jobs. Different people write the same template in different orders, so learn the jobs,
         not the line order. Then rebuild it from memory with <a href="#/play/skeleton?problem=${pid}">Skeleton Recall</a>, which checks the jobs, not the exact lines.</p>
+      ${pr.complete ? `<p class="fade-note">You’ve finished this course. Write the skeleton from memory first with
+        <a href="#/play/skeleton?problem=${pid}">Skeleton Recall</a>, then open it below to check.</p><details class="faded"><summary>Show the skeleton</summary>` : ''}
       <div class="roles-key">${ROLES.map(r => `<span class="role role-${r.id}">${r.name}</span><span class="muted small">${r.q}</span>`).join('')}</div>
       <div class="build annotated">${L.build.map(([code, why], i, all) => { const r = lineRole(code, all.slice(0, i).some(([c]) => /^\s*(for|while)\b/.test(c)));
         return `<div class="bl"><span class="role role-${r}">${ROLES.find(x => x.id === r).name}</span><code>${hlOn() ? highlightLine(code) : esc(code)}</code><div class="why">${esc(why) || '&nbsp;'}</div></div>`; }).join('')}</div>
+      ${pr.complete ? '</details>' : ''}
       <h3>To make it fit a specific problem, answer</h3><ol>${p.fill.map(f => `<li>${esc(f)}</li>`).join('')}</ol>
       <h3>Bugs to avoid</h3><ul>${L.bugs.map(b => `<li>${esc(b)}</li>`).join('')}</ul>
       <div class="row"><button class="${lessonDone(pid) ? 'ghost' : 'good'}" id="mark" data-key="l">${lessonDone(pid) ? 'Mark as not learned' : '✓ I’ve got the idea'} <kbd>L</kbd></button></div></section>
@@ -2189,6 +2213,16 @@ function studyCourse(app, pid) {
     else { S.study.lessons[pid] = today(); addXP(10); toast('📖 Idea learned +10 XP'); }
     save(); studyCourse((app.innerHTML = '', app), pid);
   };
+}
+
+// Other valid approaches (content/alternatives.py): the patterns they use, and how the walkthrough shows them.
+const altPatterns = p => [...new Set((p.also || []).map(a => a.pattern).filter(x => x && x !== p.pattern))];
+function altsHtml(p) {
+  return `<p class="muted small">Interviewers like hearing a second approach and why you'd choose between them. Every one below passes the tests.</p>`
+    + p.also.map(a => `<div class="alt"><div class="alt-h">${a.pattern && a.pattern !== p.pattern ? patternTag(a.pattern) : ''}<b>${esc(a.name)}</b>
+        <span class="mono small muted">Time ${esc(a.time)} · Space ${esc(a.space)}</span></div>
+      <p>${inlineMd(a.how)}</p><p class="muted small"><b>When:</b> ${inlineMd(a.when)}</p>
+      ${a.code ? `<details><summary class="small">Show the code</summary><pre class="code">${hlOn() ? highlightCode(a.code) : esc(a.code)}</pre></details>` : ''}</div>`).join('');
 }
 
 // Walkthrough: the approach applied to one problem, from the naive brute force to the final answer.
@@ -2223,7 +2257,7 @@ function studyWalk(app, pid, probId, params) {
       b: `<p>${esc(L.why || p.brute)}</p>` },
     { t: 'Pick the tool that removes it', think: 'Which words in the statement hint at the tool? Which pattern removes that repeated work?',
       b: `<p>${patternTag(p.pattern)}${cues.length ? ` <span class="muted small">Cues in this statement: ${cues.map(c => `<mark>${esc(c)}</mark>`).join(' ')}</span>` : ''}</p>
-        <p class="insight">${esc(p.insight)}</p>` },
+        <p class="insight">${esc(p.insight)}</p>${altPatterns(p).length ? `<p class="muted small">Not the only tool that works here: the last step shows another way and when you'd pick it.</p>` : ''}` },
     { t: 'Plan in plain words', think: guided ? 'Write your plan in the box before revealing: what you keep, what each step does, when you stop.'
         : 'Say the steps out loud: what do you keep, what happens at each step, when do you stop?',
       b: `<ol class="plan">${p.plan.map(s => `<li>${esc(s)}</li>`).join('')}</ol>` },
@@ -2235,6 +2269,8 @@ function studyWalk(app, pid, probId, params) {
           <a href="#/study/${p.pattern}">${esc(PAT(p.pattern).name)}</a> skeleton.</p>`, meter: 'final' },
     { t: 'Test it', think: 'Which input would most likely break this? Trace it through the code. Then state time and space.',
       b: `<p>⚠️ ${esc(p.catch)}</p><p class="mono">Time ${esc(p.time)} · Space ${esc(p.space)}</p>` },
+    ...(p.also?.length ? [{ t: 'Another way?', think: 'Is there a different approach? What would it cost, and when would you pick it over this one?',
+      b: altsHtml(p) }] : []),
   ];
   let open = 0; const guesses = {};
   app.innerHTML = `<div class="study walk"><a href="#/study/${p.pattern}" class="crumb">← ${esc(PAT(p.pattern).name)}</a>
@@ -2285,7 +2321,7 @@ function studyWalk(app, pid, probId, params) {
 function studyGuided(app, id) {
   const p = PROB(id); if (!p) return studyHome(app);
   const pat = PAT(p.pattern), L = pat.lesson || {};
-  const pOpts = shuffle([pat, ...pick(studyOrder().filter(x => x.id !== p.pattern), 3)]);
+  const pOpts = shuffle([pat, ...pick(studyOrder().filter(x => x.id !== p.pattern), 3)]);   // an alternative may be among them: it counts as right
   const cOpts = shuffle([p.time, ...pick(C.complexities.filter(c => c !== p.time), 3)]);
   const got = {};
   app.innerHTML = `<div class="study guided"><a href="#/study/${p.pattern}" class="crumb">← ${esc(pat.name)}</a>
@@ -2302,16 +2338,16 @@ function studyGuided(app, id) {
       `<button type="button" data-v="${esc(o.id || o)}" data-key="${k + 1}" data-kgroup="pick an answer"><kbd>${k + 1}</kbd> ${esc(label(o))}</button>`).join('')}</div><div class="gfb" aria-live="polite"></div>`;
     body.querySelector('.options').onclick = e => {
       const b = e.target.closest('button'); if (!b || b.disabled) return;
-      const ok = b.dataset.v === right;
-      $$('.options button', body).forEach(x => { x.disabled = true; x.removeAttribute('data-key'); if (x.dataset.v === right) x.classList.add('right'); else if (x === b) x.classList.add('wrong'); });
-      after(ok, $('.gfb', body));
+      const valid = [].concat(right), ok = valid.includes(b.dataset.v);   // right: one answer, or several that all work
+      $$('.options button', body).forEach(x => { x.disabled = true; x.removeAttribute('data-key'); if (valid.includes(x.dataset.v)) x.classList.add('right'); else if (x === b) x.classList.add('wrong'); });
+      after(ok, $('.gfb', body), b.dataset.v);
     };
   };
   const step1 = rung(1, 'Which pattern fits?');
-  choose(step1, 'Read the statement. Which tool removes the slow part of the obvious solution?', pOpts, x => x.name, pat.id, (ok, fb) => {
+  choose(step1, 'Read the statement. Which tool removes the slow part of the obvious solution?', pOpts, x => x.name, [pat.id, ...altPatterns(p)], (ok, fb, v) => {
     got.pattern = ok;
-    const cues = cuesIn(p);
-    fb.innerHTML = `<div class="reveal">${ok ? '✓ Right.' : `Not quite. It's ${patternTag(pat.id)}.`} ${esc(p.insight)}
+    const cues = cuesIn(p), alt = (p.also || []).find(a => a.pattern === v && v !== pat.id);
+    fb.innerHTML = `<div class="reveal">${alt ? `✓ That works too: ${esc(alt.name)}, ${esc(alt.time)}. This course uses ${patternTag(pat.id)}:` : ok ? '✓ Right.' : `Not quite. It's ${patternTag(pat.id)}.`} ${esc(p.insight)}
       ${cues.length ? `<div class="muted small">Cues in the statement: ${cues.map(c => `<mark>${esc(c)}</mark>`).join(' ')}</div>` : `<div class="muted small">Reach for it when: ${esc(pat.triggers[0])}</div>`}</div>`;
     done(1);
     const step2 = rung(2, 'How fast can it be?');

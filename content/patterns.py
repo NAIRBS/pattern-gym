@@ -136,15 +136,22 @@ return lo
         "triggers": ["reverse / reorder list", "merge lists", "nth from end", "cycle / middle node"],
         "fill": ["Do you need a dummy head?", "Which pointers move, and in what order?", "What is the loop condition (cur, cur.next, fast and fast.next)?"],
         "skeleton": '''
+# dummy head: build or edit a list with no special case for the first node
+dummy = tail = ListNode()
+while ...:
+    tail.next = node           # attach
+    tail = tail.next
+return dummy.next
+
 # reverse
 prev, cur = None, head
 while cur:
-    nxt = cur.next
+    nxt = cur.next             # save the rest before breaking the link
     cur.next = prev
     prev, cur = cur, nxt
 return prev
 
-# fast / slow
+# fast / slow: middle, nth from end, cycle
 slow = fast = head
 while fast and fast.next:
     slow, fast = slow.next, fast.next.next
@@ -231,12 +238,20 @@ return res
         "fill": ["Min-heap or max-heap (negate)?", "What tuple goes in the heap?", "Keep heap size k?"],
         "skeleton": '''
 import heapq
+# top k: keep a heap of size k
 heap = []
 for x in nums:
     heapq.heappush(heap, x)    # min-heap; push -x for max
     if len(heap) > k:
         heapq.heappop(heap)    # drop the smallest
 return heap[0]                 # kth largest
+
+# always handle the smallest next (merge k lists, meetings, tasks)
+heap = [(key, i, item) for i, item in enumerate(items)]   # i breaks ties
+heapq.heapify(heap)                                       # O(n)
+while heap:
+    key, i, item = heapq.heappop(heap)
+    ...                        # push whatever this item unlocks
 ''',
     },
     {
@@ -287,17 +302,17 @@ def union(a, b):
         "fill": ["What is the edge cost and the path cost (sum or max)?", "Can a node be popped twice (skip if stale)?"],
         "skeleton": '''
 import heapq
-dist = {src: 0}
-heap = [(0, src)]
+dist = {}                      # finalised shortest distances
+heap = [(0, src)]              # (distance so far, node)
 while heap:
     d, u = heapq.heappop(heap)
-    if d > dist.get(u, float('inf')):
-        continue               # stale entry
+    if u in dist:
+        continue               # stale: already finalised with a smaller d
+    dist[u] = d                # first pop = shortest (no negative edges)
     for v, w in adj[u]:
-        nd = d + w
-        if nd < dist.get(v, float('inf')):
-            dist[v] = nd
-            heapq.heappush(heap, (nd, v))
+        if v not in dist:
+            heapq.heappush(heap, (d + w, v))
+return dist
 ''',
     },
     {
@@ -305,15 +320,27 @@ while heap:
         "triggers": ["rotate / spiral a matrix", "digit manipulation", "in-place markers", "cycle detection on numbers"],
         "fill": ["What are the boundaries and how do they shrink?", "Can you do it in place with a transform (transpose + reverse)?"],
         "skeleton": '''
-# rotate 90 clockwise = transpose, then reverse each row
-n = len(m)
-for i in range(n):
-    for j in range(i + 1, n):
+R, C = len(m), len(m[0])
+# rotate 90° clockwise (square) = transpose, then reverse each row
+for i in range(R):
+    for j in range(i + 1, C):
         m[i][j], m[j][i] = m[j][i], m[i][j]
 for row in m:
     row.reverse()
 
-# spiral: shrink top/bottom/left/right boundaries
+# spiral / layer by layer: four walls that close in
+top, bottom, left, right = 0, R - 1, 0, C - 1
+while top <= bottom and left <= right:
+    for c in range(left, right + 1): visit(top, c)
+    top += 1
+    for r in range(top, bottom + 1): visit(r, right)
+    right -= 1
+    if top <= bottom:          # re-check: a single row is left
+        for c in range(right, left - 1, -1): visit(bottom, c)
+        bottom -= 1
+    if left <= right:          # re-check: a single column is left
+        for r in range(bottom, top - 1, -1): visit(r, left)
+        left += 1
 ''',
     },
     {
@@ -321,11 +348,14 @@ for row in m:
         "triggers": ["count ways", "min/max cost to reach i", "can you reach / form X", "'rob' non-adjacent", "optimal over prefixes"],
         "fill": ["What does dp[i] mean in one sentence?", "Recurrence: dp[i] from which earlier states?", "Base case(s) and answer location?"],
         "skeleton": '''
-dp = [base] * (n + 1)
-dp[0] = ...                    # base case
+# dp[i] = ____ for the first i items      <- say this in words before any code
+dp = [0] * (n + 1)
+dp[0] = base                   # the answer for nothing: 1 way, 0 cost, True
 for i in range(1, n + 1):
-    dp[i] = best_of(dp[i - 1], dp[i - 2] + ..., ...)
-return dp[n]
+    # transition: which earlier states can lead to i, and what does item i add?
+    dp[i] = best(dp[i - 1] + skip_i, dp[i - 2] + take_i)
+return dp[n]                   # or max(dp) if dp[i] means 'ending exactly at i'
+# top-down is the same recurrence: def f(i), base case first, then @cache
 ''',
     },
     {
@@ -333,27 +363,35 @@ return dp[n]
         "triggers": ["two strings: LCS / edit distance", "grid paths", "knapsack with count/amount"],
         "fill": ["What does dp[i][j] mean?", "Which neighbours does it depend on?", "Table size: (m+1)x(n+1) with empty-prefix row?"],
         "skeleton": '''
+# dp[i][j] = ____ for a[:i] and b[:j]  (grid: for cell (i, j))   <- say it first
 m, n = len(a), len(b)
-dp = [[0] * (n + 1) for _ in range(m + 1)]
+dp = [[base] * (n + 1) for _ in range(m + 1)]
+# row 0 and column 0: the answer when one side is empty
 for i in range(1, m + 1):
     for j in range(1, n + 1):
-        if a[i - 1] == b[j - 1]:
-            dp[i][j] = dp[i - 1][j - 1] + 1
+        if a[i - 1] == b[j - 1]:                       # current items match
+            dp[i][j] = dp[i - 1][j - 1] + gain         # diagonal: use both
         else:
-            dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+            dp[i][j] = best(dp[i - 1][j], dp[i][j - 1]) + cost   # drop one side
 return dp[m][n]
+# grid problems: no match test, dp[i][j] comes from up and left
 ''',
     },
     {
-        "id": "greedy", "name": "Greedy (running best)", "color": "#b5b53d",
-        "triggers": ["max subarray", "can you reach the end", "locally best choice never hurts"],
-        "fill": ["What single value do you carry forward?", "When do you reset it?"],
+        "id": "greedy", "name": "Greedy (best move now)", "color": "#b5b53d",
+        "triggers": ["max subarray", "can you reach the end / fewest jumps", "sort, then take what fits", "locally best choice never hurts"],
+        "fill": ["Why can't a different choice do better? Say it before coding.", "Sort first? By what (end, size, start)?", "What single value do you carry forward, and when do you reset it?"],
         "skeleton": '''
-cur = best = nums[0]
-for x in nums[1:]:
-    cur = max(x, cur + x)      # extend or restart
-    best = max(best, cur)
-return best
+# before coding: why can't a different choice do better? (swap argument)
+items.sort(key=...)            # often first: by end, by size, by start
+state = start                  # the ONE thing you carry: farthest reach, fuel, current run
+for x in items:
+    if breaks_rule(state, x):  # the current run / part / plan can't take x
+        count += 1             # react the cheapest way: restart, jump, new part
+        state = fresh(x)       #   (or return False if nothing can fix it)
+    else:
+        state = take(state, x) # the locally best move, never undone
+return answer
 ''',
     },
     {
@@ -376,16 +414,19 @@ return res
         "triggers": ["prefix search", "autocomplete", "many words searched in a grid", "wildcard word search"],
         "fill": ["What does each node store (children, end flag, word)?", "Iterative walk or DFS (for wildcards)?"],
         "skeleton": '''
-class TrieNode:
-    def __init__(self):
-        self.children = {}
-        self.end = False
-
-def insert(root, word):
-    cur = root
+root = {}                      # each node: dict of char -> child node
+def insert(word):
+    node = root
     for ch in word:
-        cur = cur.children.setdefault(ch, TrieNode())
-    cur.end = True
+        node = node.setdefault(ch, {})
+    node['$'] = True           # a word ends here
+def search(word, prefix=False):
+    node = root
+    for ch in word:
+        if ch not in node:
+            return False
+        node = node[ch]
+    return prefix or '$' in node   # a prefix only needs the path to exist
 ''',
     },
     {
@@ -395,10 +436,18 @@ def insert(root, word):
         "skeleton": '''
 res = 0
 for x in nums:
-    res ^= x                   # pairs cancel: a ^ a = 0
+    res ^= x                   # pairs cancel: a ^ a = 0, a ^ 0 = a
 return res
 
-# count bits: n & (n - 1) drops the lowest set bit
+# the other tricks, each O(1)
+count = 0
+while n:
+    n &= n - 1                 # clears the lowest set bit
+    count += 1
+low = x & -x                   # keeps only the lowest set bit
+odd = x & 1                    # the last bit
+x >>= 1                        # drops the last bit (halves)
+x &= 0xFFFFFFFF                # wrap to 32 bits: Python ints never overflow
 ''',
     },
 ]

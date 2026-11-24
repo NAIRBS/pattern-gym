@@ -19,6 +19,7 @@ from .python_course import PYTHON
 from .references import DS_COSTS, ALGO_COSTS, STEPS, OPTIMIZE
 from .stdio import stdio_for, LIB as STDIO_LIB
 from .bug_hunt import BUGS, BUG_KINDS
+from .alternatives import ALTERNATIVES
 PERF = {**PERF, **PERF_TWIST}
 BUGS_BY_PROBLEM = {}
 for _b in BUGS:
@@ -68,7 +69,20 @@ def load_all():
             p["stdio"] = io
         if p["id"] in BUGS_BY_PROBLEM:
             p["bugs"] = BUGS_BY_PROBLEM[p["id"]]
+        if p["id"] in ALTERNATIVES:   # other valid approaches: the walkthrough's "Another way?" step
+            p["also"] = [dict(a) for a in ALTERNATIVES[p["id"]]]
         problems.append(p)
+    # Pattern Sprint cards: an alternative that uses another pattern is a right answer too
+    by_title = {p["title"].lower(): p for p in problems}
+    sprint = []
+    for s in SPRINT:
+        s = dict(s)
+        prob = by_title.get(s["title"].lower())
+        also = [{"pattern": a["pattern"], "name": a["name"]} for a in (prob or {}).get("also", [])
+                if a["pattern"] and a["pattern"] != s["pattern"]]
+        if also:
+            s["also"] = also
+        sprint.append(s)
     patterns = []
     for pt in PATTERNS:
         pt = dict(pt)
@@ -84,7 +98,7 @@ def load_all():
     return {
         "patterns": patterns,
         "problems": problems,
-        "sprint": SPRINT,
+        "sprint": sprint,
         "syntax": SYNTAX,
         "clarify_generic": CLARIFY_GENERIC,
         "think_aloud": THINK_ALOUD,
