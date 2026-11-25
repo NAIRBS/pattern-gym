@@ -1759,13 +1759,28 @@ ROUTES.problems = (app, _, params) => {
   if (params.focus !== '0') q.focus();
 };
 
+// Where you are in a pattern's Study course, in a few words (Patterns tab tiles and pattern pages).
+function courseStatus(pid) {
+  if (!PAT(pid).lesson) return '';
+  const pr = courseProgress(pid);
+  if (pr.complete) return '✓ done';
+  const done = pr.stages.reduce((a, s) => a + s.done, 0), of = pr.stages.reduce((a, s) => a + s.of, 0);
+  return done ? `${done} of ${of} steps` : 'not started';
+}
+
 ROUTES.patterns = (app, [pid]) => {
   if (pid) {
     const p = PAT(pid);
+    const nx = p.lesson ? nextStep(pid) : null;
+    const courseCard = p.lesson ? `<div class="card course-link"><div><h2 class="h3">📖 Study course</h2>
+        <p class="small muted">Course ${esc(courseStatus(pid))}${nx ? ` · Next: ${esc(nx.label)}` : ''}</p></div>
+        <div class="row"><a class="btn primary" href="#/study/${pid}" data-key="s">${courseProgress(pid).complete || !nx || nx.href === `#/study/${pid}` ? 'Open the course' : 'Course page'} <kbd>S</kbd></a>
+        ${nx && nx.href !== `#/study/${pid}` ? `<a class="btn" href="${nx.href}" data-key="c">${esc(nx.verb)}${etaIn(nx.min)} <kbd>C</kbd></a>` : ''}</div></div>` : '';
     const probs = C.problems.filter(x => x.pattern === pid);
     const cards = C.sprint.filter(x => x.pattern === pid);
     app.innerHTML = `<a href="#/patterns">← All patterns</a><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1>
       <p class="muted">${Math.round(mastery(pid) * 100)}% mastery</p>
+      ${courseCard}
       <div class="row eta-row"><span id="page-eta"></span>${probs.length ? eta(probs.reduce((a, x) => a + solveMin(x), 0), `to solve all ${probs.length}`, { title: 'OA budgets: 15 min Easy, 25 Medium, 40 Hard' }) : ''}</div>
       <div class="side"><div><h2 class="h3">Skeleton</h2><pre class="code">${esc(p.skeleton)}</pre></div>
       <div class="card"><h2 class="h3">Reach for it when</h2><ul>${p.triggers.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
@@ -1782,11 +1797,12 @@ ROUTES.patterns = (app, [pid]) => {
     return;
   }
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  app.innerHTML = `<h1>Patterns</h1><p class="muted">The ${C.patterns.length} patterns behind the NeetCode 150, in the Study path’s order. Each tile shows how well you know it across every game; open one for its template and all of its problems.</p>
-    <div class="heat" data-navlist="grid">${studyOrder().map(p => { const m = mastery(p.id), nC = C.sprint.filter(x => x.pattern === p.id).length;
-      return `<a href="#/patterns/${p.id}" data-item style="background:color-mix(in srgb, ${p.color} ${Math.round(8 + m * 60)}%, var(--panel))">
+  app.innerHTML = `<h1>Patterns</h1><p class="muted">The ${C.patterns.length} patterns behind the NeetCode 150, in the Study path’s order. Each tile shows how well you know it across every game; open one for its template and all of its problems, or go straight to its <a href="#/study">Study</a> course.</p>
+    <div class="heat" data-navlist="grid">${studyOrder().map(p => { const m = mastery(p.id), nC = C.sprint.filter(x => x.pattern === p.id).length, cs = courseStatus(p.id);
+      return `<div class="tile" style="background:color-mix(in srgb, ${p.color} ${Math.round(8 + m * 60)}%, var(--panel))"><a class="tile-main" href="#/patterns/${p.id}" data-item>
       <b>${Math.round(m * 100)}%</b>${esc(p.name)}<div class="small muted">${plural(C.problems.filter(x => x.pattern === p.id).length, 'problem')}${nC ? ` · ${plural(nC, 'Sprint card')}` : ''}</div>
-      <div class="small muted">${CLOCK}<span class="sr">About </span>${fmtMin(C.problems.filter(x => x.pattern === p.id).reduce((a, x) => a + solveMin(x), 0))} to solve them</div></a>`; }).join('')}</div>`;
+      <div class="small muted">${CLOCK}<span class="sr">About </span>${fmtMin(C.problems.filter(x => x.pattern === p.id).reduce((a, x) => a + solveMin(x), 0))} to solve them</div></a>
+      ${cs ? `<a class="tile-study" href="#/study/${p.id}" aria-label="Study course for ${esc(p.name)}: ${esc(cs)}"><span>📖 Study course →<span class="small muted"> ${esc(cs)}</span></span></a>` : ''}</div>`; }).join('')}</div>`;
 };
 
 ROUTES.stats = app => {
@@ -2168,7 +2184,8 @@ function studyCourse(app, pid) {
   const prev = order[idx - 1], next = order[idx + 1];
   const pr = courseProgress(pid), c = pr.c, nx = nextStep(pid);
   let n = 1;
-  app.innerHTML = `<div class="study course" data-navlist><a href="#/study" class="crumb">← Study</a>
+  app.innerHTML = `<div class="study course" data-navlist><div class="row"><a href="#/study" class="crumb">← Study</a><span class="spacer"></span>
+      <a class="crumb" href="#/patterns/${pid}">Pattern page: all ${C.problems.filter(x => x.pattern === pid).length} problems and your mastery →</a></div>
     <div class="course-head"><h1 style="color:${pc(p.color)}">${esc(p.name)}</h1>
       <ol class="stepper">${pr.stages.map(s => `<li class="${s.done >= s.of ? 'done' : s.done ? 'part' : ''}"><span>${esc(s.name)}</span><small>${s.done} of ${s.of}</small></li>`).join('')}</ol>
       ${nx ? `<div class="row"><a class="btn primary" href="${nx.href}" data-key="c">${esc(nx.verb)}${etaIn(nx.min)} <kbd>C</kbd></a><span class="muted small">${esc(nx.label)}</span></div>`

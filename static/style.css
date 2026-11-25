@@ -170,8 +170,14 @@ pre.code { background: var(--code-bg); border: 1px solid var(--line); border-rad
 
 /* Heatmap / stats */
 .heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.heat a { display: block; padding: 10px; border-radius: var(--r-md); color: var(--text); border: 1px solid var(--line); }
-.heat a b { display: block; font-size: 20px; }
+.heat .tile { display: flex; flex-direction: column; border-radius: var(--r-md); border: 1px solid var(--line); overflow: hidden; }
+.heat .tile-main { display: block; flex: 1; padding: 10px; color: var(--text); }
+.heat .tile-main b { display: block; font-size: 20px; }
+.heat .tile-study { display: flex; align-items: center; min-height: 36px; padding: 6px 10px; font-size: 13px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+.heat .tile-study:hover { text-decoration: underline; }
+.course-link { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 16px; }
+.course-link h2 { margin: 0 0 2px; }
+.course-link p { margin: 0; }
 .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; }
 .days i { aspect-ratio: 1; border-radius: var(--r-sm); background: var(--panel2); display: block; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
