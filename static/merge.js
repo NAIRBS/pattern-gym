@@ -4,7 +4,7 @@
    Rules (docs/NEXT_STEPS.md):
    - items:   per drill, the one reviewed later (`last`, a date), then the one with more reps
    - xp:      max
-   - days:    per day, max of xp / rounds / new-per-game
+   - days:    per day, max of xp / rounds / new-per-game / full solves tried and solved
    - mocks:   union by (date, problem)
    - study:   lessons, walks, attempts: union (earliest date kept)
    - streak:  recomputed from days; best = max
@@ -29,7 +29,9 @@
     if (!x) return y; if (!y) return x;
     const newBy = { ...(x.newBy || {}) };
     for (const [g, n] of Object.entries(y.newBy || {})) newBy[g] = Math.max(newBy[g] || 0, n);
-    return { ...x, ...y, xp: Math.max(x.xp || 0, y.xp || 0), rounds: Math.max(x.rounds || 0, y.rounds || 0), newBy };
+    const out = { ...x, ...y, xp: Math.max(x.xp || 0, y.xp || 0), rounds: Math.max(x.rounds || 0, y.rounds || 0), newBy };
+    if (x.solves || y.solves) out.solves = { n: Math.max(x.solves?.n || 0, y.solves?.n || 0), ok: Math.max(x.solves?.ok || 0, y.solves?.ok || 0) };
+    return out;
   }
 
   function unionDates(x = {}, y = {}) {

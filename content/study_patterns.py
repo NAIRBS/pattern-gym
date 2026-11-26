@@ -73,7 +73,7 @@ LESSONS = {
   "bugs": ["`if` instead of `while` when shrinking.", "Recording the answer while the window is invalid.", "Off-by-one: length is r - l + 1."],
 },
 "stack": {
-  "why": "When the most recent unfinished thing is the one that must be resolved next (brackets, operators, undo), a stack hands it to you in O(1).",
+  "why": "Checking brackets like \"([)]\": each closing bracket must match the most recent opening one that is still open. A stack keeps the unfinished openers with the newest on top, so each check is O(1). The same shape fits operators waiting for numbers and undo histories.",
   "not_this": ["'Next greater/smaller' -> monotonic stack (a stack with an ordering rule).", "Oldest first -> queue (BFS)."],
   "build": [
     ("stack = []", "Holds the unresolved items."),
@@ -121,7 +121,7 @@ LESSONS = {
   "bugs": ["lo = mid (no +1) with lo <= hi: infinite loop.", "For 'search on answer', use lo < hi and hi = mid when feasible.", "Forgetting which half is sorted in rotated arrays."],
 },
 "linked_list": {
-  "why": "Lists only allow walking forward, so problems become pointer choreography: a dummy head to avoid edge cases, prev/cur/next to reverse, and fast/slow pointers to find the middle, nth-from-end or a cycle in one pass with O(1) space.",
+  "why": "Reversing 1 → 2 → 3 means pointing each node back at the one before it, one node at a time, without losing the rest of the list. A linked list only lets you walk forward, so most problems are about which pointers to hold: prev/cur/next to reverse, a dummy head so the first node isn't a special case, and a fast and a slow pointer to find the middle, the nth from the end or a cycle in one pass with O(1) space.",
   "not_this": ["Need random access -> copy to an array (if O(n) space is allowed)."],
   "build": [
     ("dummy = tail = ListNode()", "Dummy head: a node before the real head, so the first node is no special case."),
@@ -188,7 +188,7 @@ LESSONS = {
   "bugs": ["Marking visited too late.", "Mixing up '1' (string) and 1 (int).", "Single-source BFS when the problem needs all sources at once (rotting oranges)."],
 },
 "backtracking": {
-  "why": "When you must list ALL combinations/arrangements, you explore a decision tree: choose, recurse, undo. The undo lets one `path` list be reused, so memory stays O(depth).",
+  "why": "Listing every subset of [1, 2, 3]: for each number, decide 'take it' or 'skip it', and follow both choices. Those choices form a tree, and backtracking walks it with one `path` list: choose (append), recurse, undo (pop). The undo is what lets one list be reused, so memory stays O(depth).",
   "not_this": ["Only need the COUNT or the best value -> usually DP.", "Only need whether one exists with overlapping subproblems -> DP or memoised DFS."],
   "build": [
     ("res, path = [], []", "path = the current partial answer."),
@@ -222,7 +222,7 @@ LESSONS = {
   "bugs": ["Forgetting it's a min-heap.", "Pushing objects that can't be compared: use (priority, tiebreak_index, obj).", "Sorting when a size-k heap is asked for."],
 },
 "topo_sort": {
-  "why": "Dependencies form a directed graph; a valid order exists only if there's no cycle. Kahn's algorithm repeatedly takes a node with no remaining prerequisites. If some nodes never become free, there's a cycle.",
+  "why": "Course schedule: you can't take Algorithms before Data Structures. Take any course whose prerequisites are all done, cross it off, and repeat. The order you took them in is a topological order. If at some point every remaining course still waits on another, the prerequisites form a cycle and no order exists. (This take-what's-free loop is Kahn's algorithm.)",
   "not_this": ["Undirected connectivity -> union-find or DFS.", "Shortest path -> BFS/Dijkstra."],
   "build": [
     ("adj = defaultdict(list)", ""),
@@ -242,7 +242,7 @@ LESSONS = {
   "bugs": ["Edge direction reversed.", "Returning a partial order when there's a cycle."],
 },
 "union_find": {
-  "why": "Tracks which items are in the same group while you add connections, in nearly O(1) per operation. Ideal for 'how many components' and 'does this edge create a cycle'.",
+  "why": "Friend groups: Ann knows Bo and Bo knows Cy, so all three are one group. Union-Find gives each group one representative, so joining two groups and asking 'same group?' each cost nearly O(1). It answers 'how many groups' and 'does this new connection close a loop' while connections arrive one at a time.",
   "not_this": ["Directed dependencies -> topological sort.", "Need actual paths/distances -> BFS/DFS."],
   "build": [
     ("parent = list(range(n))", "Everyone starts as their own group."),
@@ -259,7 +259,7 @@ LESSONS = {
   "bugs": ["parent[a] = b instead of parent[find(a)] = find(b).", "Off-by-one with 1-indexed nodes."],
 },
 "shortest_path": {
-  "why": "With weighted edges, BFS order is no longer distance order. Dijkstra always expands the closest unfinished node, using a min-heap. Variants change what 'cost' means: sum, max along the path, or a limit on edges (Bellman-Ford).",
+  "why": "Driving directions: two long roads can take longer than three short ones, so BFS, which counts roads, gives the wrong answer once edges have weights. Dijkstra's algorithm always finishes the closest place not yet finished next, using a min-heap of (distance, node). Variants change what 'cost' means: a sum, the worst edge on the path, or a limit on the number of edges (Bellman-Ford).",
   "not_this": ["Unweighted -> plain BFS.", "Connect everything cheaply (no source) -> MST (Prim's)."],
   "build": [
     ("dist = {}", "Finalised shortest distances."),
@@ -300,7 +300,7 @@ LESSONS = {
   "bugs": ["Off-by-one at boundaries.", "Iterating the full matrix when only a triangle is needed.", "Overflow handling in fixed-width languages."],
 },
 "dp_1d": {
-  "why": "When the brute-force recursion solves the same subproblem many times, store each answer once. In 1D DP the subproblem is 'the answer for the first i items' (or 'ending at i'), built from a few earlier answers.",
+  "why": "Climbing stairs 1 or 2 at a time: the ways to reach step 10 are the ways to reach step 9 plus the ways to reach step 8. Plain recursion works those out again and again; storing each answer once turns exponential time into O(n). In 1D DP the subproblem is 'the answer for the first i items' (or 'ending at i'), built from a few earlier answers.",
   "not_this": ["Need every solution listed -> backtracking.", "A greedy choice is provably safe -> greedy (simpler)."],
   "build": [
     ("# 1. dp[i] means: ____ for the first i items", "Write this sentence FIRST. Everything follows from it."),
@@ -314,7 +314,7 @@ LESSONS = {
   "bugs": ["Not defining dp[i] precisely.", "Wrong base case (0 vs 1, 0 vs inf).", "Answer is max(dp), not dp[-1], for 'ending at i' definitions."],
 },
 "dp_2d": {
-  "why": "Two strings, two indices, or a grid: the subproblem needs two numbers to describe it. dp[i][j] usually means 'answer for prefixes a[:i] and b[:j]', and depends on its up, left and diagonal neighbours.",
+  "why": "Longest common subsequence of \"abcde\" and \"ace\": the answer for the whole strings comes from the answers for shorter starts of both, so the subproblem needs two numbers, i and j. dp[i][j] usually means 'answer for a[:i] and b[:j]' and depends on its up, left and diagonal neighbours. Counting paths through a grid works the same way.",
   "not_this": ["Only one index matters -> 1D DP.", "Shortest path with weights -> Dijkstra."],
   "build": [
     ("# dp[i][j] means: ____ for a[:i] and b[:j]", "Write this sentence FIRST. For a grid: '... for the cell at row i, column j'."),
@@ -363,7 +363,7 @@ LESSONS = {
   "bugs": ["Forgetting max() when extending.", "< vs <= for touching intervals.", "Not sorting first."],
 },
 "trie": {
-  "why": "When many words share prefixes and you search by prefix (or search a grid against MANY words), a trie walks each character once and shares common prefixes.",
+  "why": "Autocomplete: after someone types \"ca\", you want every word starting with \"ca\" without scanning the whole dictionary. A trie is a tree of letters where words with the same start share one path, so finding a prefix costs its length, not the number of words. The same sharing makes searching a grid for MANY words at once fast.",
   "not_this": ["Exact-match lookups only -> a set is simpler."],
   "build": [
     ("root = {}", "Each node = dict of char -> child node."),
@@ -419,7 +419,7 @@ METHOD = [
 ]
 
 # "New to this?" for each lesson: the background the lesson assumes, in plain words, and where to read more.
-# Lines: a lead, then facts as "- " bullets, then an optional closing line (rendered by proseHtml in app.js).
+# Lines: a lead, then facts as "- " bullets, then an optional closing line (rendered by proseHtml in static/app/study-pages.js).
 PRIMERS = {
 "hashmap": ("\n".join([
   "A Python dict maps keys to values; a set holds keys only. Both hash the key to find its slot.",

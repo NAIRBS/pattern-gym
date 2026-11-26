@@ -118,7 +118,7 @@ ROUTES.cheatsheet = (app, [tab], params) => {
   const usesPattern = !['syntax', 'costs', 'method'].includes(tab);
   app.innerHTML = `<div class="guide cheat${hide ? ' quiz' : ''}">
     <div class="guide-head"><h1>Cheatsheet</h1>
-      <p class="lede">Every question from the games with its answer, to read through without playing, plus what each data structure and algorithm costs and the interview method. Nothing here counts toward your reviews.</p></div>
+      <p class="lede"><b>Read, don’t play.</b> Every question the games ask, with its answer, plus what everything costs and the interview method. Good the night before. Nothing here counts toward reviews. To practise instead: <a href="#/problems">Problems</a> or <a href="#/games">Games</a>.</p></div>
     <div class="gtabs" role="tablist" aria-label="Cheatsheet sections">${CHEAT_TABS.map(([id, label], i) =>
       `<a role="tab" href="#/cheatsheet/${id}" aria-selected="${id === tab}" tabindex="${id === tab ? 0 : -1}" class="${id === tab ? 'on' : ''}"
         data-key="${i + 1}" data-kgroup="switch section">${esc(label)} <kbd>${i + 1}</kbd></a>`).join('')}</div>

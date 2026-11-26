@@ -402,7 +402,7 @@ LIB = {"header": HEADER.strip("\n"), "ListNode": LISTNODE.strip("\n"), "TreeNode
 
 def reference_program(solution, s):
     """Header, node classes, the solution, the input reader, helpers, then the driver.
-    static/app.js (padReference) builds exactly the same text from C.stdio_lib."""
+    static/app/shared.js (padReference) builds exactly the same text from C.stdio_lib."""
     classes = [LIB[k] for k in s["needs"] if k in ("ListNode", "TreeNode")]
     helpers = [LIB[k] for k in s["needs"] if k not in ("ListNode", "TreeNode")]
     return "\n\n".join([LIB["header"], *classes, solution.strip("\n"), LIB["read"], *helpers, s["driver"]]) + "\n"

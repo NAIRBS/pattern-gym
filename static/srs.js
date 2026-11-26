@@ -1,5 +1,5 @@
 /* Scheduling and planning rules, as pure functions: no DOM, no global state.
-   Loaded by the page (window.SRS) and by tests/srs.test.js (node). app.js passes in today's date,
+   Loaded by the page (window.SRS) and by tests/srs.test.js (node). the app passes in today's date,
    the content and your progress; nothing here reads them itself.
 
    - urgency(daysLeft)              how hard to pack reviews, from the days left to the interview

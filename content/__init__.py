@@ -20,6 +20,7 @@ from .references import DS_COSTS, ALGO_COSTS, STEPS, OPTIMIZE
 from .stdio import stdio_for, LIB as STDIO_LIB
 from .bug_hunt import BUGS, BUG_KINDS
 from .alternatives import ALTERNATIVES
+from .combos import COMBOS
 PERF = {**PERF, **PERF_TWIST}
 BUGS_BY_PROBLEM = {}
 for _b in BUGS:
@@ -71,6 +72,9 @@ def load_all():
             p["bugs"] = BUGS_BY_PROBLEM[p["id"]]
         if p["id"] in ALTERNATIVES:   # other valid approaches: the walkthrough's "Another way?" step
             p["also"] = [dict(a) for a in ALTERNATIVES[p["id"]]]
+        if p["id"] in COMBOS:   # a second pattern the problem needs (Study's combined problems)
+            w, how = COMBOS[p["id"]]
+            p["combo"] = {"with": w, "how": how}
         problems.append(p)
     # Pattern Sprint cards: an alternative that uses another pattern is a right answer too
     by_title = {p["title"].lower(): p for p in problems}

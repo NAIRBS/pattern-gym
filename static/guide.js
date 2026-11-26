@@ -1,5 +1,5 @@
 // The Starter Guide: one page that says what to do each day, which outside resource is best for what,
-// and where to look when stuck. Loaded after app.js; uses its helpers (esc, md, ROUTES, C).
+// and where to look when stuck. Loaded after the app/ files; uses their helpers (esc, md, ROUTES, C).
 'use strict';
 
 const GUIDE_RULES = [
@@ -118,15 +118,11 @@ function guideBodies() {
           <li><a class="card" href="#/play/syntax"><span class="gn">3</span><b>Warm up your Python</b><span class="muted">A few rounds of Syntax Snap: Counter, heapq, deque, slicing. The daily plan adds the other games after your first lesson.</span><span class="go">Syntax Snap →</span></a></li>
         </ol>
         <p class="muted small">Have an interview or online assessment booked? <a href="#/settings">Set its date in Settings</a> and the daily plan paces itself to it. If the days left can’t cover the whole Study path, Today switches to crunch mode: the most-asked patterns only, each with its lesson and one problem solved cold.</p></section>
-      <section><h2>Which tab is for what</h2>
+      <section><h2>Where to go</h2>
         <table class="gtbl tabs-guide"><tbody>
-          <tr><th scope="row"><a href="#/today">Today</a></th><td>Come here every day: your next lesson, the reviews that are due, and a short round of each game.</td></tr>
-          <tr><th scope="row"><a href="#/study">Study</a></th><td>The course. One pattern at a time, in order, from the idea to problems you solve cold.</td></tr>
-          <tr><th scope="row"><a href="#/problems">Problems</a></th><td>Every problem in one searchable list, to solve any of them against the tests.</td></tr>
-          <tr><th scope="row"><a href="#/patterns">Patterns</a></th><td>How well you know each pattern, its template, and all of its problems with solutions.</td></tr>
-          <tr><th scope="row"><a href="#/games">Games</a></th><td>Each drill on its own, outside the daily plan.</td></tr>
-          <tr><th scope="row"><a href="#/python">Python</a></th><td>Python for interviews from scratch, with exercises. Start here if Python is new to you.</td></tr>
-          <tr><th scope="row"><a href="#/cheatsheet">Cheatsheet</a></th><td>Everything the games ask, with the answers, to read.</td></tr>
+          <tr><th scope="row"><a href="#/today">Today</a></th><td>Every day. It picks your lesson, reviews and games.</td></tr>
+          <tr><th scope="row"><a href="#/study">Study</a></th><td>Learning a new pattern, in order.</td></tr>
+          <tr><th scope="row">Everything else</th><td>Practice on your own terms. Each page says what it’s for in its first line; the rarer ones sit under <b>More</b>.</td></tr>
         </tbody></table></section>
       <section><h2>What these interviews actually test</h2>
         <div class="card gnote">

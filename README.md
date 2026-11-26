@@ -142,7 +142,9 @@ You type a guess before each step is revealed. A meter shrinks from the brute-fo
 - **Hidden large tests:** after the examples pass, OA Mode, cold solves and mocks run one or two large hidden inputs. Code that is right but too slow gets *"Correct on every example, but too slow on large hidden test 1 of 1 (n = 40,000)"*.
 - **Your `print` output** is shown with the results on every run, so you can debug the way you would without a judge.
 - **Answers:** "Show answer" toggles, but seeing it once records the round as missed. **← Previous** undoes the last grade.
-- **Editors** have syntax colours everywhere code appears (including Fill the Gap's gaps) and Python-friendly indentation: Tab / Shift+Tab indent the selection, Backspace removes 4 leading spaces, Enter keeps the indent.
+- **The editor** works like LeetCode's, built from scratch: line numbers, syntax colours, current-line and matching-bracket highlights, indent guides, closing brackets, suggestions (Ctrl+Space), Ctrl+/ comments, Alt+↑/↓ moves lines, Ctrl+Shift+[ folds a block, full screen. Cold solves and OA Mode use a LeetCode-style workspace: problem tabs on the left, the editor over a Testcase / Test Result console, **Run** for the examples and **Submit** for the graded run with the hidden tests.
+- **Combined problems:** 20 problems that need two patterns at once (Koko Eating Bananas: Binary Search with a greedy check) open once you've done both lessons. Today offers one a week.
+- **Stats** shows your cold-solve rate week by week.
 - **Problems page:** search all 180 (twists are tagged) and solve any of them against the real tests.
 
 <p align="center"><img src="docs/screenshots/problems.jpg" alt="The Problems page: search, difficulty switch with counts, pattern filter and the problem list" width="720"></p>
@@ -271,16 +273,18 @@ pattern-gym/
 │                          the Python tab (python_course.py), Cheatsheet tables (references.py), CoderPad program
 │                          style (stdio.py) and Bug Hunt (bug_hunt.py, bug_hunt_data.py)
 ├── static/                the whole app, which is what gets published
-│   ├── app.js             pages, games, Study, keyboard
+│   ├── app/               the UI, one job per file: editor, solve workspace, games, pages, Study, keyboard
+│   ├── css/               styles, split the same way
 │   ├── guide.js           the Starter Guide page
 │   ├── cheatsheet.js      the Cheatsheet page
 │   ├── python.js          the Python tab
 │   ├── theme.js           light / dark / system, applied before the first paint
 │   ├── py-worker.js       Python in the browser
 │   ├── srs.js             review scheduling, crunch mode, "which pattern?" options (pure, tested)
+│   ├── progress.js        XP, levels, streak, mastery, weekly cold solves (pure, tested)
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring
-├── tests/                 node tests for scheduling, merge, edge matching and the highlighter
+├── tests/                 node tests for scheduling, progress, merge, edge matching and the highlighter
 └── docs/
     ├── ARCHITECTURE.md    how it all fits together: content, judge, app, progress, sync, CI
     ├── NEXT_STEPS.md      project context: conventions, what's verified, to-dos

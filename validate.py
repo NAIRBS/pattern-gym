@@ -52,6 +52,13 @@ for p in c["problems"]:
             bad += 1
             print("BRUTE COST", p["id"], "brute sentence needs an O(...) cost:", b)
 
+# combined problems (content/combos.py): real problem, real second pattern, not the main one
+from content.combos import COMBOS as _COMBOS
+_pids = {pt["id"] for pt in c["patterns"]}; _probs = {p["id"]: p for p in c["problems"]}
+for _id, (_w, _how) in _COMBOS.items():
+    if _id not in _probs or _w not in _pids or _probs[_id]["pattern"] == _w or not _how:
+        bad += 1; print("COMBO", _id, _w)
+
 # hidden large tests: the reference must pass them quickly, and a quadratic-or-worse brute force must not
 import concurrent.futures as _cf
 _PERF_REF_MS = 1500   # CPython; the browser (Pyodide) is ~2-3x slower and gets 6 s

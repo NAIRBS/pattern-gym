@@ -2,7 +2,7 @@
    The local copy (localStorage or progress.json) is always the working copy; this keeps one row per user in the
    `progress` table and combines both sides with mergeState() (merge.js). Without config.js values or without
    network, the app simply works locally.
-   Uses globals from app.js at call time: S, normalizeState, persist, renderHud, route, toast. */
+   Uses globals from the app/ files at call time: S, normalizeState, persist, renderHud, route, toast. */
 'use strict';
 const Cloud = (() => {
   const cfg = window.PG_CONFIG || {};
