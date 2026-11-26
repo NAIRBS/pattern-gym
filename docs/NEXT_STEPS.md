@@ -93,9 +93,10 @@ static/
   app.js           everything UI: utilities, storage, runner client, SRS, daily plan, router, keyboard,
                    games (GAMES.*), pages (ROUTES.*), Study (courses, walkthroughs, cold solve)
   py-worker.js     Pyodide worker
+  srs.js           pure scheduling rules: urgency, boxes, interleave, CONFUSABLE wrong options, crunch mode (node-tested)
   sync.js, merge.js, config.js   sign-in + sync
   edge-match.js    Edge Hunter scoring (synonym-normalised token matching; pure, node-tested)
-tests/             node tests: merge.test.js, edge-match.test.js
+tests/             node tests: srs.test.js, merge.test.js, edge-match.test.js, highlight.test.js
 .github/workflows/pages.yml   validate → node tests → build_static → deploy static/ to Pages
 ```
 
@@ -125,7 +126,8 @@ tests/             node tests: merge.test.js, edge-match.test.js
   reveal) → **solo, cold** (`#/study/solve/<id>`: blank editor, approach coach that fades, 3-step hint
   ladder that caps the grade; the walkthrough unlocks only after an attempt) → **transfer check** (the pattern's twist). **Mixed
   practice** (`#/study/mixed`) hides the title and pattern and picks unseen twists first; a checkpoint asks for one after every
-  `CHECK_EVERY` (4) lessons. The 8-step `APPROACH` is the spine of all of it; problems with alternatives add a 9th step,
+  `CHECK_EVERY` (2) lessons; it opens at 2 lessons. Crunch mode (`crunch()`, rules in srs.js) narrows the path when the
+  interview date is too close for all of it. The 8-step `APPROACH` is the spine of all of it; problems with alternatives add a 9th step,
   "Another way?". Once a course is complete its skeleton fades: folded away on the lesson, and Fill the Gap blanks the
   loop and return lines too.
 - **Day one:** until a lesson is learned or a non-Syntax game played, Today shows the next study step and Syntax Snap only.
@@ -138,7 +140,7 @@ tests/             node tests: merge.test.js, edge-match.test.js
 ## Conventions (keep these)
 
 - After any content change: `python validate.py` prints `ALL OK`. After merge/edge changes:
-  `node tests/merge.test.js && node tests/edge-match.test.js`. The deploy workflow enforces both.
+  `node tests/srs.test.js && node tests/merge.test.js && node tests/edge-match.test.js`. The deploy workflow enforces them.
   In the node tests, the "N passed" summary must stay the last line; add new tests above it.
 - Adding a problem: append `P(...)`, mark key lines with `  # <<`, run validate. Test-spec features: design
   classes `D(...)`, `arg_types` (linked, tree, linked_many, linked_cycle), `inplace=`, `prelude=`,

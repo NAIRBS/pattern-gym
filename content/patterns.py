@@ -379,7 +379,7 @@ return dp[m][n]
     },
     {
         "id": "greedy", "name": "Greedy (best move now)", "color": "#b5b53d",
-        "triggers": ["max subarray", "can you reach the end / fewest jumps", "sort, then take what fits", "locally best choice never hurts"],
+        "triggers": ["can you reach the end / fewest jumps", "sort, then take what fits", "locally best choice never hurts", "max subarray (drop a run once it goes negative)"],
         "fill": ["Why can't a different choice do better? Say it before coding.", "Sort first? By what (end, size, start)?", "What single value do you carry forward, and when do you reset it?"],
         "skeleton": '''
 # before coding: why can't a different choice do better? (swap argument)

@@ -5,8 +5,6 @@
 **Daily, spaced practice for Python coding interviews: online assessments and live blank-page (CoderPad) rounds.**
 
 [![Deploy](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml/badge.svg)](https://github.com/NAIRBS/pattern-gym/actions/workflows/pages.yml)
-![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab)
-![No dependencies](https://img.shields.io/badge/dependencies-none-4ade80)
 
 [**Open the app**](https://nairbs.github.io/pattern-gym/) · [Run it locally](#quick-start) · [How it works](docs/ARCHITECTURE.md)
 
@@ -80,8 +78,8 @@ On Windows you can double-click `start.bat`. Another port: `PORT=9000 python ser
 | 🐍 **Python tab** | 45 lessons and 80 runnable quizzes: whole programs, input and output, the core language, reading one-liners |
 | 📋 **Cheatsheet** | Every game question with its answer, data-structure and algorithm costs, and the interview method |
 | 🔁 **Spaced repetition** | Nailed items come back after 1, 3, 7, 14, 30… days; blanked ones tomorrow. A passed full solve comes back as a *different* problem of the same pattern |
-| ⏰ **Interview date** | Within 14 days, urgent mode packs reviews closer so everything gets reps |
-| ⌨️ **Keyboard-first** | The bar at the bottom always shows the keys for the screen you're on |
+| ⏰ **Interview date** | Within 14 days, urgent mode packs reviews closer so everything gets reps. If the days left can't cover the Study path, **crunch mode** narrows it to the most-asked patterns: each lesson plus one problem solved cold |
+| ⌨️ **Keyboard-first** | The bar at the bottom shows the keys for the screen you're on (hide it with its Hide button; `?` lists them all) |
 | 🔗 **Out-links** | Every problem links to LeetCode (slugs checked against its API) and to NeetCode's video |
 | ☁️ **Optional sync** | Sign in with an email link; progress from every device is combined, never overwritten |
 
@@ -93,8 +91,9 @@ Memorising solutions doesn't carry over to problems you haven't seen. Recognisin
 and having a method for when you don't, does. So each pattern is a short course, and the courses come in the order they
 build on each other: **Big-O basics** first, then Hash Map, Prefix Sum, Two Pointers and so on, with **Recursion** before
 trees, backtracking and DP, and Heap before shortest paths. Each lesson opens with a **"New to this?"** note on what it
-assumes, with a link to the matching USACO Guide module. After every 4 lessons, a **checkpoint** asks for one mystery
-problem with its name and pattern hidden.
+assumes, with a link to the matching USACO Guide module. Mixed practice opens after your second lesson, and after every 2 lessons a **checkpoint** asks for one mystery
+problem with its name and pattern hidden. The "which pattern?" questions offer the patterns most often mixed up with the
+right one (Sliding Window against Two Pointers and Prefix Sum), so they test telling them apart.
 
 | Stage | What you do |
 |---|---|
@@ -278,9 +277,10 @@ pattern-gym/
 │   ├── python.js          the Python tab
 │   ├── theme.js           light / dark / system, applied before the first paint
 │   ├── py-worker.js       Python in the browser
+│   ├── srs.js             review scheduling, crunch mode, "which pattern?" options (pure, tested)
 │   ├── sync.js · merge.js · config.js     sign-in and sync
 │   └── edge-match.js      Edge Hunter scoring
-├── tests/                 node tests for merge, edge matching and the highlighter
+├── tests/                 node tests for scheduling, merge, edge matching and the highlighter
 └── docs/
     ├── ARCHITECTURE.md    how it all fits together: content, judge, app, progress, sync, CI
     ├── NEXT_STEPS.md      project context: conventions, what's verified, to-dos

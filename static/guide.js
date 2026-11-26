@@ -3,7 +3,7 @@
 'use strict';
 
 const GUIDE_RULES = [
-  ['Learn patterns, not problems.', 'About 20 patterns cover almost every interview question. Once you can name the pattern, the problem is mostly translation.'],
+  ['Learn patterns, not problems.', '24 patterns cover almost every interview question. Once you can name the pattern, the problem is mostly translation.'],
   ['Attempt before you read.', 'Give a problem a real try before any explanation: 15 minutes for an Easy, 25 for a Medium, 40 for a Hard, the same budgets as an online assessment. Reading first feels faster and teaches far less.'],
   ['Re-solve what you failed.', 'A problem you read the answer to isn’t learned until you write it from a blank editor a day or more later. The Today plan schedules this for you.'],
   ['Say the cost before you code.', 'Brute force and its Big-O first, then what work it repeats, then the tool that removes it. Interviewers grade that reasoning.'],
@@ -115,9 +115,9 @@ function guideBodies() {
         <ol class="gsteps">
           <li><a class="card" href="#/study/bigo"><span class="gn">1</span><b>Read Big-O basics</b><span class="muted">What your code costs and how to say it. Every lesson assumes it.</span><span class="go">Big-O →</span></a></li>
           <li><a class="card" href="#/study/${first.id}"><span class="gn">2</span><b>Take the first course: ${esc(first.name)}</b><span class="muted">Then the next one on the Study path, in order, every day or two.</span><span class="go">First course →</span></a></li>
-          <li><a class="card" href="#/play/syntax"><span class="gn">3</span><b>Warm up your Python</b><span class="muted">A few rounds of Syntax Snap: Counter, heapq, deque, slicing. The other games open after your first lesson.</span><span class="go">Syntax Snap →</span></a></li>
+          <li><a class="card" href="#/play/syntax"><span class="gn">3</span><b>Warm up your Python</b><span class="muted">A few rounds of Syntax Snap: Counter, heapq, deque, slicing. The daily plan adds the other games after your first lesson.</span><span class="go">Syntax Snap →</span></a></li>
         </ol>
-        <p class="muted small">Have an interview or online assessment booked? <a href="#/settings">Set its date in Settings</a> and the daily plan paces itself to it.</p></section>
+        <p class="muted small">Have an interview or online assessment booked? <a href="#/settings">Set its date in Settings</a> and the daily plan paces itself to it. If the days left can’t cover the whole Study path, Today switches to crunch mode: the most-asked patterns only, each with its lesson and one problem solved cold.</p></section>
       <section><h2>Which tab is for what</h2>
         <table class="gtbl tabs-guide"><tbody>
           <tr><th scope="row"><a href="#/today">Today</a></th><td>Come here every day: your next lesson, the reviews that are due, and a short round of each game.</td></tr>

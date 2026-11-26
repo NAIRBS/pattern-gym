@@ -58,7 +58,7 @@ LESSONS = {
   "bugs": ["Forgetting to sort first.", "Duplicates: skip equal neighbours after a hit (3Sum).", "Using <= in the loop and pairing an element with itself."],
 },
 "sliding_window": {
-  "why": "Checking every substring is O(n²) or worse. A window [l, r] grows right and shrinks left, and each index enters and leaves once: O(n). It works when the window's validity is monotonic (making it bigger can only break it, smaller can only fix it).",
+  "why": "Longest substring with no repeated letter: checking every substring is O(n²) or worse. Instead keep one window [l, r]. Grow it by moving r right; when it breaks the rule (a letter repeats), shrink it by moving l right until it's fine again. Each index enters once and leaves once: O(n). This works whenever growing a window can only break the rule and shrinking can only fix it.",
   "not_this": ["Non-contiguous (subsequence) -> DP.", "Max of a fixed window -> monotonic deque.", "Negative numbers in a sum target -> prefix sum + hash map."],
   "build": [
     ("count = {}", "Window state: counts, set, sum. Whatever tells you if the window is valid."),
@@ -104,7 +104,7 @@ LESSONS = {
   "bugs": ["Storing values when you need distances (store indices).", "Wrong comparison direction (< vs >) for greater vs smaller.", "Forgetting elements left on the stack at the end (Largest Rectangle)."],
 },
 "binary_search": {
-  "why": "If you can split the search space with a yes/no question whose answers are monotonic (all no, then all yes), you halve the space each step: O(log n). This covers sorted arrays AND 'find the smallest X that works'.",
+  "why": "Guessing a number from 1 to 100 with 'higher or lower' takes about 7 guesses, not 100: each answer rules out half. Binary search does that whenever a yes/no question has all the no's on one side and all the yes's on the other. That covers sorted arrays (is nums[mid] >= target?) AND 'find the smallest X that works' (can I finish with speed X?). O(log n).",
   "not_this": ["Unsorted with no monotonic condition -> hash map or scan.", "Need all matches, not one -> scan."],
   "build": [
     ("lo, hi = 0, len(nums) - 1", "Inclusive bounds over indices (or over the answer range)."),
@@ -561,6 +561,8 @@ COURSES = {
             "notes": {"top_k_frequent": "Solved here by counting into buckets; the Heap course shows the other way.",
                       "encode_decode": "More string design than hashing."}},
 "prefix": {"order": ["pivot_index", "range_sum_query", "product_except_self"]},
+"sliding_window": {"order": ["longest_substring", "best_time_stock", "char_replacement", "permutation_in_string", "min_window"],
+                   "notes": {"best_time_stock": "Often filed under Sliding Window, but the trick is simpler: track the lowest price so far."}},
 "recursion": {"order": ["fib_number", "power_of_two", "kth_grammar", "find_winner"]},
 "grid_graph": {"order": ["num_islands", "flood_fill", "max_area_island", "rotting_oranges", "surrounded_regions", "pacific_atlantic", "walls_and_gates", "clone_graph"],
                "notes": {"clone_graph": "A general graph, not a grid: the same DFS with a visited map.",

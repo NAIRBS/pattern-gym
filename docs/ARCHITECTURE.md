@@ -55,6 +55,7 @@ flowchart LR
 | Judge | `runner.py`, `static/py-worker.js` | Run untrusted code against a test spec, with a time limit |
 | App | `static/app.js`, `static/guide.js`, `static/cheatsheet.js`, `static/python.js`, `static/theme.js`, `static/index.html`, `static/style.css` | Hash router, pages, games, keyboard layer, theme, time estimates |
 | Helpers | `static/highlight.js`, `static/edge-match.js` | Syntax colouring; matching typed edge cases to the expected ones |
+| Scheduling | `static/srs.js` | Pure rules, tested in Node: urgency, the review boxes, interleaving, "which pattern?" wrong options (`CONFUSABLE`), crunch mode |
 | Progress | `static/merge.js`, `static/sync.js`, `static/config.js` | Local state, merging two copies, optional cloud sync |
 | Local mode | `server.py`, `start.bat` | Same app served from your machine, code run in a subprocess, progress in `progress.json` |
 | Delivery | `.github/workflows/pages.yml` | Validate → test → build → publish to GitHub Pages |
@@ -68,7 +69,7 @@ flowchart LR
 1. `python validate.py` imports all content and *executes* it: every reference solution against its tests, every
    brute force against the hidden large tests (it must fail them), every drill answer against its check.
    Any failure stops the deploy.
-2. `node tests/*.test.js` checks the pure JS modules (merge, edge matching).
+2. `node tests/*.test.js` checks the pure JS modules (scheduling, merge, edge matching).
 3. `python build_static.py` calls `content.load_all()`, which joins the content modules into one object, and
    writes it to `static/content.json` (~420 KB). It also copies `runner.py` into `static/`.
 4. `node tests/highlight.test.js` checks that colouring never changes code text.
@@ -196,14 +197,15 @@ also triggers a fresh worker. `print()` output is discarded in both modes.
 | Router | `ROUTES[name] = (app, parts, params) => …`. `route()` runs on `hashchange`, calls the page's cleanup callbacks, renders, sets the title and moves focus to the `h1` |
 | Pages | Each route writes HTML into `#app` with template strings. Every dynamic value goes through `esc()` |
 | Games | A registry `GAMES[id] = { name, pool(), gate(), render(el, item, done, ctx) }`. Every game plugs into one session runner (`runSession`), which handles the queue, grading, Previous/undo, XP and the end screen. Each game only renders a question and calls `done(grade)` |
-| Study | Courses per pattern, in `STUDY_ORDER` (prerequisites first): lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages from the pattern's `course.order` (content `COURSES`: worked example first, then gentle to hard) or, without one, Easy → Hard; `nextStep()` picks what's next in a course and `nextStudy()` across the path. Step 0 is Big-O basics (`#/study/bigo`, from `C.bigo_primer`), done when `S.study.lessons.bigo` is set. Each lesson shows its "New to this?" primer (`lesson.primer`). After every 4 lessons `checkpointDue()` asks for one mystery problem; attempting one records `S.study.lessons['checkpoint:<k>']`, so sync merges it like a lesson. Problems with `also` get a 9th walkthrough step, "Another way?" (`altsHtml`), and an alternative's pattern counts as right in the guided "which pattern?" step (`altPatterns`) |
+| Study | Courses per pattern, in `STUDY_ORDER` (prerequisites first): lesson → worked example → guided → solo cold → transfer check (a twist). `courseOf()` builds the stages from the pattern's `course.order` (content `COURSES`: worked example first, then gentle to hard) or, without one, Easy → Hard; `nextStep()` picks what's next in a course and `nextStudy()` across the path. Step 0 is Big-O basics (`#/study/bigo`, from `C.bigo_primer`), done when `S.study.lessons.bigo` is set. Each lesson shows its "New to this?" primer (`lesson.primer`). Mixed practice (`mixedPool()`) opens at 2 lessons, and after every 2 (`CHECK_EVERY`) `checkpointDue()` asks for one mystery problem; attempting one records `S.study.lessons['checkpoint:<k>']`, so sync merges it like a lesson. Problems with `also` get a 9th walkthrough step, "Another way?" (`altsHtml`), and an alternative's pattern counts as right in the guided "which pattern?" step (`altPatterns`). Its wrong options, and Pattern Sprint's, come from `SRS.distractors()`: the patterns most often confused with the answer. Cold solves don't show the pattern |
+| Crunch mode | `crunch()` asks `SRS.crunch()` whether days left × daily minutes covers what's left of the path. If not, `nextStudy()` walks `SRS.CRUNCH_ORDER` (most-asked first, prerequisites kept) and each pattern needs only its lesson plus the worked example solved cold (`crunchStep`); `buildPlan()` gives the games half the day (Sprint, Fill the Gap, Syntax). Today shows the list and can turn it off (`S.settings.crunch = 'off'`, merged with the other settings) |
 | Fading | Once a course is complete (`courseProgress(pid).complete`), its lesson folds the skeleton away behind "Show the skeleton" with a nudge to Skeleton Recall, and Fill the Gap on its problems also blanks the loop and return lines (revealing them counts as a hint) |
 | Patterns ↔ Study | Patterns (`#/patterns`) is the reference and mastery map; Study (`#/study`) is the ordered course. They link both ways: each Patterns tile has a "Study course" link with `courseStatus(pid)`, each pattern page has a Study course card (status, next step from `nextStep(pid)`, <kbd>S</kbd> opens the course), and each course page links back to its pattern page |
 | Daily plan | `buildPlan()` sizes each game's block from the minutes you set, then `fitPlan()` trims blocks until the plan's estimated time fits. On day one (`firstDay()`: no lesson learned, no game played except Syntax Snap) the plan is only Syntax Snap and the Today page leads with the next study step; new game items come from studied patterns first (`chooseItems`) |
 | Starter Guide | `guide.js` registers `ROUTES.guide`, a page with six sections addressed as `#/guide/<section>` |
 | Python tab | `python.js` registers `ROUTES.python` (`#/python/<section>`: start, types, io, flow, data, pythonic) from `C.python`. Examples and quizzes run through `runScript()` (the `script` kind). A Predict task compares your typed output with what the code actually prints, line by line; a Write task runs every case. Finished tasks are kept in localStorage `pg-py-done`, outside the synced state, and never touch reviews or XP. "Where you'll see it" applies each lesson's `find` regex to every reference solution at render time |
 | Cheatsheet | `cheatsheet.js` registers `ROUTES.cheatsheet`: every game question with its answer, read-only, in eight sections (`#/cheatsheet/<section>`: sprint, skeletons, syntax, solutions, bigo, edges, costs, method). The first six read the same `C.sprint`, `C.patterns`, `C.syntax` and `C.problems` the games draw from, so they never go stale; costs and method read `C.references` and `C.input_size`. A filter, a pattern menu, a Hide answers mode (blurred until clicked) and print styles; nothing on it is graded or scheduled |
-| Keyboard layer | Any button with `data-key="x"` gets that shortcut. One global `keydown` handler clicks the visible match. The key bar (`paintKeybar`) lists exactly the keys that work on the current screen |
+| Keyboard layer | Any button with `data-key="x"` gets that shortcut. One global `keydown` handler clicks the visible match. The key bar (`paintKeybar`) lists exactly the keys that work on the current screen, on one line; its Hide button shrinks it to one chip (`pg-keybar-min` in this browser). Tab letters show only after pressing G. On phones, tabs after Problems sit behind "More" |
 | Problem panel | `problemPanel(p)` renders statement, examples, typed signature and constraints from the test spec |
 | Editor | A `<textarea>` with a syntax-colour overlay (`highlight.js`), auto-indent and Tab handling (`enhanceEditor`). One-line code inputs (Fill the Gap) get the same overlay (`hlInput`); read-only `pre.code` and inline `code.hlc` are coloured by `paintPre`, applied automatically to anything added to the page |
 | Time estimates | Every page and activity shows how long it takes (`eta()` chips, `etaIn()` inside buttons). Reading time comes from `readMin(el or html)`: 200 words a minute for prose, 5 seconds a line for code, skipping controls, hidden parts and editor overlays. Doing time: each game's `cost` (minutes a question) until you've done 3 questions, then your own pace (`S.pace`, a moving average that `recordPace()` updates after each question, capped at a quarter to three times the default so a break doesn't skew it); full solves use OA Mode's budgets (`SOLVE_MIN`: 15 / 25 / 40 min by difficulty); study stages use `lessonMin`, `walkMin`, `guidedMin` and `courseMins`. A page with no estimate of its own gets its reading time under the `h1` from `paintReadTimes()` in `route()` |
@@ -253,7 +255,7 @@ All progress is one JSON object, `S`:
 
 - **Saving:** every change calls `save()`, which writes to `localStorage` in static mode or to
   `POST /api/state` (which writes `progress.json`) in local mode.
-- **Spaced review (Leitner boxes):** each graded item sits in box 0–7. A pass moves it up a box and schedules
+- **Spaced review (Leitner boxes, `static/srs.js`):** each graded item sits in box 0–7 (shown to users as a level). A pass moves it up a box and schedules
   it after 1, 3, 7, 14, 30, 60 or 120 days. The interval is capped when your interview date is near (urgent mode).
   "Shaky" brings it back in 1–2 days; a fail drops it to box 0 for tomorrow.
 - **Review rotation:** when a full solve you passed comes due, `rotate()` swaps in the same-pattern sibling with
@@ -284,7 +286,8 @@ Sync is optional. With no values in `config.js`, the app is fully local.
 | `settings` | The copy with the later `settingsAt` wins |
 | `pace` | Per game, the copy measured from more questions |
 
-`merge.js` is a pure function with no DOM, which is why it can be tested in Node (`tests/merge.test.js`).
+`merge.js` is a pure function with no DOM, which is why it can be tested in Node (`tests/merge.test.js`). The same goes
+for `srs.js` (`tests/srs.test.js`): app.js passes in today's date and your progress, and the rules never read them themselves.
 
 ---
 
