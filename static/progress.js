@@ -39,13 +39,14 @@
 
   // Mastery of a pattern from the levels of its cards (each capped at 5, "locked in"): 0..1.
   const mastery = boxes => boxes.length ? boxes.reduce((a, b) => a + Math.min(b || 0, 5), 0) / (boxes.length * 5) : 0;
-  // How well you know one problem, 0..4, from its Line Up, Fill the Gap and full-solve levels (full solves count most).
+  // A problem's dots, 0..4, from the levels of its Line Up, Fill the Gap and full-solve cards: one dot for each of
+  // the three done (level 1+, a blank doesn't count), and the 4th once the full solve is nailed LOCK_SOLVES times.
+  const LOCK_SOLVES = 3;
   function problemLevel([lineup = 0, fill = 0, solve = 0]) {
-    const score = lineup * 0.5 + fill + solve * 1.5;
-    return score >= 9 ? 4 : score >= 5 ? 3 : score >= 2 ? 2 : score > 0 ? 1 : 0;
+    return (lineup > 0) + (fill > 0) + (solve > 0) + (solve >= LOCK_SOLVES ? 1 : 0);
   }
 
-  const Progress = { XP, xpFor, level, levelFloor, nextStreak, recordSolve, weeklySolves, mastery, problemLevel };
+  const Progress = { XP, xpFor, level, levelFloor, nextStreak, recordSolve, weeklySolves, mastery, problemLevel, LOCK_SOLVES };
   root.Progress = Progress;
   if (typeof module !== 'undefined') module.exports = Progress;
 })(typeof window !== 'undefined' ? window : globalThis);

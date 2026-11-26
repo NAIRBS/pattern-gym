@@ -187,7 +187,8 @@ Done 2026-11-22:
 - Cheatsheet sections Costs and Method (keys 7-8). The site doesn't name books it draws on (keep the substance, drop the citation); the USACO Guide is credited where its material is used.
 - Python tab (`G` `Y`): Python for OAs and blank-page interviews (whole-program structure, own ListNode/TreeNode/graph builders, I/O, how to read the solutions' one-liners); runner kind `script` runs whole programs with stdin. Header: level pill hidden at 821–1300px, compact nav up to 1440px.
 - Cheatsheet tab (`G` `C`): every game question with its answer, filter, hide-answers quiz mode, print.
-- Confirm dialog before quitting a round (`confirmQuit`, `data-exit-confirm`).
+- Confirm dialog before quitting a round (`confirmQuit`, `data-exit-confirm`) and before resetting the editor; both use
+  `confirmBox` in `app/shell.js` (safe button focused, Esc cancels, one key confirms).
 - Highlighted code lines must not sit in a flex box (flex drops whitespace-only text between spans).
 
 Done 2026-11-19:

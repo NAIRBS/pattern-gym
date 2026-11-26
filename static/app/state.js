@@ -121,6 +121,19 @@ function mastery(patternId) {
 }
 const problemLevel = pid => Progress.problemLevel(['lineup', 'fill', 'oa'].map(g => item(g, pid)?.box || 0));
 const dots = (n, of = 4) => `<span class="dots">${Array.from({ length: of }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+// A problem's dots, with what each means and what's left: Line Up, Fill, Solve, then 3 nailed solves locks it in.
+const PROBLEM_LEVELS = ['Not started', '1 of 3 steps', '2 of 3 steps', 'All 3 steps', 'Locked in'];
+function problemDots(pid) {
+  const [l, f, s] = ['lineup', 'fill', 'oa'].map(g => item(g, pid)?.box || 0);
+  const lvl = problemLevel(pid), more = Progress.LOCK_SOLVES - s;
+  const steps = [['Line Up', l], ['Fill', f], ['Solve', s]];
+  const done = steps.filter(x => x[1] > 0).map(x => x[0]), todo = steps.filter(x => !x[1]).map(x => x[0]);
+  const lock = lvl === 4 ? 'Locked in.' : s > 0
+    ? `Nail the full solve ${more} more time${more > 1 ? 's' : ''} for the 4th dot.`
+    : `The 4th dot: nail the full solve ${Progress.LOCK_SOLVES} times.`;
+  const tip = [done.length && `Done: ${done.join(', ')}.`, todo.length && `Next: ${todo.join(', ')}.`, lock].filter(Boolean).join(' ');
+  return `<span class="pdots" title="${tip}" aria-label="${PROBLEM_LEVELS[lvl]}. ${tip}">${dots(lvl)}</span>`;
+}
 
 // ─────────────────────────── time estimates ───────────────────────────
 // Every page and activity says roughly how long it takes. Reading: 200 words a minute for prose and

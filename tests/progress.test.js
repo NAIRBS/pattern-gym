@@ -60,12 +60,14 @@ test('mastery: average level capped at 5', () => {
   assert.strictEqual(P.mastery([5, 7, 0, 0]), 0.5);
 });
 
-test('problemLevel: full solves weigh most', () => {
+test('problemLevel: a dot per step done, the 4th after 3 nailed solves', () => {
   assert.strictEqual(P.problemLevel([0, 0, 0]), 0);
-  assert.strictEqual(P.problemLevel([2, 0, 0]), 1);
-  assert.strictEqual(P.problemLevel([0, 0, 2]), 2);
-  assert.strictEqual(P.problemLevel([2, 2, 2]), 3);
-  assert.strictEqual(P.problemLevel([5, 5, 5]), 4);
+  assert.strictEqual(P.problemLevel([1, 0, 0]), 1);
+  assert.strictEqual(P.problemLevel([1, 1, 0]), 2);
+  assert.strictEqual(P.problemLevel([1, 1, 1]), 3, 'one pass of each: 3 of 4');
+  assert.strictEqual(P.problemLevel([1, 1, 2]), 3);
+  assert.strictEqual(P.problemLevel([1, 1, 3]), 4, 'locked in');
+  assert.strictEqual(P.problemLevel([0, 0, 3]), 2, 'solves alone never fill the steps you skipped');
 });
 
 test('sync keeps the larger cold-solve record for a day', () => {

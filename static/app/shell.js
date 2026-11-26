@@ -86,30 +86,41 @@ function showKeys() {
   }
   dlg.showModal();
 }
-// Leaving mid-round: any control with data-exit-confirm="<what is lost>" asks first.
-// Q (or Enter on Quit) confirms; Esc, a click outside, or "Keep going" stays.
-function confirmQuit(msg) {
+// Ask before something you can't easily take back. Resolves true only for the risky choice.
+// Its key (or Enter on it) confirms; Esc, a click outside, or the safe button cancels, which has focus first.
+function confirmBox({ title, msg, yes, yesKey, no = 'Cancel' }) {
   return new Promise(resolve => {
-    let dlg = document.getElementById('quit-dialog');
+    let dlg = document.getElementById('confirm-dialog');
     if (!dlg) {
-      dlg = document.createElement('dialog'); dlg.id = 'quit-dialog'; dlg.className = 'modal quit';
-      dlg.setAttribute('aria-labelledby', 'quit-title'); dlg.setAttribute('aria-describedby', 'quit-msg');
-      dlg.innerHTML = `<h3 id="quit-title">Quit now?</h3><p id="quit-msg" class="muted"></p>
-        <div class="row quit-actions"><button type="button" class="primary" data-a="stay">Keep going <kbd>Esc</kbd></button>
-        <button type="button" class="danger" data-a="quit">Quit <kbd>Q</kbd></button></div>`;
+      dlg = document.createElement('dialog'); dlg.id = 'confirm-dialog'; dlg.className = 'modal quit';
+      dlg.setAttribute('aria-labelledby', 'confirm-title'); dlg.setAttribute('aria-describedby', 'confirm-msg');
+      dlg.innerHTML = `<h3 id="confirm-title"></h3><p id="confirm-msg" class="muted"></p>
+        <div class="row quit-actions"><button type="button" class="primary" data-a="no"></button>
+        <button type="button" class="danger" data-a="yes"></button></div>`;
+      // Answer straight away rather than waiting for the close event, which a background tab can hold back.
+      const answer = v => { const done = dlg._done; dlg._done = null; if (dlg.open) dlg.close(v); done?.(v === 'yes'); setTimeout(paintKeybar, 0); };
       dlg.addEventListener('click', e => {
-        if (e.target === dlg) dlg.close('stay');
-        const a = e.target.closest('[data-a]'); if (a) dlg.close(a.dataset.a);
+        if (e.target === dlg) answer('no');
+        const a = e.target.closest('[data-a]'); if (a) answer(a.dataset.a);
       });
-      dlg.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); dlg.close('quit'); } });
+      dlg.addEventListener('keydown', e => {
+        if (e.key.toLowerCase() === dlg.dataset.key && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); answer('yes'); }
+      });
+      dlg.addEventListener('cancel', e => { e.preventDefault(); answer('no'); });   // Esc
+      dlg.addEventListener('close', () => answer('no'));                            // closed any other way
       document.body.append(dlg);
     }
-    $('#quit-msg', dlg).textContent = msg;
-    dlg.returnValue = '';
-    dlg.onclose = () => { dlg.onclose = null; resolve(dlg.returnValue === 'quit'); setTimeout(paintKeybar, 0); };
-    dlg.showModal(); $('[data-a="stay"]', dlg).focus();
+    $('#confirm-title', dlg).textContent = title;
+    $('#confirm-msg', dlg).textContent = msg;
+    $('[data-a="no"]', dlg).innerHTML = `${esc(no)} <kbd>Esc</kbd>`;
+    $('[data-a="yes"]', dlg).innerHTML = `${esc(yes)} <kbd>${yesKey.toUpperCase()}</kbd>`;
+    dlg.dataset.key = yesKey.toLowerCase();
+    dlg._done = resolve;
+    dlg.showModal(); $('[data-a="no"]', dlg).focus();
   });
 }
+// Leaving mid-round: any control with data-exit-confirm="<what is lost>" asks first.
+const confirmQuit = msg => confirmBox({ title: 'Quit now?', msg, yes: 'Quit', yesKey: 'q', no: 'Keep going' });
 document.addEventListener('click', e => {
   const el = e.target.closest?.('[data-exit-confirm]');
   if (!el || el._quitOk) return;

@@ -164,7 +164,7 @@ ROUTES.problems = (app, _, params) => {
       <span class="tag ${p.diff}">${p.diff}</span>${patternTag(p.pattern)}${p.twist_of ? '<span class="tag twist" title="A variation that appears nowhere else in the app">Twist</span>' : ''}<span class="spacer"></span>
       ${p.lc ? `<a class="ext pext" href="https://leetcode.com/problems/${p.lc.slug}/" target="_blank" rel="noopener" tabindex="-1"
         title="${p.twist_of ? 'Closest LeetCode problem' : 'Open on LeetCode'}${p.lc.paid ? ' (Premium)' : ''}" aria-label="LeetCode ${p.lc.num}: ${esc(p.lc.title)}">LC ${p.lc.num}${p.lc.paid ? ' 🔒' : ''}</a>` : ''}
-      <span title="How well you know it">${dots(problemLevel(p.id))}</span>
+      ${problemDots(p.id)}
       ${eta(solveMin(p), '', { title: `The time budget for a ${p.diff} problem, as in an online assessment`, cls: 'peta' })}
       <a class="btn ghost" href="#/play/lineup?problem=${p.id}" title="Line Up, about ${fmtMin(gameMin('lineup'))}" aria-label="Line Up: ${esc(p.title)}, about ${fmtMin(gameMin('lineup'))}">Line Up</a>
       <a class="btn ghost" href="#/play/fill?problem=${p.id}" title="Fill the Gap, about ${fmtMin(gameMin('fill'))}" aria-label="Fill the Gap: ${esc(p.title)}, about ${fmtMin(gameMin('fill'))}">Fill</a>
@@ -215,6 +215,7 @@ function courseStatus(pid) {
 ROUTES.patterns = (app, [pid]) => {
   if (pid) {
     const p = PAT(pid);
+    if (!C.patterns.some(x => x.id === pid)) { app.innerHTML = `<a href="#/patterns">← All patterns</a><h1>No pattern called “${esc(pid)}”</h1><p class="muted">Pick one from <a href="#/patterns">Patterns</a>.</p>`; return; }
     const nx = p.lesson ? nextStep(pid) : null;
     const courseCard = p.lesson ? `<div class="card course-link"><div><h2 class="h3">Study course</h2>
         <p class="small muted">Course ${esc(courseStatus(pid))}${nx ? ` · Next: ${esc(nx.label)}` : ''}</p></div>
@@ -234,7 +235,7 @@ ROUTES.patterns = (app, [pid]) => {
       ${probs.length ? `<table><tr><th>Problem</th><th>Level</th><th>Practise</th></tr>${probs.map(x => `<tr>
         <td>${esc(x.title)} <span class="tag ${x.diff}">${x.diff}</span> ${lcChip(x)} ${eta(solveMin(x))}<details><summary class="small">Insight & solution</summary><p>${esc(x.insight)}</p>
         <p class="muted">Catch: ${esc(x.catch)}</p><pre class="code">${esc(x.solution)}</pre></details></td>
-        <td>${dots(problemLevel(x.id))} <span class="small muted">${LEVEL_NAMES[[0, 1, 2, 4, 6][problemLevel(x.id)]]}</span></td>
+        <td>${problemDots(x.id)} <span class="small muted">${PROBLEM_LEVELS[problemLevel(x.id)]}</span></td>
         <td><div class="row practise"><a href="#/play/oa?problem=${x.id}" title="Solve it in OA Mode">Solve</a><a href="#/play/lineup?problem=${x.id}" title="Put its lines in order">Line Up</a><a href="#/play/fill?problem=${x.id}" title="Write its key lines">Fill</a><a href="#/play/mock?problem=${x.id}" title="Mock Interview">Mock</a></div></td></tr>`).join('')}</table>`
         : '<p class="muted">No coded problems yet. Sprint cards only.</p>'}
       <h2>Sprint cards (${cards.length})</h2><div class="small">${cards.map(c => `<div style="padding:4px 0"><b>${esc(c.title)}</b> ${lcChip(C.problems.find(x => x.title === c.title || x.lc?.title === c.title))}: <span class="muted">${esc(c.move)}</span></div>`).join('')}</div>`;

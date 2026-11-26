@@ -326,9 +326,12 @@ function enhanceEditor(ta, { onSubmit, onRun, autoIndent = true, lang } = {}) {
 
   // ── toolbar
   box.addEventListener('change', () => { S.settings.highlight = box.checked; save(); repaintCode(); toast(box.checked ? 'Syntax colours on' : 'Syntax colours off'); });
-  $('.ed-reset', wrap).onclick = () => {
+  $('.ed-reset', wrap).onclick = async () => {
     if (starter == null || fullText() === starter) return ta.focus();
-    pushH(); folds = []; nset(starter); ta.setSelectionRange(starter.length, starter.length); fire(); ta.focus(); toast('Back to the starting code (Ctrl+Z undoes it)');
+    const ok = await confirmBox({ title: 'Reset your code?', yes: 'Reset', yesKey: 'r', no: 'Keep my code',
+      msg: 'This replaces everything in the editor with the starting code. Ctrl+Z in the editor brings yours back.' });
+    if (ok) { pushH(); folds = []; nset(starter); ta.setSelectionRange(starter.length, starter.length); fire(); toast('Back to the starting code (Ctrl+Z undoes it)'); }
+    ta.focus();
   };
   const fullBtn = $('.ed-fullbtn', wrap);
   const setFull = on => {

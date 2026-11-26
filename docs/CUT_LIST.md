@@ -72,3 +72,5 @@ Files moved, nothing lost: `static/app.js` is now `static/app/*.js` and `static/
 | Stats (new chart) | none | Cold solves by week: tried and solved without the answer, 8 weeks |
 | Day records | xp, rounds, new per game | also `solves: { n, ok }`, merged per field by max |
 | Progress rules | Inside the app | `static/progress.js`, 9 Node tests, run in CI |
+| A problem's 4 dots | A weighted score of Line Up, Fill and solve levels; one pass of each gave 2 dots and the 4th took about 9 nailed reviews | One dot each for Line Up, Fill and Solve done, the 4th after nailing the full solve 3 times (`Progress.LOCK_SOLVES`). Hovering or a screen reader says what's done and what's next |
+| Editor Reset | Reset at once (Ctrl+Z undid it) | Asks first: "Keep my code" (Esc, focused) or "Reset" (R). Nothing is asked when the code is unchanged |
