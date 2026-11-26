@@ -52,7 +52,18 @@
   <div class="hud" id="hud"></div>
   <button type="button" class="ghost keys-btn" data-help title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
 </header>
-<main id="app" tabindex="-1"><p class="muted center">Loading...</p></main>
+<main id="app" tabindex="-1" aria-busy="true">
+  <!-- The loading screen: plain HTML so it shows before any script runs; app/boot.js fills in the step and a tip,
+       and the first page replaces it. It fades in after 150 ms, so a fast load never flashes it. -->
+  <div class="boot" id="boot">
+    <span class="logo boot-logo" aria-hidden="true">{}</span>
+    <h1 class="boot-title">Pattern Gym</h1>
+    <div class="boot-bar" aria-hidden="true"><i></i></div>
+    <p class="boot-step muted" id="boot-step" role="status">Loading…</p>
+    <p class="boot-tip small" id="boot-tip" hidden></p>
+    <noscript><p class="card">Pattern Gym needs JavaScript turned on: the games, the editor and Python all run in your browser.</p></noscript>
+  </div>
+</main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="sr-status" class="sr" role="status" aria-live="polite"></div>
 <script src="config.js"></script>
